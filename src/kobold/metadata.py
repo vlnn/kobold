@@ -7,6 +7,7 @@ import zipfile
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
+from kobold import cyrillic
 from kobold.filenames import guess_from_stem
 from kobold.identity import fingerprint
 from kobold.model import Book, Cover
@@ -75,7 +76,7 @@ def read_epub(path: Path, book: Book) -> Book:
         opf = opf_path(zf)
         package = ET.fromstring(zf.read(opf))
         book.title = text_of(package, "opf:metadata/dc:title")
-        book.authors = texts_of(package, "opf:metadata/dc:creator")
+        book.authors = epub_authors(package)
         book.language = text_of(package, "opf:metadata/dc:language")
         book.year = text_of(package, "opf:metadata/dc:date")[:4]
         book.series = opf_meta(package, "calibre:series")
@@ -86,9 +87,32 @@ def read_epub(path: Path, book: Book) -> Book:
     return book
 
 
+def refined_file_as(package: ET.Element) -> dict[str, str]:
+    metas = package.iter(f"{{{NS['opf']}}}meta")
+    return {m.get("refines", "").lstrip("#"): (m.text or "").strip() for m in metas if m.get("property") == "file-as"}
+
+
+def sort_name(creator: ET.Element, refined: dict[str, str]) -> str:
+    file_as = creator.get(f"{{{NS['opf']}}}file-as", "").strip() or refined.get(creator.get("id", ""), "")
+    return file_as if ", " in file_as else ""
+
+
+def epub_authors(package: ET.Element) -> list[str]:
+    refined = refined_file_as(package)
+    creators = package.findall("opf:metadata/dc:creator", NS)
+    return [sort_name(c, refined) or (c.text or "").strip() for c in creators if (c.text or "").strip()]
+
+
 def fb2_author(node: ET.Element) -> str:
-    parts = (text_of(node, f"fb:{tag}") for tag in ("first-name", "middle-name", "last-name"))
-    return " ".join(p for p in parts if p) or text_of(node, "fb:nickname")
+    first, middle, last = (text_of(node, f"fb:{tag}") for tag in ("first-name", "middle-name", "last-name"))
+    given = " ".join(p for p in (first, middle) if p)
+    if not (last and given):
+        return " ".join(p for p in (first, middle, last) if p) or text_of(node, "fb:nickname")
+    return f"{given}, {last}" if swapped_fb2_name(given, last) else f"{last}, {given}"
+
+
+def swapped_fb2_name(given: str, last: str) -> bool:
+    return cyrillic.is_cyrillic(f"{given} {last}") and not cyrillic.given_first(f"{given} {last}".split())
 
 
 def fb2_cover(root: ET.Element) -> Cover | None:

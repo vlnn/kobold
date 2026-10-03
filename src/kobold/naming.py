@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from types import MappingProxyType
 
+from kobold import cyrillic
 from kobold.authors import alias_key
 from kobold.filenames import EDITOR
 from kobold.genres import genre_from_folder, looks_like_person
@@ -25,23 +26,12 @@ def first_author(authors: str) -> str:
     return EDITOR.sub("", authors.split(";")[0]).strip()
 
 
-CYRILLIC = re.compile(r"^[\u0400-\u04FF\s\-'’.]+$")
-PATRONYMIC = re.compile(r"(?:ович|евич|йович|ич|овна|евна|ївна|івна)$", re.I)
-WESTERN_FIRST_NAMES = {"артур", "александр", "чарлз", "чарльз", "роберт", "джон", "джеймс", "ада", "дэниел"}
-
-
-def cyrillic_surname_first(tokens: list[str]) -> bool:
-    if PATRONYMIC.search(tokens[-1]):
-        return True
-    return len(tokens) == 2 and tokens[0].lower() not in WESTERN_FIRST_NAMES
-
-
 def surname_first(author: str) -> str:
     if "," in author or " " not in author:
         return author
     tokens = author.split()
-    if CYRILLIC.match(author) and cyrillic_surname_first(tokens):
-        return f"{tokens[0]}, {' '.join(tokens[1:])}"
+    if cyrillic.is_cyrillic(author):
+        return cyrillic.surname_first(tokens)
     *given, surname = tokens
     return f"{surname}, {' '.join(given)}"
 
