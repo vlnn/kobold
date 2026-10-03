@@ -177,7 +177,7 @@ FOLDERS = ["Delany, Samuel R.", "Delany, Samuel", "Дилэни, Сэмюэл", 
 def test_author_groups_keeps_only_groups_of_known_folders(server, mocker, reply, expected):
     ask = mocker.patch("kobold.oracle.ask", return_value=reply)
 
-    assert oracle.author_groups(FOLDERS) == expected, f"{reply!r} should give {expected!r}"
+    assert oracle.author_groups(dict.fromkeys(FOLDERS, [])) == expected, f"{reply!r} should give {expected!r}"
     assert "Delany, Samuel R." in ask.call_args.args[1] and "Дилэни, Сэмюэл" in ask.call_args.args[1], "the evidence is the folder list"
 
 
@@ -229,3 +229,11 @@ def test_trim_log_keeps_the_newest_entries(tmp_path: Path, monkeypatch):
 
     assert [json.loads(line)["prompt"] for line in log.read_text(encoding="utf-8").splitlines()] == ["3", "4"], "trimmed to the newest"
     oracle.trim_log(tmp_path / "missing.log")
+
+
+def test_authors_evidence_lists_sample_titles_per_folder():
+    evidence = oracle.authors_evidence({"Желязни, Роджер": ["Володар Світла", "Jack of Shadows"], "Newport, Cal": []})
+
+    assert evidence.splitlines() == ["Author folders:", "Newport, Cal", "Желязни, Роджер · Володар Світла; Jack of Shadows"], (
+        "each folder carries its sample titles after a middle dot; a folder without titles stands alone"
+    )

@@ -645,8 +645,8 @@ def test_ask_authors_asks_once_about_every_author_folder(delany_folders, tmp_pat
     assert main(["ask", "authors"]) == 0, "asking should succeed"
 
     assert ask.call_count == 1 and ask.call_args.args[0] == "authors", "one request for the whole library"
-    assert ask.call_args.args[1].splitlines()[1:] == ["Delany, Samuel", "Delany, Samuel Ray"], (
-        "the evidence is the sorted author folder list"
+    assert ask.call_args.args[1].splitlines()[1:] == ["Delany, Samuel · Babel-17", "Delany, Samuel Ray · Nova"], (
+        "the evidence is the sorted author folder list, each with sample titles"
     )
     assert capsys.readouterr().out.strip() == "Asked about the author folders: 1 merge suggested", "the summary counts groups"
     assert oracle_store(tmp_path).get("*", "authors").answer == GROUPS, "the answer is stored for the library"
@@ -933,3 +933,44 @@ def test_update_skips_the_model_steps_while_a_pass_runs(both_models, monkeypatch
 
     assert main(["update", "--no-thumbnails"]) == 0, "indexing still succeeds"
     assert not ask.called and not embed.called and "already" in capsys.readouterr().out, "the model steps wait for the next update"
+
+
+ZELAZNY_ALIAS = "01_Fiction/02_Sci-Fi/Желязни, Роджер/Желязни, Роджер - Володар Світла (2016).epub"
+ZELAZNY_HOME = "01_Fiction/02_Sci-Fi/Zelazny, Roger/Zelazny, Roger - Володар Світла (2016).epub"
+SHEVCHUK = "01_Fiction/02_Sci-Fi/Шевчук, Валерій/Шевчук, Валерій - Дім на горі (2016).epub"
+LATIN_GROUPS = {"groups": [{"canonical": "Zelazny, Roger", "aliases": ["Желязни, Роджер"]}]}
+
+
+@pytest.fixture
+def cyrillic_folders(env, library, capsys, monkeypatch) -> None:
+    author_epub(library / ZELAZNY_ALIAS, "Володар Світла", "Роджер Желязни")
+    author_epub(library / SHEVCHUK, "Дім на горі", "Шевчук Валерій")
+    monkeypatch.setenv("KOBOLD_ORACLE_URL", "http://127.0.0.1:8080")
+    main(["update"])
+    capsys.readouterr()
+
+
+def test_ask_authors_shows_the_model_a_title_per_folder(cyrillic_folders, capsys, mocker):
+    ask = mocker.patch("kobold.oracle.ask", return_value=LATIN_GROUPS)
+
+    main(["ask", "authors"])
+
+    lines = ask.call_args.args[1].splitlines()
+    assert "Желязни, Роджер · Володар Світла" in lines and "Шевчук, Валерій · Дім на горі" in lines, (
+        "a sample title per folder lets the model tell a translated author from a native one"
+    )
+    assert ask.call_args.args[0] == "authors", "it is the one authors question, not a new one"
+
+
+def test_a_lone_cyrillic_folder_can_merge_into_its_latin_name(cyrillic_folders, library, tmp_path, capsys):
+    store = oracle_store(tmp_path)
+    store.set("*", "authors", LATIN_GROUPS, "h")
+    store.save()
+
+    assert main(["fix", str(library / ZELAZNY_ALIAS)]) == 0, "↩ on the merge row applies it"
+
+    assert (library / ZELAZNY_HOME).exists(), "the book files under the English name, title untouched"
+    assert (library / SHEVCHUK).exists(), "a native author keeps the Cyrillic folder"
+    capsys.readouterr()
+    main(["fix", "--dry-run"])
+    assert "Володар" not in capsys.readouterr().out, "the alias keeps the book home afterwards"

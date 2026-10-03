@@ -13,7 +13,7 @@ from kobold.asking import (
     Question,
     ask_all,
     ask_authors,
-    author_folder_names,
+    author_samples,
     collect_evidence,
     embed_all,
     embed_summary,
@@ -311,7 +311,7 @@ def evidence_report(name: str, words: list[str]) -> str:
     index = library_index()
     blocks = [block for question in questions(name) for block in collect_evidence(question, question.candidates(index, words)).evidence]
     if asks_authors(name):
-        blocks.append(oracle.authors_evidence(author_folder_names(index.everything())))
+        blocks.append(oracle.authors_evidence(author_samples(index.everything())))
     return dry_run_report(blocks)
 
 

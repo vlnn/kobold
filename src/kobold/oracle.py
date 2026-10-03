@@ -20,10 +20,15 @@ PROMPTS = {
     "name": "You catalogue ebooks whose file names carry no usable information. Given what is known about one book, state "
     "its real title and its authors as a library catalogue would write them, each author as Surname, Given. Never invent: "
     "when the evidence does not say, answer confident false. Answer with JSON only.",
-    "authors": "These are the author folders of a personal ebook library, named Surname, Given. Find folders that denote one "
-    "and the same person spelled differently, transliterated, inverted to Given, Surname, or with and without initials. For "
-    "each such group give one canonical spelling, Surname, Given, the fullest and best-known form in the script most of the "
-    "group uses, and every other folder as an alias. Leave out anyone who appears once. Answer with JSON only.",
+    "authors": "These are the author folders of a personal ebook library, named Surname, Given, each with a few of its "
+    "titles. Find folders that denote one and the same person spelled differently, transliterated, inverted to Given, "
+    "Surname, or with and without initials, and give each group one canonical spelling with the other folders as aliases. "
+    "Canonical spellings follow two rules. An author who wrote in Ukrainian or Russian keeps the Cyrillic name, in its "
+    "Ukrainian form when one exists (Шевчук, Валерій Олександрович). Every other author gets the usual English-language "
+    "name in Latin script, Surname, Given (Zelazny, Roger; Asimov, Isaac; Dawkins, Richard; Herbert, Frank), so a Cyrillic "
+    "folder of a translated foreign author is a group on its own, with the Latin name as canonical and the folder as its "
+    "alias, even when it stands alone. A Latin-script folder that stands alone and is spelled right is left out. "
+    "Answer with JSON only.",
 }
 AUTHORS_SCHEMA = {
     "type": "object",
@@ -172,14 +177,18 @@ def known_group(group: dict, folders: list[str]) -> dict:
     return {"canonical": group["canonical"], "aliases": aliases}
 
 
-def author_groups(folders: list[str]) -> list[dict] | None:
-    reply = ask("authors", authors_evidence(folders), AUTHORS_SCHEMA)
+def author_groups(samples: dict[str, list[str]]) -> list[dict] | None:
+    reply = ask("authors", authors_evidence(samples), AUTHORS_SCHEMA)
     groups = reply.get("groups") if reply else None
     if not isinstance(groups, list) or not all(well_formed_group(g) for g in groups):
         return None
-    known = (known_group(g, folders) for g in groups if g["canonical"])
+    known = (known_group(g, list(samples)) for g in groups if g["canonical"])
     return [g for g in known if g["aliases"]]
 
 
-def authors_evidence(folders: list[str]) -> str:
-    return "\n".join(["Author folders:", *sorted(folders)])
+def folder_line(folder: str, titles: list[str]) -> str:
+    return f"{folder} · {'; '.join(titles)}" if titles else folder
+
+
+def authors_evidence(samples: dict[str, list[str]]) -> str:
+    return "\n".join(["Author folders:", *(folder_line(f, samples[f]) for f in sorted(samples))])
