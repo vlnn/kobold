@@ -258,6 +258,7 @@ uv run kobold genre "$KOBOLD_ROOT/00_Inbox/nova.epub" fiction/sci-fi
 uv run kobold import ~/Downloads/babel-17.epub
 uv run kobold undo
 uv run kobold ask [genre|name|authors] [<words>]   # --force re-asks, --dry-run prints the evidence
+uv run kobold ask authors --embed-dry-run          # each Cyrillic author folder with its 3 nearest Latin folders by embedding
 uv run kobold dismiss <fingerprint-or-path>
 uv run kobold embed [<words>]                      # --force re-embeds
 uv run kobold models

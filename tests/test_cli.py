@@ -974,3 +974,26 @@ def test_a_lone_cyrillic_folder_can_merge_into_its_latin_name(cyrillic_folders, 
     capsys.readouterr()
     main(["fix", "--dry-run"])
     assert "Володар" not in capsys.readouterr().out, "the alias keeps the book home afterwards"
+
+
+def test_embed_dry_run_ranks_latin_neighbours_of_each_cyrillic_folder(delany_folders, library, monkeypatch, mocker, capsys):
+    author_epub(library / ZELAZNY_ALIAS, "Володар Світла", "Роджер Желязни")
+    author_epub(library / "01_Fiction/02_Sci-Fi/Zelazny, Roger/Zelazny, Roger - Roadmarks (2016).epub", "Roadmarks", "Roger Zelazny")
+    monkeypatch.setenv("KOBOLD_EMBED_MODEL", "bge-m3")
+    vectors = {"Желязни, Роджер": [1.0, 0.0], "Zelazny, Roger": [0.98, 0.2], "Delany, Samuel Ray": [0.0, 1.0], "Delany, Samuel": [0.1, 1.0]}
+    mocker.patch("kobold.embedder.embed", side_effect=vectors.get)
+    main(["update"])
+    capsys.readouterr()
+
+    assert main(["ask", "authors", "--embed-dry-run"]) == 0, "the probe should run"
+
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[0] == "Желязни, Роджер", "each Cyrillic folder heads its own block"
+    assert lines[1].startswith("  0.98\tZelazny, Roger") and lines[2].startswith("  0.1") and "Delany" in lines[2], (
+        "Latin folders follow, nearest first, with their cosine score"
+    )
+
+
+def test_embed_dry_run_needs_an_embedding_model(delany_folders, capsys):
+    assert main(["ask", "authors", "--embed-dry-run"]) == 1, "without an embedding model there is nothing to probe with"
+    assert "embedding model" in capsys.readouterr().out, "the reason is reported"

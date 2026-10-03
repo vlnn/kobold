@@ -17,6 +17,7 @@ from kobold.asking import (
     collect_evidence,
     embed_all,
     embed_summary,
+    embedding_probe,
     genre_question,
     name_question,
     summary,
@@ -326,12 +327,23 @@ def ask_questions(name: str, words: list[str], force: bool, should_notify: bool,
             report(summary(noun, asked), should_notify)
 
 
+def embedding_probe_report(should_notify: bool) -> int:
+    if not embed_model():
+        return refuse("No embedding model: choose one in kb model", should_notify)
+    print(embedding_probe(library_index().everything()))
+    return 0
+
+
 def cmd_ask(args) -> int:
-    if not oracle.configured():
+    if args.embed_dry_run and not embed_model():
+        return refuse("No embedding model: choose one in kb model", args.notify)
+    if not oracle.configured() and not args.embed_dry_run:
         return refuse("No model server: set KOBOLD_ORACLE_URL in the workflow configuration", args.notify)
     if problem := index_problem():
         return refuse(f"{problem}: run kb update", args.notify)
     words = [word for value in args.words for word in value.split()]
+    if args.embed_dry_run:
+        return embedding_probe_report(args.notify)
     if args.dry_run:
         print(evidence_report(args.question, words), end="")
         return 0
@@ -410,7 +422,7 @@ def build_parser() -> argparse.ArgumentParser:
     import_cmd = sub.add_parser("import", parents=[notify])
     import_cmd.add_argument("book")
     import_cmd.set_defaults(func=cmd_import)
-    ask_cmd = sub.add_parser("ask", parents=[notify, flag("--force"), flag("--dry-run")])
+    ask_cmd = sub.add_parser("ask", parents=[notify, flag("--force"), flag("--dry-run"), flag("--embed-dry-run")])
     ask_cmd.add_argument("question", nargs="?", default="", choices=["", "genre", "name", "authors"])
     ask_cmd.add_argument("words", nargs="*")
     ask_cmd.set_defaults(func=cmd_ask)

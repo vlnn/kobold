@@ -6,13 +6,14 @@ from pathlib import Path
 
 from kobold import embedder, oracle
 from kobold.alfred import counted
+from kobold.cyrillic import is_cyrillic
 from kobold.evidence import evidence_for, evidence_hash
 from kobold.index import EVERYTHING, Index
 from kobold.lint import is_noisy, looks_opaque
 from kobold.metadata import READERS
 from kobold.model import Row
 from kobold.suggestions import LIBRARY, SuggestionStore
-from kobold.vectors import VectorStore
+from kobold.vectors import VectorStore, cosine
 
 EMBED_CHARS = 1500
 
@@ -173,3 +174,26 @@ def embed_summary(embedded: Embedded, nothing_to_do: bool) -> str:
         return "Every book is embedded"
     skipped = f", skipped {embedded.skipped}" if embedded.skipped else ""
     return f"Embedded {counted(embedded.done, 'book')}{skipped}"
+
+
+NEIGHBOURS = 3
+
+
+def folder_vectors(names: list[str]) -> dict[str, list[float]]:
+    found = ((name, embedder.embed(name)) for name in names)
+    return {name: vector for name, vector in found if vector is not None}
+
+
+def nearest_latin(name: str, vectors: dict[str, list[float]]) -> list[tuple[float, str]]:
+    latin = [other for other in vectors if not is_cyrillic(other)]
+    ranked = sorted(((cosine(vectors[name], vectors[other]), other) for other in latin), reverse=True)
+    return ranked[:NEIGHBOURS]
+
+
+def embedding_probe(rows: list[Row]) -> str:
+    vectors = folder_vectors(author_folder_names(rows))
+    blocks = []
+    for name in sorted(filter(is_cyrillic, vectors)):
+        neighbours = "\n".join(f"  {score:.2f}\t{other}" for score, other in nearest_latin(name, vectors))
+        blocks.append(f"{name}\n{neighbours}" if neighbours else f"{name}\n  (no Latin folders to compare with)")
+    return "\n".join(blocks)
