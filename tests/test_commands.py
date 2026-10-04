@@ -25,11 +25,11 @@ def classify_inbox(library: Path, capsys) -> None:
     capsys.readouterr()
 
 
-def test_empty_query_starts_with_the_inbox_reminder(indexed):
+def test_empty_query_starts_with_the_unclassified_reminder(indexed):
     reminder, *rest = search_items("")
 
     assert reminder["title"] == "2 books without a genre", "the reminder should count complete books without a genre"
-    assert reminder["valid"] is False and reminder["autocomplete"] == "inbox ", "↩ on the reminder should complete to kb inbox"
+    assert reminder["valid"] is False and reminder["autocomplete"] == "classify ", "↩ on the reminder should complete to kb classify"
     assert set(titles(rest)) == {"Deep Work", "Napkin", "Оперантное поведение"}, "recent complete books should follow the reminder"
 
 
@@ -129,7 +129,7 @@ def test_retired_command_words_are_plain_search(indexed, word):
     "query, suggested",
     [
         ("up", ["update"]),
-        ("IN", ["inbox"]),
+        ("CA", ["catalogue"]),
         ("cl", ["classify"]),
         ("ra", ["random"]),
         ("sr", ["src"]),
@@ -183,22 +183,10 @@ def no_bulk_modifier(items: list[dict]) -> bool:
     return not any("alt+shift" in i.get("mods", {}) for i in items)
 
 
-def test_inbox_lists_complete_books_without_a_genre_oldest_first(env, aged_inbox):
-    items = command_rows("inbox")
-
-    assert titles(items) == ["Оперантное поведение", "Napkin"], "inbox should list complete unclassified books, oldest first"
-    assert {action_of(i) for i in search_items("inbox")[:2]} == {"open"}, "↩ on an inbox book opens it"
-    assert no_bulk_modifier(items), "bulk work is a head row, never a modifier"
-
-
-def test_inbox_is_narrowed_by_words(indexed):
-    assert titles(search_items("inbox napkin")) == ["Napkin"], "the words narrow the inbox, and the book is listed once"
-
-
-def test_empty_inbox_says_so(indexed, library, capsys):
-    classify_inbox(library, capsys)
-
-    assert titles(command_rows("inbox")) == ["Inbox is empty"], "an empty inbox should be stated"
+def test_there_is_no_inbox_command(indexed):
+    assert not any(i.get("uid", "").startswith("kb:") for i in search_items("inbox")), (
+        "books arrive in the library, not in an inbox on the device"
+    )
 
 
 def test_classify_without_words_lists_the_inbox_under_a_head_row(env, aged_inbox):
@@ -268,8 +256,10 @@ def test_stats_rows_count_and_complete_to_their_command(indexed):
         "1 pending fix",
         "1 unfinished download",
         "0 books embedded",
-    ], "stats should count books, inbox, duplicate titles, pending fixes, unfinished downloads and embedded books"
-    assert [r["autocomplete"] for r in rows] == ["", "inbox ", "dups ", "fix ", "trash ", "model "], "↩ on a row completes to its command"
+    ], "stats should count books, those without a genre, duplicate titles, pending fixes, unfinished downloads and embedded books"
+    assert [r["autocomplete"] for r in rows] == ["", "classify ", "dups ", "fix ", "trash ", "model "], (
+        "↩ on a row completes to its command"
+    )
     assert all(r["valid"] is False for r in rows), "stats rows navigate rather than act"
 
 
@@ -306,27 +296,25 @@ def by_uid(items: list[dict], prefix: str) -> list[dict]:
     return [i for i in items if i.get("uid", "").startswith(prefix)]
 
 
-def test_fix_lists_head_row_reminders_operations_then_problems(indexed, library):
+def test_fix_lists_head_row_reminders_then_operations(indexed, library):
     items = command_rows("fix")
 
-    assert [i["uid"].split(":")[0] for i in items] == ["fix", "reminder", "reminder", "fix", "problem"], (
-        "fix should list: fix all, reminders, operations, then problems by hand"
+    assert [i["uid"].split(":")[0] for i in items] == ["fix", "reminder", "reminder", "fix"], (
+        "fix should list: fix all, reminders, operations; filenames are not the device's problem any more"
     )
-    head, inbox, partial, move, napkin = items
+    head, waiting, partial, move = items
     assert (head["title"], head["subtitle"]) == ("Fix all 1", "1 move"), "the head row should count operations by kind"
-    assert (inbox["title"], inbox["autocomplete"]) == ("2 books without a genre", "classify "), (
-        "the inbox reminder completes to kb classify"
+    assert (waiting["title"], waiting["autocomplete"]) == ("2 books without a genre", "classify "), (
+        "the unclassified reminder completes to kb classify"
     )
     assert (partial["title"], partial["autocomplete"]) == ("1 unfinished download", "trash "), "the partial reminder completes to kb trash"
     assert move["arg"] == str(library / DEEP) and move["subtitle"].startswith("move · "), "an operation row carries the file it moves"
-    assert napkin["arg"] == str(library / "00_Inbox" / "Napkin.pdf"), "a problem row carries the file to fix by hand"
 
 
 def test_fix_rows_carry_their_own_actions(indexed):
     items = search_items("fix")
 
     assert [action_of(i) for i in by_uid(items, "fix")] == ["fix", "fix"], "↩ on fix all or on an operation applies it"
-    assert [action_of(i) for i in by_uid(items, "problem")] == ["reveal"], "↩ on a problem reveals the file"
     assert all(i["valid"] is False for i in by_uid(items, "reminder")), "reminders complete the query instead of acting"
 
 
@@ -344,7 +332,7 @@ def test_fix_offers_undo_after_a_batch(indexed, library, capsys):
     "words, uids",
     [
         ("newport", ["fix:all", f"fix:{DEEP}"]),
-        ("napkin", ["reminder:inbox", "problem:opaque:00_Inbox/Napkin.pdf"]),
+        ("napkin", ["reminder:waiting"]),
         ("delany", ["reminder:partials"]),
     ],
 )
@@ -572,7 +560,9 @@ def test_the_ask_row_counts_every_candidate_the_pass_would_ask_about(oracle_on, 
 def test_ask_the_model_row_appears_when_books_are_unasked(oracle_on, query):
     (ask,) = [i for i in command_rows(query) if i.get("uid") == "oracle:ask"]
 
-    assert ask["title"] == "Ask the model about 2 inbox books and 1 unnamed file" and ask["valid"] is True, "the row counts what is unasked"
+    assert ask["title"] == "Ask the model about 2 unclassified books and 1 unnamed file" and ask["valid"] is True, (
+        "the row counts what is unasked"
+    )
     assert ask["subtitle"] == "↩ runs in the background, then notifies" and action_of(ask) == "ask", "↩ runs kobold ask in the background"
 
 
@@ -598,107 +588,10 @@ def test_unreachable_model_is_reported(oracle_on, tmp_path, query):
     assert row["title"] == "Model not reachable at http://127.0.0.1:8080" and row["valid"] is False, "the last failed connection is shown"
 
 
-NAPKIN_NAME = {"title": "Table Napkin Folding", "authors": ["Ivor Penhale"], "confident": True}
-
-
-@pytest.fixture
-def napkin_named(oracle_on, tmp_path) -> str:
-    napkin = fingerprint_of("napkin")
-    suggest(tmp_path, napkin, "name", NAPKIN_NAME)
-    return napkin
-
-
-def test_fix_lists_a_suggested_rename_below_the_automatic_operations(napkin_named, library):
-    items = command_rows("fix")
-
-    uids = [i["uid"] for i in items]
-    assert uids == ["fix:all", "oracle:ask", "reminder:inbox", "reminder:partials", f"fix:{DEEP}", "fix:00_Inbox/Napkin.pdf"], (
-        "the suggested rename comes after the certain operations and replaces the opaque-name problem"
-    )
-    head, rename = items[0], items[-1]
-    assert (head["title"], head["subtitle"]) == ("Fix all 1", "1 move"), "Fix all counts only what is certain"
-    assert rename["title"] == "Penhale, Ivor - Table Napkin Folding.pdf", "the row shows the canonical name built from the suggestion"
-    assert rename["subtitle"] == "move · suggested title and author · 00_Inbox/Napkin.pdf → 00_Inbox/", "and says it is a suggestion"
-    assert rename["arg"] == str(library / "00_Inbox" / "Napkin.pdf") and rename["valid"] is True, "↩ applies that one move"
-    assert action_of(search_items("fix")[-1]) == "fix", "through the fix action"
-
-
-def test_fix_all_with_words_carries_only_certain_paths(napkin_named, library):
-    (head, *_) = command_rows("fix inbox")
-
-    assert str(library / "00_Inbox" / "Napkin.pdf") not in head["arg"], "Fix all never applies a suggestion"
-
-
-def test_an_unconfident_or_unchanged_name_is_not_offered(oracle_on, tmp_path):
-    suggest(tmp_path, fingerprint_of("napkin"), "name", {**NAPKIN_NAME, "confident": False})
-    suggest(tmp_path, fingerprint_of("deep"), "name", {"title": "Deep Work", "authors": ["Cal Newport", "Someone Else"], "confident": True})
-
-    assert not any(i["subtitle"].startswith("move · suggested") for i in command_rows("fix")), (
-        "neither an unsure answer nor one that changes nothing becomes a row"
-    )
-
-
-def test_fix_narrowed_to_one_book_offers_to_dismiss_its_suggestions(napkin_named):
-    rows = command_rows("fix napkin")
-
-    (dismiss,) = [i for i in rows if i["uid"] == "oracle:dismiss"]
-    assert dismiss["title"] == "Dismiss suggestions for this book" and action_of(dismiss) == "dismiss", "↩ dismisses in the background"
-    assert dismiss["variables"]["book"] == napkin_named, "the row carries the book"
-    assert rows.index(dismiss) < rows.index(next(i for i in rows if i["uid"].startswith("fix:00_Inbox"))), "it is a head row"
-
-
-@pytest.mark.parametrize("query", ["fix", "fix inbox", "fix deep"])
-def test_dismiss_row_needs_exactly_one_book_with_suggestions(napkin_named, query):
-    assert not any(i.get("uid") == "oracle:dismiss" for i in command_rows(query)), f"kb {query} is not narrowed to the suggested book"
-
-
 def test_ask_the_model_row_counts_unnamed_files(oracle_on):
     (ask,) = [i for i in command_rows("fix") if i.get("uid") == "oracle:ask"]
 
-    assert ask["title"] == "Ask the model about 2 inbox books and 1 unnamed file", "books whose name is a guess are counted too"
-
-
-@pytest.fixture
-def delany_merge(env, library, tmp_path, capsys, monkeypatch) -> None:
-    from tests.test_cli import BABEL_ALIAS, GROUPS, NOVA_HOME, author_epub
-
-    author_epub(library / NOVA_HOME, "Nova", "Samuel Ray Delany")
-    author_epub(library / BABEL_ALIAS, "Babel-17", "Samuel Delany")
-    author_epub(library / "01_Fiction/02_Sci-Fi/Delany, Samuel/Delany, Samuel - Dhalgren (2016).epub", "Dhalgren", "Samuel Delany")
-    monkeypatch.setenv("KOBOLD_ORACLE_URL", "http://127.0.0.1:8080")
-    main(["update"])
-    capsys.readouterr()
-    suggest(tmp_path, "*", "authors", GROUPS)
-
-
-def test_fix_lists_one_merge_row_per_author_group(delany_merge, library):
-    from tests.test_cli import BABEL_ALIAS
-
-    (merge,) = [i for i in command_rows("fix") if i["uid"].startswith("oracle:merge")]
-
-    assert merge["title"] == "Merge 1 author folder into Delany, Samuel Ray" and merge["subtitle"] == "↩ moves 2 books · ⌥↩ reveals", (
-        "a group is one row, counting its folders and books"
-    )
-    assert merge["arg"].splitlines() == sorted(
-        [str(library / BABEL_ALIAS), str(library / "01_Fiction/02_Sci-Fi/Delany, Samuel/Delany, Samuel - Dhalgren (2016).epub")]
-    ), "↩ passes every book of the group to fix"
-    assert merge["mods"]["alt"]["arg"] == str(library / "01_Fiction" / "02_Sci-Fi" / "Delany, Samuel"), "⌥↩ reveals the alias folder"
-    assert action_of(next(i for i in search_items("fix") if i["uid"].startswith("oracle:merge"))) == "fix", "through the fix action"
-
-
-def test_merge_rows_come_after_the_automatic_operations(delany_merge):
-    uids = [i["uid"] for i in command_rows("fix")]
-
-    merge = next(i for i, uid in enumerate(uids) if uid.startswith("oracle:merge"))
-    assert merge > max(i for i, uid in enumerate(uids) if uid.startswith("fix:")), "merges follow the certain operations"
-    assert merge < min(i for i, uid in enumerate(uids) if uid.startswith("problem:")), "and come before problems by hand"
-
-
-@pytest.mark.parametrize("words, shown", [("dhalgren", True), ("delany", True), ("newport", False)])
-def test_merge_rows_follow_the_words(delany_merge, words, shown):
-    assert any(i["uid"].startswith("oracle:merge") for i in command_rows(f"fix {words}")) is shown, (
-        f"kb fix {words} should {'show' if shown else 'hide'} the merge"
-    )
+    assert ask["title"] == "Ask the model about 2 unclassified books and 1 unnamed file", "books whose name is a guess are counted too"
 
 
 SERVED = ["qwen2.5-7b-instruct", "gemma-3-4b-it", "bge-m3"]
@@ -940,7 +833,7 @@ def test_like_with_no_match_says_so(embeddings):
 def test_ask_the_model_row_follows_the_words(oracle_on, query):
     (ask,) = [i for i in command_rows(query) if i.get("uid") == "oracle:ask"]
 
-    assert ask["title"] == "Ask the model about 1 inbox book and 1 unnamed file matching ‘napkin’", "only matching books are counted"
+    assert ask["title"] == "Ask the model about 1 unclassified book and 1 unnamed file matching ‘napkin’", "only matching books are counted"
     assert ask["arg"] == "napkin", "↩ asks about the matching books only"
 
 

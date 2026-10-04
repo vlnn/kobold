@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from kobold.authors import AuthorStore
 from kobold.catalogue import CatalogueStore, from_legacy
 from kobold.index import Index
 from kobold.suggestions import SuggestionStore
@@ -87,10 +86,6 @@ def catalogue_store() -> CatalogueStore:
         store.save()
         legacy.rename(legacy.with_suffix(".tsv.converted"))
     return store.load()
-
-
-def author_store() -> AuthorStore:
-    return AuthorStore(data_dir() / "authors.tsv").load()
 
 
 def oracle_url() -> str:

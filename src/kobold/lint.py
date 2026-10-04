@@ -1,75 +1,12 @@
 from __future__ import annotations
 
-import re
-from collections import Counter, defaultdict
+from collections import defaultdict
 from collections.abc import Callable, Iterable
 from pathlib import Path
 
-from kobold.filenames import BRACED_AUTHOR, strip_noise, usable_title
 from kobold.model import Finding, Row
 from kobold.paths import relative_path
-from kobold.scan import BOOK_SUFFIXES, display_stem, iter_junk
-
-JOINED_WORDS = re.compile(r"\w[_\-]\w")
-OPAQUE_STEMS = [
-    re.compile(r"^\d+_\d+$"),
-    re.compile(r"^smp\d+_[0-9a-f]+$", re.I),
-    re.compile(r"^annas-arch-", re.I),
-    re.compile(r"^[0-9a-f]{10,}(?:[_-]|$)", re.I),
-    re.compile(r"^fb\d+u?_", re.I),
-]
-
-
-def stem_of(row: Row) -> str:
-    return display_stem(Path(row.rel_path))
-
-
-def filename_of(row: Row) -> str:
-    return Path(row.rel_path).name
-
-
-def single(rule: str, detail: str, row: Row) -> Finding:
-    return Finding(rule, detail, [row.rel_path])
-
-
-def flag(
-    rule: str, rows: Iterable[Row], predicate: Callable[[Row], bool], detail: Callable[[Row], str] = lambda r: r.title
-) -> list[Finding]:
-    return [single(rule, detail(r), r) for r in rows if predicate(r)]
-
-
-def looks_opaque(row: Row) -> bool:
-    if any(p.match(stem_of(row)) for p in OPAQUE_STEMS):
-        return True
-    return row.guessed and not row.authors and not usable_title(row.title)
-
-
-def has_double_extension(row: Row) -> bool:
-    return Path(stem_of(row)).suffix.lower() in BOOK_SUFFIXES
-
-
-def is_noisy(row: Row) -> bool:
-    name, stem = filename_of(row), stem_of(row)
-    return (
-        name != name.strip()
-        or strip_noise(stem) != stem
-        or "&amp" in name
-        or " -- " in stem
-        or bool(BRACED_AUTHOR.search(stem))
-        or (" " not in stem and bool(JOINED_WORDS.search(stem)))
-    )
-
-
-def opaque_names(rows: list[Row]) -> list[Finding]:
-    return flag("opaque", rows, looks_opaque, lambda r: f"{r.title}: no usable title in the filename")
-
-
-def double_extensions(rows: list[Row]) -> list[Finding]:
-    return flag("double_extension", rows, has_double_extension, lambda r: f"{filename_of(r)}: two book extensions")
-
-
-def noisy_names(rows: list[Row]) -> list[Finding]:
-    return flag("noisy_name", rows, is_noisy, lambda r: f"{r.title}: filename carries download noise")
+from kobold.scan import iter_junk
 
 
 def grouped(rows: Iterable[Row], key: Callable[[Row], str]) -> list[list[Row]]:
@@ -113,40 +50,9 @@ def all_folders(rows: Iterable[Row]) -> set[str]:
     return {a for r in rows for a in ancestors(r.folder)}
 
 
-def author_folders(rows: Iterable[Row]) -> Counter:
-    return Counter(r.folder for r in rows if "," in Path(r.folder).name)
-
-
-def swapped(name: str) -> str:
-    last, _, first = name.partition(", ")
-    return f"{first}, {last}"
-
-
-def inverted_folder(folder: str, counts: Counter) -> str:
-    twin = str(Path(folder).with_name(swapped(Path(folder).name)))
-    return twin if counts.get(twin, 0) > counts[folder] else ""
-
-
-def author_inversions(rows: list[Row]) -> list[Finding]:
-    counts = author_folders(rows)
-    return [
-        single("author_inversion", f"{Path(r.folder).name} looks inverted → {home}", r)
-        for r in rows
-        if r.folder in counts and (home := inverted_folder(r.folder, counts))
-    ]
-
-
 def junk(root: Path, exclude: tuple[Path, ...] = ()) -> list[Finding]:
     return [Finding("junk", f"{p.name}: not a book", [relative_path(p, root)]) for p in iter_junk(root, exclude)]
 
 
 def lint(rows: list[Row], root: Path, exclude: tuple[Path, ...] = ()) -> list[Finding]:
-    return [
-        *junk(root, exclude),
-        *double_extensions(rows),
-        *noisy_names(rows),
-        *opaque_names(rows),
-        *exact_duplicates(rows),
-        *title_duplicates(rows),
-        *author_inversions(rows),
-    ]
+    return [*junk(root, exclude), *exact_duplicates(rows), *title_duplicates(rows)]

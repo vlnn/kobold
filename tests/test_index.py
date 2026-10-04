@@ -356,6 +356,19 @@ def test_library_rows_are_not_offered_as_unclassified_or_duplicates(everywhere: 
     assert all(r.place != "library" for g in everywhere.duplicates() for r in g), "duplicates are a device matter"
 
 
+def test_correct_rewrites_title_and_authors_and_settles_the_guess(index: Index):
+    napkin = index.by_rel_path("00_Inbox/Napkin.pdf")
+
+    index.correct(napkin.fingerprint, "Table Napkin Folding", "Ivor Penhale")
+
+    corrected = index.by_fingerprint(napkin.fingerprint)
+    assert (corrected.title, corrected.authors, corrected.norm_title) == ("Table Napkin Folding", "Ivor Penhale", "table napkin folding"), (
+        "the row reads as the oracle named it"
+    )
+    assert corrected.guessed is False, "a confident name is no longer a guess from the filename"
+    assert titles(index.search(query_words("penhale"))) == ["Table Napkin Folding"], "and search finds it by the new name"
+
+
 def test_write_genres_touches_only_the_named_book(index: Index):
     napkin = index.by_rel_path("00_Inbox/Napkin.pdf")
     index.write_genres({napkin.fingerprint: "games/go"})

@@ -303,6 +303,9 @@ class Index:
     def by_rel_path(self, rel_path: str, places: tuple[str, ...] | None = DEVICE) -> Row | None:
         return self.one("rel_path = ?", rel_path, places)
 
+    def by_path(self, path: str) -> Row | None:
+        return self.one("root || '/' || rel_path = ?", path, LIBRARY)
+
     def one(self, condition: str, value: str, places: tuple[str, ...] | None = None) -> Row | None:
         rows = self.rows(f"{SELECT_ROWS} WHERE {condition} AND {in_places(places)} ORDER BY place", (value,))
         return next(iter(rows), None)
@@ -318,6 +321,10 @@ class Index:
 
     def distinct(self, column: str) -> list[str]:
         return self.values(f"SELECT DISTINCT {column} FROM books WHERE {column} != '' AND {in_places(DEVICE)} ORDER BY {column}")
+
+    def correct(self, fingerprint: str, title: str, authors: str) -> None:
+        corrected = (title, authors, normalize_title(title), fingerprint)
+        self.execute("UPDATE books SET title = ?, authors = ?, norm_title = ?, guessed = 0 WHERE fingerprint = ?", corrected)
 
     def write_genres(self, genres: dict[str, str]) -> None:
         self.execute_many("UPDATE books SET genre = ? WHERE fingerprint = ?", [(g, fp) for fp, g in genres.items()])

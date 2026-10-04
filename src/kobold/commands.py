@@ -28,20 +28,17 @@ from kobold.config import (
 )
 from kobold.history import last_opened
 from kobold.index import EVERYTHING, LIBRARY, Index, index_busy, is_current
-from kobold.library import (
+from kobold.model import Operation, Row
+from kobold.places import (
     SourceCount,
     concerning,
     diagnosis,
-    is_merge,
     known_genres,
-    merge_target,
-    not_in_library,
+    nook_folder,
+    not_on_device,
     pending_operations,
     source_counts,
-    suggested_operations,
-    unclassified_rows,
 )
-from kobold.model import Finding, Operation, Row
 from kobold.query import query_words
 from kobold.suggestions import SuggestionStore
 from kobold.vectors import VectorStore
@@ -63,11 +60,11 @@ def without_index_items() -> list[dict]:
     return [alfred.action_item(index_problem(), "↩ builds it", "update")]
 
 
-def inbox_reminder(index: Index) -> list[dict]:
+def waiting_reminder(index: Index) -> list[dict]:
     waiting = len(index.unclassified([]))
     if not waiting:
         return []
-    return [alfred.navigation_item(f"{counted(waiting, 'book')} without a genre", "↩ shows the inbox", "inbox ")]
+    return [alfred.navigation_item(f"{counted(waiting, 'book')} without a genre", "↩ lists them in kb classify", "classify ")]
 
 
 def book_rows(rows: list[Row]) -> list[dict]:
@@ -81,7 +78,7 @@ def plain_items(words: list[str]) -> list[dict]:
     if index.count() == 0:
         return [alfred.action_item(EMPTY_INDEX, "↩ rebuilds it", "update")]
     if not words:
-        return inbox_reminder(index) + book_rows(index.search([]))
+        return waiting_reminder(index) + book_rows(index.search([]))
     return book_rows(index.search(words)) or [alfred.empty_item(" ".join(words))]
 
 
@@ -150,11 +147,6 @@ def random_items(words: list[str]) -> list[dict]:
     return book_rows(picks) or [alfred.empty_item(" ".join(words))]
 
 
-def inbox_items(words: list[str]) -> list[dict]:
-    rows = [alfred.inbox_item(r) for r in unclassified_rows(words)]
-    return rows or nothing(words, "Inbox is empty", "Every book has a genre")
-
-
 def headed(heads: list[dict], items: list[dict], batch_size: int) -> list[dict]:
     return [*heads, *items] if batch_size > 1 else items
 
@@ -167,8 +159,8 @@ def unasked(rows: list[Row], question: str, store: SuggestionStore) -> list[Row]
     return [r for r in rows if store.get(r.fingerprint, question) is None]
 
 
-def ask_title(inbox: int, unnamed: int, words: list[str]) -> str:
-    parts = [counted(inbox, "inbox book")] * bool(inbox) + [counted(unnamed, "unnamed file")] * bool(unnamed)
+def ask_title(waiting: int, unnamed: int, words: list[str]) -> str:
+    parts = [counted(waiting, "unclassified book")] * bool(waiting) + [counted(unnamed, "unnamed file")] * bool(unnamed)
     matching = f" matching ‘{' '.join(words)}’" if words else ""
     return f"Ask the model about {' and '.join(parts)}{matching}"
 
@@ -179,8 +171,8 @@ def oracle_rows(index: Index, store: SuggestionStore, words: list[str]) -> list[
     if oracle.busy():
         return [alfred.busy_item("Asking the model… a notification follows")]
     down = [alfred.unreachable_item(url)] if (url := oracle.unreachable()) else []
-    inbox, unnamed = len(unasked(genre_rows(index, words), "genre", store)), len(unasked(name_rows(index, words), "name", store))
-    return down + ([alfred.ask_item(ask_title(inbox, unnamed, words), " ".join(words))] if inbox or unnamed else [])
+    waiting, unnamed = len(unasked(genre_rows(index, words), "genre", store)), len(unasked(name_rows(index, words), "name", store))
+    return down + ([alfred.ask_item(ask_title(waiting, unnamed, words), " ".join(words))] if waiting or unnamed else [])
 
 
 def classify_rows(words: list[str]) -> list[Row]:
@@ -255,13 +247,13 @@ def nothing_new_item(words: list[str], held: int) -> dict:
         return alfred.empty_item(" ".join(words))
     what = counted(held, "book matches", "books match") if words else counted(held, "book")
     where = f" ‘{' '.join(words)}’" if words else " in the sources"
-    return alfred.message_item(f"{what}{where}, already in the library", "kb src shows only what the library does not hold")
+    return alfred.message_item(f"{what}{where}, already on the device", "kb src shows only what the device does not hold")
 
 
 def source_items(words: list[str]) -> list[dict]:
-    fresh, held = not_in_library(words)
+    fresh, held = not_on_device(words)
     items = [alfred.source_item(r) for r in fresh]
-    return headed([alfred.import_all_item(fresh)], items, len(fresh)) or [nothing_new_item(words, held)]
+    return headed([alfred.import_all_item(fresh, nook_folder())], items, len(fresh)) or [nothing_new_item(words, held)]
 
 
 def sources_items(words: list[str]) -> list[dict]:
@@ -276,7 +268,7 @@ def stats_items() -> list[dict]:
     index = library_index()
     return [
         alfred.navigation_item(counted(index.complete_count(), "book"), str(library_root()), ""),
-        alfred.navigation_item(f"{counted(len(index.unclassified([])), 'book')} without a genre", "↩ shows the inbox", "inbox "),
+        alfred.navigation_item(f"{counted(len(index.unclassified([])), 'book')} without a genre", "↩ lists them", "classify "),
         alfred.navigation_item(counted(len(index.duplicates()), "duplicate title"), "↩ lists every copy", "dups "),
         alfred.navigation_item(counted(len(pending_operations()), "pending fix", "pending fixes"), "↩ lists them", "fix "),
         alfred.navigation_item(counted(len(index.partials([])), "unfinished download"), "↩ lists them", "trash "),
@@ -439,11 +431,6 @@ def trash_items(words: list[str]) -> list[dict]:
     return headed([trash_all_item(rows)], items, len(rows)) or nothing(words, "Nothing to trash", "No unfinished downloads")
 
 
-def by_hand(found: list[Finding], ops: list[Operation]) -> list[Finding]:
-    moving = {o.src for o in ops}
-    return [f for f in found if f.rule in MANUAL_RULES and f.rel_paths[0] not in moving]
-
-
 def kind_label(kind: str, n: int) -> str:
     return counted(n, "move") if kind == "move" else f"{n} to _{kind}"
 
@@ -479,30 +466,14 @@ def reminder_item(key: str, title: str, subtitle: str, completes: str) -> dict:
 def fix_reminders(words: list[str]) -> list[dict]:
     index = library_index()
     waiting, partial = len(index.unclassified(words)), len(index.partials(words))
-    inbox = reminder_item("inbox", f"{counted(waiting, 'book')} without a genre", "↩ lists them", completion("classify", words))
+    inbox = reminder_item("waiting", f"{counted(waiting, 'book')} without a genre", "↩ lists them", completion("classify", words))
     downloads = reminder_item("partials", counted(partial, "unfinished download"), "↩ lists them", completion("trash", words))
     return [item for item, count in ((inbox, waiting), (downloads, partial)) if count]
-
-
-def dismiss_items(words: list[str], store: SuggestionStore) -> list[dict]:
-    if not words:
-        return []
-    rows = library_index().search(words, limit=2)
-    if len(rows) != 1 or not any(store.answers(q).get(rows[0].fingerprint) for q in ("genre", "name")):
-        return []
-    return [alfred.dismiss_item(rows[0].fingerprint)]
 
 
 def nothing_to_fix(words: list[str]) -> dict:
     title = f"Nothing to fix for ‘{' '.join(words)}’" if words else "Nothing to fix"
     return alfred.message_item(title, "The library is clean")
-
-
-def merge_groups(ops: list[Operation], concerns: Callable[[str], bool]) -> dict[str, list[Operation]]:
-    groups: dict[str, list[Operation]] = {}
-    for op in ops:
-        groups.setdefault(merge_target(op), []).append(op)
-    return {canonical: group for canonical, group in groups.items() if any(concerns(o.src) for o in group)}
 
 
 def catalogue_note() -> str:
@@ -519,25 +490,17 @@ def catalogue_problems(index: Index, concerns: Callable[[str], bool]) -> list[di
 
 
 def fix_items(words: list[str]) -> list[dict]:
-    found, ops = diagnosis()
+    _, ops = diagnosis()
     index, store, concerns, root = library_index(), suggestion_store(), concerning(words), str(library_root())
     todo = [o for o in ops if o.kind in EXECUTABLE and concerns(o.src)]
-    suggested = suggested_operations(index.everything(), {o.src for o in ops})
-    renames = [o for o in suggested if not is_merge(o) and concerns(o.src)]
-    merges = merge_groups([o for o in suggested if is_merge(o)], concerns)
     conflicts = [o for o in ops if o.kind == "skip" and concerns(o.src)]
-    manual = [f for f in by_hand(found, ops + suggested) if concerns(f.rel_paths[0])]
     rows = [
         *fix_all_items(todo, words),
         *undo_items(),
-        *dismiss_items(words, store),
         *oracle_rows(index, store, words),
         *fix_reminders(words),
         *(alfred.plan_item(o, root) for o in todo),
-        *(alfred.plan_item(o, root) for o in renames),
-        *(alfred.merge_item(canonical, group, root) for canonical, group in merges.items()),
         *(alfred.conflict_item(o, root) for o in conflicts),
-        *(alfred.problem_item(f, root) for f in manual),
         *catalogue_problems(index, concerns),
     ]
     return rows or [nothing_to_fix(words)]
@@ -547,11 +510,10 @@ COMMAND_LIST = [
     Command("stats", all_stats_items, "stats", "counts: books, inbox, duplicates, pending fixes, unfinished downloads, sources"),
     Command("dups", dups_items, "open", "every copy of a title that exists in several files"),
     Command("rnd", random_items, "open", "five random books, drawn from those matching the words", aliases=("random",)),
-    Command("inbox", inbox_items, "open", "books without a genre yet, oldest first"),
-    Command("classify", classify_items, "classify", "set the genre of inbox books, or of any books matching the words"),
+    Command("classify", classify_items, "classify", "set the genre of books without one, or of any books matching the words"),
     Command("fix", fix_items, "fix", "what is wrong and how to fix it · ↩ applies, ⌥↩ reveals"),
-    Command("trash", trash_items, "trash", "unfinished downloads; with words, any book · ↩ moves it to _trash/"),
-    Command("src", sources_items, "import", "search the other sources · ↩ imports into the inbox", needs_index=False),
+    Command("trash", trash_items, "trash", "unfinished downloads; with words, any book the library still holds · ↩ moves it to _trash/"),
+    Command("src", sources_items, "import", "search the other sources · ↩ copies a book into the nook", needs_index=False),
     Command("update", update_items, "update", "rebuild the library and sources index", needs_index=False),
     Command("catalogue", catalogue_items, "open", "the catalogue: every book's genre in one file you can edit", needs_index=False),
     Command("like", like_items, "open", "books like one: the top match for the words, or the one KOReader opened last"),
@@ -571,4 +533,3 @@ WORD = re.compile(r"\w+")
 CLASSIFY_LIMIT = 200
 LIST_LIMIT = 200
 FIX_KINDS = ("move", "trash", "dups")
-MANUAL_RULES = {"author_inversion", "noisy_name", "opaque", "double_extension"}

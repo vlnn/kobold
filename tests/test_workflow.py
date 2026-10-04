@@ -186,7 +186,6 @@ def indexed(library: Path, tmp_path: Path, monkeypatch):
         ("fix", "RUN", ""),
         ("trash", "RUN", "/"),
         ("classify", "PICKER", ""),
-        ("inbox", "OPEN", "/"),
         ("rnd", "OPEN", "/"),
         ("deep", "OPEN", "/"),
     ],
@@ -200,9 +199,11 @@ def test_enter_on_a_kb_row_reaches_its_action(workflow, indexed, query, destinat
     assert first["arg"].startswith(arg), f"kb {query} should hand {arg!r}… to {destination}"
 
 
-def test_enter_on_a_problem_row_reveals_it(workflow, indexed):
+def test_enter_on_a_conflict_row_reveals_it(workflow, indexed, mocker):
     from kobold.commands import search_items
+    from kobold.model import Operation
 
+    mocker.patch("kobold.commands.diagnosis", return_value=([], [Operation("skip", "a.epub", "b.epub", "destination taken by b.epub")]))
     problem = next(i for i in search_items("fix") if i.get("uid", "").startswith("problem:"))
 
     assert route(workflow, problem) == "REVEAL", "↩ on a problem with no automatic remedy should reveal the file"
@@ -211,7 +212,7 @@ def test_enter_on_a_problem_row_reveals_it(workflow, indexed):
 @pytest.fixture
 def indexed_with_sources(library: Path, tmp_path: Path, tmp_path_factory, monkeypatch):
     from kobold.cli import main
-    from tests.test_sources import write_epub
+    from tests.conftest import write_epub
 
     elsewhere = tmp_path_factory.mktemp("elsewhere")
     write_epub(elsewhere / "Slow Productivity.epub", "Slow Productivity")
@@ -223,7 +224,7 @@ def indexed_with_sources(library: Path, tmp_path: Path, tmp_path_factory, monkey
     main(["update"])
 
 
-@pytest.mark.parametrize("query", ["", "src slow", "fix", "inbox", "classify", "trash inbox", "dups", "rnd"])
+@pytest.mark.parametrize("query", ["", "src slow", "fix", "classify", "trash inbox", "dups", "rnd", "catalogue"])
 def test_declared_modifiers_do_what_their_subtitle_says(workflow, indexed_with_sources, query):
     from kobold.commands import search_items
 

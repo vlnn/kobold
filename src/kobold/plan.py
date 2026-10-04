@@ -1,15 +1,14 @@
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
 from kobold.catalogue import CatalogueStore, genre_from_folder
-from kobold.index import series_key
+from kobold.index import NOOK, series_key
 from kobold.lint import all_folders
 from kobold.model import Finding, Operation, Row
-from kobold.naming import NO_ALIASES, Shelves, destination, shelves
+from kobold.naming import Shelves, destination, shelves
 
 FORMAT_RANK = ("epub", "fb2", "mobi", "azw3", "azw", "pdf", "djvu")
 TRASH = "_trash"
@@ -30,7 +29,7 @@ def in_unclassified_folder(row: Row) -> bool:
 
 def preference(indexed: tuple[int, Row]) -> tuple:
     position, row = indexed
-    return (row.partial, in_unclassified_folder(row), format_rank(row.format), -year_of(row), -row.size, position)
+    return (row.partial, row.place != NOOK, in_unclassified_folder(row), format_rank(row.format), -year_of(row), -row.size, position)
 
 
 def prefer(rows: list[Row]) -> Row:
@@ -73,28 +72,38 @@ class Shape:
     series_counts: Counter
 
 
-def shape_of(rows: list[Row], aliases: Mapping[str, str] = NO_ALIASES) -> Shape:
+def shape_of(rows: list[Row]) -> Shape:
     counts = Counter(series_key(r.series) for r in rows if r.series and not r.partial)
-    return Shape(shelves(all_folders(rows), aliases), counts)
+    return Shape(shelves(all_folders(r for r in rows if r.place != NOOK)), counts)
+
+
+def in_vault(row: Row) -> bool:
+    return row.place == "vault"
 
 
 def wants_home(row: Row, store: CatalogueStore) -> bool:
-    return not row.partial and bool(row.authors) and bool(store.genre_of(row))
+    return in_vault(row) and not row.partial and bool(row.authors) and bool(store.genre_of(row))
 
 
 def home_of(row: Row, store: CatalogueStore, shape: Shape) -> str:
     return destination(row, store.genre_of(row), shape.layout, shape.series_counts[series_key(row.series)])
 
 
-def desired(rows: list[Row], store: CatalogueStore, aliases: Mapping[str, str] = NO_ALIASES) -> dict[str, str]:
-    shape = shape_of(rows, aliases)
+def desired(rows: list[Row], store: CatalogueStore) -> dict[str, str]:
+    shape = shape_of(rows)
     return {r.rel_path: home_of(r, store, shape) for r in rows if wants_home(r, store)}
 
 
-def relocation(row: Row, rows: list[Row], store: CatalogueStore, aliases: Mapping[str, str] = NO_ALIASES) -> Operation | None:
+def homecoming(rows: list[Row], store: CatalogueStore, settled: set[str]) -> dict[str, str]:
+    shape = shape_of(rows)
+    nooked = [r for r in rows if r.place == NOOK and r.rel_path not in settled and r.authors and store.genre_of(r) and not r.partial]
+    return {r.rel_path: home_of(r, store, shape) for r in nooked}
+
+
+def relocation(row: Row, rows: list[Row], store: CatalogueStore) -> Operation | None:
     if not wants_home(row, store):
         return None
-    dst = home_of(row, store, shape_of(rows, aliases))
+    dst = home_of(row, store, shape_of(rows))
     if dst == row.rel_path:
         return None
     if any(r.rel_path == dst for r in rows):
@@ -102,8 +111,10 @@ def relocation(row: Row, rows: list[Row], store: CatalogueStore, aliases: Mappin
     return Operation("move", row.rel_path, dst, move_reason(row.rel_path, dst))
 
 
-def relocations(rows: list[Row], store: CatalogueStore, settled: set[str], aliases: Mapping[str, str] = NO_ALIASES) -> list[Operation]:
-    wanted = {src: dst for src, dst in desired(rows, store, aliases).items() if src not in settled}
+def relocations(rows: list[Row], store: CatalogueStore, settled: set[str], leaving_nook: bool = False) -> list[Operation]:
+    wanted = {src: dst for src, dst in desired(rows, store).items() if src not in settled}
+    if leaving_nook:
+        wanted.update(homecoming(rows, store, settled))
     moving = {src for src, dst in wanted.items() if src != dst}
     occupied = {r.rel_path: r.rel_path for r in rows if r.rel_path not in moving}
     ops = []
@@ -117,8 +128,8 @@ def relocations(rows: list[Row], store: CatalogueStore, settled: set[str], alias
     return ops
 
 
-def plan(rows: list[Row], findings: list[Finding], store: CatalogueStore, aliases: Mapping[str, str] = NO_ALIASES) -> list[Operation]:
+def plan(rows: list[Row], findings: list[Finding], store: CatalogueStore) -> list[Operation]:
     by_path = {r.rel_path: r for r in rows}
     ops = trash_junk(findings) + set_aside_duplicates(findings, by_path)
     settled = {o.src for o in ops}
-    return ops + relocations(rows, store, settled, aliases)
+    return ops + relocations(rows, store, settled)

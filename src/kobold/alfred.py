@@ -194,9 +194,9 @@ def head_row(uid: str, title: str, subtitle: str, arg: str = "", variables: dict
     return {"uid": uid, "title": title, "subtitle": subtitle, "arg": arg, "valid": True, "icon": TERMINAL_ICON, **payload}
 
 
-def import_all_item(rows: list[Row]) -> dict:
+def import_all_item(rows: list[Row], nook: str) -> dict:
     paths = LINE.join(r.path for r in rows)
-    return head_row("src:import-all", f"Import all {len(rows)} books", "↩ copies every book listed below into the library inbox", paths)
+    return head_row("src:import-all", f"Import all {len(rows)} books", f"↩ copies every book listed below into {nook}/", paths)
 
 
 def classify_all_item(rows: list[Row]) -> dict:
@@ -215,21 +215,8 @@ def ask_item(title: str, words: str = "") -> dict:
     return {"uid": "oracle:ask", **action_item(title, "↩ runs in the background, then notifies", "ask", words)}
 
 
-def merge_item(canonical: str, ops: list[Operation], root: str) -> dict:
-    folders = sorted({str(PurePosixPath(o.src).parent) for o in ops})
-    title = f"Merge {counted(len(folders), 'author folder')} into {canonical}"
-    paths = LINE.join(sorted(f"{root}/{o.src}" for o in ops))
-    head = head_row(f"oracle:merge:{canonical}", title, f"↩ moves {counted(len(ops), 'book')} · ⌥↩ reveals", paths)
-    return {**head, "mods": {"alt": reveal(f"{root}/{folders[0]}")}}
-
-
 def choose_item(model: str, role: str, title: str, subtitle: str) -> dict:
     return {"uid": f"choose:{role}", **action_item(title, subtitle, "choose", role), "variables": {"model": model, "action": "choose"}}
-
-
-def dismiss_item(book: str) -> dict:
-    subtitle = "↩ forgets the model's answers for it · kobold ask --force asks again"
-    return head_row("oracle:dismiss", "Dismiss suggestions for this book", subtitle, variables={"book": book, "action": "dismiss"})
 
 
 def busy_item(title: str) -> dict:

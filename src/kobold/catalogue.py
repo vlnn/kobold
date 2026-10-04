@@ -13,7 +13,7 @@ from kobold.store import TsvStore
 
 GENRE_DEPTH = 2
 ORDER_PREFIX = re.compile(r"^\d+_")
-UNCLASSIFIED_FOLDERS = {"inbox", "archives", "system_files", "_inbox", "_dups", "_trash", "_broken"}
+UNCLASSIFIED_FOLDERS = {"nook", "inbox", "archives", "system_files", "_inbox", "_dups", "_trash", "_broken"}
 HEADER = ("genre", "authors", "title", "year", "path", "fingerprint")
 
 
