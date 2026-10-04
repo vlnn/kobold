@@ -1,16 +1,31 @@
 # kobold
 
-*kobo + alfred.* A small creature that hoards books on an SD card.
+*kobo + alfred.* A small creature that hoards ebooks in your directories in properly arranged gleamy stacks.
 
-Type `kb` in Alfred, see your library with covers, press ↩ to read. Then let it tidy the library for you: file every book under `genre / Author, Name / Series / Author - Title (Year).epub`, set duplicates and junk aside, and undo if you don't like the result. Nothing is deleted except a file that is byte-for-byte already at its destination.
+## The problem
 
-The library is a folder on your Mac. Everything the workflow writes stays inside that folder (plus its own index next to Alfred's data); it doesn't talk to the Kobo. Keep the folder in sync with the device however you like (Syncthing, a mounted SD card, rsync) and point the workflow at the Mac side.
+Imagine you have a big library of ebooks, which in real world mean a folder with unstructured subfolders like `New folder` and `To read 2027`. Lots of `epubs`, `fb2`, `pdfs` inside. Every time you want to read the book you have to find it first, and you don't wanna waste time, so you go and download it again, optionally pushing it in the same heap again. Sometimes you decide make it neat and structured, move files around for couple hours, understand how hard it is to categorize or tag real stuff, and then just leave as is until next time. No problems I was there.
+
+
+## Proposed solution
+
+If you use Alfred.app you tend to see everything as a Alfred workflow, e.g. semi-automatic process initiated by user. `How much is 3 hours in seconds?` No worries: `<C P> =3*60*60`. In general, Alfred is great where you need to quickly search or calculate something. It's like single entry point for your actions if you're in MacOS.
+
+Now how we use it for sorting our infamouse library? We don't. We govern small subset of the library: the ereader. The idea is to quickly search for the book you need and import it into your ereader. We use search (like "google" in web or like "prompt" in LLM) to pull the needed info from the pool of unstructured information and getting it into the focus well of ereader. In principle, you don't need more than 7 books at same time in your kindle if you're not a lawyer or elementary teacher -- they need lots of info to refer to. Normal people are reading 3-10 books at the same time and then happily forget what's that about so it's possible to reread them later.
+
+## Demo
+
+Type `kb` in Alfred, and immediately see latest books added to your library with covers, press ↩ to read in Books.app or whatever app you have connected to the book file (I propose Koreader, but it is a bit hard to setup). Yes, this is the book you want to read on your ereader, right. Input `kbi` or `kb import` (optionally with book-related input, that will help to filter it out), press ↩ and the books has been copied into the folder you associate with the ereader. 
+
+Then let it tidy the reading list for you: `kb fix` to move every file imported into ereader previously into neat structure of `genre / Author, Name / Series / Author - Title (Year).epub`, set duplicates and junk aside, and undo if you don't like the result. Nothing is deleted except a file that is byte-for-byte already at its destination.
+
+The reading list is a folder on your Mac. Everything the workflow writes stays inside that folder (plus its own index next to Alfred's data); it doesn't talk to the Kobo. Keep the folder in sync with the device however you like (Syncthing, a mounted SD card, rsync) and point the workflow at the Mac side.
 
 ```
 kb delany epub            →  Delany, Samuel R. - Dhalgren (1975) · EPUB 1.2 MB · 01_Fiction/02_Sci-Fi/…
 kb fix                    →  Fix all 14 · 9 moves · 4 to _trash · 1 to _dups
 kb classify               →  pick a genre, the book moves home
-kb src heinlein           →  import from Calibre / Downloads into the inbox
+kbi heinlein epub         →  import all heinlein's epubs (but not PDFs as you filtered the with epub clause) from Calibre / Downloads into the reading inbox
 ```
 
 ## Install (three minutes)
