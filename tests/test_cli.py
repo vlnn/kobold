@@ -645,8 +645,8 @@ def test_ask_authors_asks_once_about_every_author_folder(delany_folders, tmp_pat
     assert main(["ask", "authors"]) == 0, "asking should succeed"
 
     assert ask.call_count == 1 and ask.call_args.args[0] == "authors", "one request for the whole library"
-    assert ask.call_args.args[1].splitlines()[1:] == ["Delany, Samuel", "Delany, Samuel Ray"], (
-        "the evidence is the sorted author folder list"
+    assert ask.call_args.args[1].splitlines()[1:] == ["Delany, Samuel · Babel-17", "Delany, Samuel Ray · Nova"], (
+        "the evidence is the sorted author folder list, each with sample titles"
     )
     assert capsys.readouterr().out.strip() == "Asked about the author folders: 1 merge suggested", "the summary counts groups"
     assert oracle_store(tmp_path).get("*", "authors").answer == GROUPS, "the answer is stored for the library"
@@ -670,13 +670,54 @@ def delany_merge(delany_folders, tmp_path) -> None:
     store.save()
 
 
+BABEL_HOME = "01_Fiction/02_Sci-Fi/Delany, Samuel Ray/Delany, Samuel Ray - Babel-17 (2016).epub"
+
+
 def test_fix_with_the_paths_applies_a_suggested_merge(delany_merge, library, capsys):
     assert main(["fix", str(library / BABEL_ALIAS)]) == 0, "↩ on the merge row passes the group's paths"
 
-    assert (library / "01_Fiction" / "02_Sci-Fi" / "Delany, Samuel Ray" / "Delany, Samuel - Babel-17 (2016).epub").exists(), (
-        "the book joins the canonical folder"
-    )
+    assert (library / BABEL_HOME).exists(), "the book joins the canonical folder under the canonical name"
     assert not (library / "01_Fiction" / "02_Sci-Fi" / "Delany, Samuel").exists(), "the emptied alias folder is pruned"
+
+
+def test_a_merged_book_stays_home_afterwards(delany_merge, library, tmp_path, capsys):
+    main(["fix", str(library / BABEL_ALIAS)])
+    capsys.readouterr()
+
+    main(["fix", "--dry-run"])
+
+    assert "Babel-17" not in capsys.readouterr().out, "the alias is remembered, so the planner no longer wants the book back"
+    assert "Delany, Samuel\tDelany, Samuel Ray" in (tmp_path / "alfred-data" / "authors.tsv").read_text(), (
+        "the accepted merge is written down as an alias"
+    )
+
+
+def test_undoing_a_merge_forgets_the_alias(delany_merge, library, tmp_path, capsys):
+    main(["fix", str(library / BABEL_ALIAS)])
+
+    assert main(["undo"]) == 0, "undo should succeed"
+
+    assert (library / BABEL_ALIAS).exists(), "the book is back in its own folder"
+    assert "Delany, Samuel\t" not in (tmp_path / "alfred-data" / "authors.tsv").read_text(), "an undone merge is no longer an alias"
+    capsys.readouterr()
+    main(["fix", "--dry-run"])
+    assert "Babel-17" not in capsys.readouterr().out, "and the planner does not try the move again on its own"
+
+
+def test_obvious_aliases_merge_without_a_model(delany_folders, library, monkeypatch, capsys):
+    monkeypatch.delenv("KOBOLD_ORACLE_URL")
+
+    assert main(["fix", str(library / BABEL_ALIAS)]) == 0, "a folder that only lacks a middle name is an obvious alias"
+
+    assert (library / BABEL_HOME).exists(), "the book joins the fuller spelling"
+
+
+def test_bare_fix_leaves_obvious_merges_alone(delany_folders, library, monkeypatch):
+    monkeypatch.delenv("KOBOLD_ORACLE_URL")
+
+    main(["fix"])
+
+    assert (library / BABEL_ALIAS).exists(), "an obvious merge still waits for ↩ on its row"
 
 
 def test_bare_fix_leaves_merges_alone(delany_merge, library, capsys):
@@ -892,3 +933,67 @@ def test_update_skips_the_model_steps_while_a_pass_runs(both_models, monkeypatch
 
     assert main(["update", "--no-thumbnails"]) == 0, "indexing still succeeds"
     assert not ask.called and not embed.called and "already" in capsys.readouterr().out, "the model steps wait for the next update"
+
+
+ZELAZNY_ALIAS = "01_Fiction/02_Sci-Fi/Желязни, Роджер/Желязни, Роджер - Володар Світла (2016).epub"
+ZELAZNY_HOME = "01_Fiction/02_Sci-Fi/Zelazny, Roger/Zelazny, Roger - Володар Світла (2016).epub"
+SHEVCHUK = "01_Fiction/02_Sci-Fi/Шевчук, Валерій/Шевчук, Валерій - Дім на горі (2016).epub"
+LATIN_GROUPS = {"groups": [{"canonical": "Zelazny, Roger", "aliases": ["Желязни, Роджер"]}]}
+
+
+@pytest.fixture
+def cyrillic_folders(env, library, capsys, monkeypatch) -> None:
+    author_epub(library / ZELAZNY_ALIAS, "Володар Світла", "Роджер Желязни")
+    author_epub(library / SHEVCHUK, "Дім на горі", "Шевчук Валерій")
+    monkeypatch.setenv("KOBOLD_ORACLE_URL", "http://127.0.0.1:8080")
+    main(["update"])
+    capsys.readouterr()
+
+
+def test_ask_authors_shows_the_model_a_title_per_folder(cyrillic_folders, capsys, mocker):
+    ask = mocker.patch("kobold.oracle.ask", return_value=LATIN_GROUPS)
+
+    main(["ask", "authors"])
+
+    lines = ask.call_args.args[1].splitlines()
+    assert "Желязни, Роджер · Володар Світла" in lines and "Шевчук, Валерій · Дім на горі" in lines, (
+        "a sample title per folder lets the model tell a translated author from a native one"
+    )
+    assert ask.call_args.args[0] == "authors", "it is the one authors question, not a new one"
+
+
+def test_a_lone_cyrillic_folder_can_merge_into_its_latin_name(cyrillic_folders, library, tmp_path, capsys):
+    store = oracle_store(tmp_path)
+    store.set("*", "authors", LATIN_GROUPS, "h")
+    store.save()
+
+    assert main(["fix", str(library / ZELAZNY_ALIAS)]) == 0, "↩ on the merge row applies it"
+
+    assert (library / ZELAZNY_HOME).exists(), "the book files under the English name, title untouched"
+    assert (library / SHEVCHUK).exists(), "a native author keeps the Cyrillic folder"
+    capsys.readouterr()
+    main(["fix", "--dry-run"])
+    assert "Володар" not in capsys.readouterr().out, "the alias keeps the book home afterwards"
+
+
+def test_embed_dry_run_ranks_latin_neighbours_of_each_cyrillic_folder(delany_folders, library, monkeypatch, mocker, capsys):
+    author_epub(library / ZELAZNY_ALIAS, "Володар Світла", "Роджер Желязни")
+    author_epub(library / "01_Fiction/02_Sci-Fi/Zelazny, Roger/Zelazny, Roger - Roadmarks (2016).epub", "Roadmarks", "Roger Zelazny")
+    monkeypatch.setenv("KOBOLD_EMBED_MODEL", "bge-m3")
+    vectors = {"Желязни, Роджер": [1.0, 0.0], "Zelazny, Roger": [0.98, 0.2], "Delany, Samuel Ray": [0.0, 1.0], "Delany, Samuel": [0.1, 1.0]}
+    mocker.patch("kobold.embedder.embed", side_effect=vectors.get)
+    main(["update"])
+    capsys.readouterr()
+
+    assert main(["ask", "authors", "--embed-dry-run"]) == 0, "the probe should run"
+
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[0] == "Желязни, Роджер", "each Cyrillic folder heads its own block"
+    assert lines[1].startswith("  0.98\tZelazny, Roger") and lines[2].startswith("  0.1") and "Delany" in lines[2], (
+        "Latin folders follow, nearest first, with their cosine score"
+    )
+
+
+def test_embed_dry_run_needs_an_embedding_model(delany_folders, capsys):
+    assert main(["ask", "authors", "--embed-dry-run"]) == 1, "without an embedding model there is nothing to probe with"
+    assert "embedding model" in capsys.readouterr().out, "the reason is reported"

@@ -6,13 +6,14 @@ from pathlib import Path
 
 from kobold import embedder, oracle
 from kobold.alfred import counted
+from kobold.cyrillic import is_cyrillic
 from kobold.evidence import evidence_for, evidence_hash
 from kobold.index import EVERYTHING, Index
 from kobold.lint import is_noisy, looks_opaque
 from kobold.metadata import READERS
 from kobold.model import Row
 from kobold.suggestions import LIBRARY, SuggestionStore
-from kobold.vectors import VectorStore
+from kobold.vectors import VectorStore, cosine
 
 EMBED_CHARS = 1500
 
@@ -88,17 +89,28 @@ def ask_one(question: Question, row: Row, store: SuggestionStore, force: bool, a
         asked.suggested += 1
 
 
+SAMPLE_TITLES = 3
+
+
 def author_folder_names(rows: list[Row]) -> list[str]:
     return sorted({name for r in rows if "," in (name := Path(r.folder).name)})
 
 
+def author_samples(rows: list[Row]) -> dict[str, list[str]]:
+    titles: dict[str, set[str]] = {name: set() for name in author_folder_names(rows)}
+    for row in rows:
+        if (name := Path(row.folder).name) in titles and row.title:
+            titles[name].add(row.title)
+    return {name: sorted(found)[:SAMPLE_TITLES] for name, found in titles.items()}
+
+
 def ask_authors(rows: list[Row], store: SuggestionStore, force: bool) -> Asked:
-    asked, names = AskedLibrary(), author_folder_names(rows)
-    digest = evidence_hash(oracle.authors_evidence(names))
-    if not names or (not force and not store.stale(LIBRARY, "authors", digest)):
+    asked, samples = AskedLibrary(), author_samples(rows)
+    digest = evidence_hash(oracle.authors_evidence(samples))
+    if not samples or (not force and not store.stale(LIBRARY, "authors", digest)):
         return asked
     asked.books = 1
-    groups = oracle.author_groups(names)
+    groups = oracle.author_groups(samples)
     if groups is None:
         asked.skipped = 1
         return asked
@@ -162,3 +174,26 @@ def embed_summary(embedded: Embedded, nothing_to_do: bool) -> str:
         return "Every book is embedded"
     skipped = f", skipped {embedded.skipped}" if embedded.skipped else ""
     return f"Embedded {counted(embedded.done, 'book')}{skipped}"
+
+
+NEIGHBOURS = 3
+
+
+def folder_vectors(names: list[str]) -> dict[str, list[float]]:
+    found = ((name, embedder.embed(name)) for name in names)
+    return {name: vector for name, vector in found if vector is not None}
+
+
+def nearest_latin(name: str, vectors: dict[str, list[float]]) -> list[tuple[float, str]]:
+    latin = [other for other in vectors if not is_cyrillic(other)]
+    ranked = sorted(((cosine(vectors[name], vectors[other]), other) for other in latin), reverse=True)
+    return ranked[:NEIGHBOURS]
+
+
+def embedding_probe(rows: list[Row]) -> str:
+    vectors = folder_vectors(author_folder_names(rows))
+    blocks = []
+    for name in sorted(filter(is_cyrillic, vectors)):
+        neighbours = "\n".join(f"  {score:.2f}\t{other}" for score, other in nearest_latin(name, vectors))
+        blocks.append(f"{name}\n{neighbours}" if neighbours else f"{name}\n  (no Latin folders to compare with)")
+    return "\n".join(blocks)

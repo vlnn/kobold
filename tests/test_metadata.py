@@ -74,7 +74,7 @@ def test_fb2_metadata(fb2_file: Path):
     book = read_book(fb2_file, fb2_file.parent)
 
     assert book.title == "Оперантное поведение", "fb2 title should come from book-title"
-    assert book.authors == ["Беррес Фредерик Скиннер"], "fb2 author should join name parts"
+    assert book.authors == ["Скиннер, Беррес Фредерик"], "fb2 name parts give the sort form directly"
     assert book.language == "ru", "fb2 language should come from lang"
     assert book.series == "Психология", "fb2 series should come from sequence name"
     assert book.series_index == "3", "fb2 series index should come from sequence number"
@@ -162,3 +162,53 @@ def test_partial_download_is_not_judged(tmp_path: Path):
     path.write_bytes(b"half a zip")
 
     assert read_book(path, tmp_path).broken is False, "a partial download is incomplete, not broken"
+
+
+def test_fb2_swapped_name_tags_are_put_right(tmp_path, fb2_file):
+    swapped = fb2_file.read_text(encoding="utf-8").replace(
+        "<first-name>Беррес</first-name><middle-name>Фредерик</middle-name><last-name>Скиннер</last-name>",
+        "<first-name>Желязни</first-name><last-name>Роджер</last-name>",
+    )
+    path = tmp_path / "zelazny.fb2"
+    path.write_text(swapped, encoding="utf-8")
+
+    book = read_book(path, tmp_path)
+
+    assert book.authors == ["Желязни, Роджер"], "a given name in the last-name tag means the tags are swapped"
+
+
+def test_epub_file_as_wins_over_the_display_name(tmp_path, epub_file):
+    import zipfile
+
+    from tests.conftest import CONTAINER, OPF, PNG_1X1
+
+    opf = OPF.replace("<dc:creator>Cal Newport</dc:creator>", '<dc:creator opf:file-as="Newport, Cal">Cal Newport</dc:creator>')
+    opf = opf.replace("<package xmlns=", '<package xmlns:opf="http://www.idpf.org/2007/opf" xmlns=')
+    path = tmp_path / "file-as.epub"
+    with zipfile.ZipFile(path, "w") as zf:
+        zf.writestr("META-INF/container.xml", CONTAINER)
+        zf.writestr("OEBPS/content.opf", opf)
+        zf.writestr("OEBPS/images/cover.png", PNG_1X1)
+
+    book = read_book(path, tmp_path)
+
+    assert book.authors[0] == "Newport, Cal", "the file-as attribute is the catalogue's own sort name"
+
+
+def test_epub3_refined_file_as_is_used(tmp_path):
+    import zipfile
+
+    from tests.conftest import CONTAINER, OPF, PNG_1X1
+
+    opf = OPF.replace("<dc:creator>Cal Newport</dc:creator>", '<dc:creator id="c1">Роджер Желязни</dc:creator>').replace(
+        "</metadata>", '<meta refines="#c1" property="file-as">Zelazny, Roger</meta></metadata>'
+    )
+    path = tmp_path / "refines.epub"
+    with zipfile.ZipFile(path, "w") as zf:
+        zf.writestr("META-INF/container.xml", CONTAINER)
+        zf.writestr("OEBPS/content.opf", opf)
+        zf.writestr("OEBPS/images/cover.png", PNG_1X1)
+
+    book = read_book(path, tmp_path)
+
+    assert book.authors[0] == "Zelazny, Roger", "an EPUB 3 file-as refinement is the sort name too"

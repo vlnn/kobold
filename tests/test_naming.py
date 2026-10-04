@@ -12,7 +12,7 @@ from tests.test_alfred import row
         ("Rowan Teague; Petra Marlowe", "Teague, Rowan"),
         ("Morwenna O'Hare", "O'Hare, Morwenna"),
         ("Harriet V. Okonkwo", "Okonkwo, Harriet V."),
-        ("Тіґ Ровен", "Тіґ, Ровен"),
+        ("Тіґ Ровен", "Ровен, Тіґ"),
         ("Plato", "Plato"),
         ("Petra Marlowe (ed)", "Marlowe, Petra"),
         ("Marlowe, Petra (eds.)", "Marlowe, Petra"),

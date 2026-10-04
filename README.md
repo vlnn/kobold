@@ -1,16 +1,31 @@
 # kobold
 
-*kobo + alfred.* A small creature that hoards books on an SD card.
+*kobo + alfred.* A small creature that hoards ebooks in your directories in properly arranged gleamy stacks.
 
-Type `kb` in Alfred, see your library with covers, press ↩ to read. Then let it tidy the library for you: file every book under `genre / Author, Name / Series / Author - Title (Year).epub`, set duplicates and junk aside, and undo if you don't like the result. Nothing is deleted except a file that is byte-for-byte already at its destination.
+## The problem
 
-The library is a folder on your Mac. Everything the workflow writes stays inside that folder (plus its own index next to Alfred's data); it doesn't talk to the Kobo. Keep the folder in sync with the device however you like (Syncthing, a mounted SD card, rsync) and point the workflow at the Mac side.
+Imagine you have a big library of ebooks, which in real world mean a folder with unstructured subfolders like `New folder` and `To read 2027`. Lots of `epubs`, `fb2`, `pdfs` inside. Every time you want to read the book you have to find it first, and you don't wanna waste time, so you go and download it again, optionally pushing it in the same heap again. Sometimes you decide make it neat and structured, move files around for couple hours, understand how hard it is to categorize or tag real stuff, and then just leave as is until next time. No problems I was there.
+
+
+## Proposed solution
+
+If you use Alfred.app you tend to see everything as a Alfred workflow, e.g. semi-automatic process initiated by user. `How much is 3 hours in seconds?` No worries: `<C P> =3*60*60`. In general, Alfred is great where you need to quickly search or calculate something. It's like single entry point for your actions if you're in MacOS.
+
+Now how we use it for sorting our infamouse library? We don't. We govern small subset of the library: the ereader. The idea is to quickly search for the book you need and import it into your ereader. We use search (like "google" in web or like "prompt" in LLM) to pull the needed info from the pool of unstructured information and getting it into the focus well of ereader. In principle, you don't need more than 7 books at same time in your kindle if you're not a lawyer or elementary teacher -- they need lots of info to refer to. Normal people are reading 3-10 books at the same time and then happily forget what's that about so it's possible to reread them later.
+
+## Demo
+
+Type `kb` in Alfred, and immediately see latest books added to your library with covers, press ↩ to read in Books.app or whatever app you have connected to the book file (I propose Koreader, but it is a bit hard to setup). Yes, this is the book you want to read on your ereader, right. Input `kbi` or `kb import` (optionally with book-related input, that will help to filter it out), press ↩ and the books has been copied into the folder you associate with the ereader. 
+
+Then let it tidy the reading list for you: `kb fix` to move every file imported into ereader previously into neat structure of `genre / Author, Name / Series / Author - Title (Year).epub`, set duplicates and junk aside, and undo if you don't like the result. Nothing is deleted except a file that is byte-for-byte already at its destination.
+
+The reading list is a folder on your Mac. Everything the workflow writes stays inside that folder (plus its own index next to Alfred's data); it doesn't talk to the Kobo. Keep the folder in sync with the device however you like (Syncthing, a mounted SD card, rsync) and point the workflow at the Mac side.
 
 ```
 kb delany epub            →  Delany, Samuel R. - Dhalgren (1975) · EPUB 1.2 MB · 01_Fiction/02_Sci-Fi/…
 kb fix                    →  Fix all 14 · 9 moves · 4 to _trash · 1 to _dups
 kb classify               →  pick a genre, the book moves home
-kb src heinlein           →  import from Calibre / Downloads into the inbox
+kbi heinlein epub         →  import all heinlein's epubs (but not PDFs as you filtered the with epub clause) from Calibre / Downloads into the reading inbox
 ```
 
 ## Install (three minutes)
@@ -133,7 +148,9 @@ kb src heinlein             books in the sources that are NOT already in the lib
    ↩ on Import all          every row shown
 ```
 
-Books already in the library (by content fingerprint, not by name) are hidden, so `kb src` is always "what am I missing". Import *copies*; the source keeps its file. The destination is your existing inbox folder (any top-level folder whose name is `inbox` after the `NN_` prefix, e.g. `00_Inbox`), or `_inbox/` if there is none. Unreadable and `.part` files are refused.
+Unlike other listings, `kb src` is not cut to 40 rows: every new book from every source is listed, newest first, so **Import all** really is all.
+
+Books already in the library (by content fingerprint, not by name) are hidden, so `kb src` is always "what am I missing"; when every match is a library copy the row says so instead of "no books match", and `kb stats` shows one row per source with how many of its books are new. Import *copies*; the source keeps its file. The destination is your existing inbox folder (any top-level folder whose name is `inbox` after the `NN_` prefix, e.g. `00_Inbox`), or `_inbox/` if there is none. Unreadable and `.part` files are refused.
 
 ## Walkthrough 4: let a local model do the reading
 
@@ -156,7 +173,7 @@ kb fix 7_815203                               Dismiss suggestions for this book
 
 What the model sees is the book's metadata, its `dc:subject`/`dc:description` (fb2: `genre`/`annotation`), the first two thousand characters of its text and, for a genre question, the list of known genres; `kobold ask --dry-run` prints exactly that. Every answer is constrained by a JSON schema (a genre is one of the known genres or `none`), stored in `oracle.tsv` keyed by content fingerprint and the hash of the evidence, and kept until the evidence changes, so re-indexing, renaming or moving a book costs nothing. Setting a genre, applying a suggested rename, or dismissing a book forgets its answers. `oracle.log` keeps the last 500 exchanges for *why did it say that*.
 
-Suggested operations in `kb fix` apply only when you ↩ on their row (or name the file on the command line): **Fix all**, a bare `kobold fix` and `--dry-run` stay certain-only. A merge moves books from the alias folders into the canonical one; if a book's embedded author still reads the alias spelling, the planner may later offer to move it back, because folders are derived from metadata — give it a genre with ⇧↩ and look at the row before accepting.
+Suggested operations in `kb fix` apply only when you ↩ on their row (or name the file on the command line): **Fix all**, a bare `kobold fix` and `--dry-run` stay certain-only. A merge moves books from the alias folders into the canonical one and renames them to the canonical spelling, and the alias is written down in `authors.tsv`, so a book whose embedded author still reads the alias spelling stays home from then on; undoing the merge forgets the alias again. Folders that are plainly one person — the same surname with and without a middle name or initial (`Delany, Samuel` / `Delany, Samuel R`), a lifespan suffix (`Illich, Ivan, 1926-2002`), or an inverted twin that holds fewer books (`Ann, Leckie` / `Leckie, Ann`) — are offered as merges even with no model; the model adds the cases a rule can't see. It is shown every author folder with a few of its titles and answers with one canonical name per group: an author who wrote in Ukrainian or Russian keeps the Cyrillic name in its Ukrainian form, everyone else gets the usual English-language name — so `Желязни, Роджер` becomes a merge into `Zelazny, Roger` even when it is the only folder for that author, and `Азімов, Айзек` and `Азимов, Айзек` both land in `Asimov, Isaac`. Titles keep their own language: `Zelazny, Roger - Володар Світла (2025).epub`.
 
 Embeddings need a model made for them, served with `--embeddings`; the chat model that answers the questions cannot do it (the server answers 501 if asked), and a chat server started with `--embeddings` would pool its hidden states into poor vectors. The usual setup is a second server on its own port, pointed at by **Embedding server**:
 
@@ -224,15 +241,15 @@ Moves and renames also carry each book's `.sdr` sidecar along and rewrite the pa
 
 The folder tree is what the Kobo shows, so the tool keeps it meaning exactly one thing: **genre → author → series**.
 
-- Genre is the first two folder levels with their order prefixes stripped: `01_Fiction/02_Sci-Fi_Fantasy/…` → `fiction/sci-fi_fantasy`. Books under `inbox`, `archives`, `_inbox`, `_dups`, `_trash` or `_broken` have no genre and show up in `kb inbox`.
-- Author folders are `Surname, Given`. Existing folders win: if you already have `Le Guin, Ursula K.`, that spelling is reused.
+- Genre is the first two folder levels with their order prefixes stripped: `01_Fiction/02_Sci-Fi_Fantasy/…` → `fiction/sci-fi_fantasy`. A folder that looks like an author (`Surname, Given` or `Given Surname`) ends the genre early, so `programming/Dietrich, Erik/…` is genre `programming` with the author straight under it. Books under `inbox`, `archives`, `_inbox`, `_dups`, `_trash` or `_broken` have no genre and show up in `kb inbox`.
+- Author folders are `Surname, Given`. An epub's `file-as` sort name and an fb2's name tags are taken as they are; a plain `Given Surname` string is split by rule, and for Cyrillic names the rule knows a few hundred given names, patronymics and surname endings, so `Роджер Желязни` and `Шевчук Валерій` both file under the surname. Existing folders win: if you already have `Le Guin, Ursula K.`, that spelling is reused. Aliases you have accepted through a merge (`authors.tsv`) win over the metadata: once `Delany, Samuel` is an alias of `Delany, Samuel R`, every book that names the shorter form files under the longer one.
 - A series gets its own folder only when the library holds more than one book of it.
 - Canonical file name: `Surname, Given - Title (Series 03) (Year).epub`, FAT-safe, ≤ 255 bytes.
 - Genres live in `genres.tsv` keyed by a content fingerprint, so they survive renames and moves. `kb update` bootstraps a genre for every book from its folder, never overwriting one you set.
 
 ## Where things are
 
-Index (`library.db`, `sources.db`), `covers/`, `genres.tsv`, the model's answers (`oracle.tsv`, `oracle.log`), `vectors.db` and the undo journal (`journal.jsonl`) live in Alfred's workflow data folder, `~/Library/Application Support/Alfred/Workflow Data/com.anokhin.kobold`, which survives workflow updates and cache clears. Override with **Index folder**.
+Index (`library.db`, `sources.db`), `covers/`, `genres.tsv`, `authors.tsv`, the model's answers (`oracle.tsv`, `oracle.log`), `vectors.db` and the undo journal (`journal.jsonl`) live in Alfred's workflow data folder, `~/Library/Application Support/Alfred/Workflow Data/com.anokhin.kobold`, which survives workflow updates and cache clears. Override with **Index folder**.
 
 **Upgrading from kobo-alfred:** the workflow was called Kobo Library and its data lived under `com.anokhin.kobolib`. The first run of Kobold renames that folder to `com.anokhin.kobold`, so the index, covers and genres carry over. Workflow settings don't: Alfred keys them by bundle id, so set **Library root** (and any model settings) again. Terminal variables moved from `KOBO_*` to `KOBOLD_*`.
 
@@ -256,6 +273,7 @@ uv run kobold genre "$KOBOLD_ROOT/00_Inbox/nova.epub" fiction/sci-fi
 uv run kobold import ~/Downloads/babel-17.epub
 uv run kobold undo
 uv run kobold ask [genre|name|authors] [<words>]   # --force re-asks, --dry-run prints the evidence
+uv run kobold ask authors --embed-dry-run          # each Cyrillic author folder with its 3 nearest Latin folders by embedding
 uv run kobold dismiss <fingerprint-or-path>
 uv run kobold embed [<words>]                      # --force re-embeds
 uv run kobold models

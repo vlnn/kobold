@@ -2,11 +2,15 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from pathlib import Path
+from types import MappingProxyType
 
-from kobold.filenames import EDITOR, STOPWORDS
-from kobold.genres import genre_from_folder
+from kobold import cyrillic
+from kobold.authors import alias_key
+from kobold.filenames import EDITOR
+from kobold.genres import genre_from_folder, looks_like_person
 from kobold.model import Row
 from kobold.scan import PARTIAL_SUFFIX
 
@@ -15,29 +19,19 @@ SPACES = re.compile(r"\s+")
 INDEX_PART = re.compile(r"\d+")
 MAX_NAME_BYTES = 255
 LEADING_ARTICLE_TITLE = re.compile(r"^(?:The|A|An)\s+")
+NO_ALIASES: Mapping[str, str] = MappingProxyType({})
 
 
 def first_author(authors: str) -> str:
     return EDITOR.sub("", authors.split(";")[0]).strip()
 
 
-CYRILLIC = re.compile(r"^[\u0400-\u04FF\s\-'’.]+$")
-PATRONYMIC = re.compile(r"(?:ович|евич|йович|ич|овна|евна|ївна|івна)$", re.I)
-WESTERN_FIRST_NAMES = {"артур", "александр", "чарлз", "чарльз", "роберт", "джон", "джеймс", "ада", "дэниел"}
-
-
-def cyrillic_surname_first(tokens: list[str]) -> bool:
-    if PATRONYMIC.search(tokens[-1]):
-        return True
-    return len(tokens) == 2 and tokens[0].lower() not in WESTERN_FIRST_NAMES
-
-
 def surname_first(author: str) -> str:
     if "," in author or " " not in author:
         return author
     tokens = author.split()
-    if CYRILLIC.match(author) and cyrillic_surname_first(tokens):
-        return f"{tokens[0]}, {' '.join(tokens[1:])}"
+    if cyrillic.is_cyrillic(author):
+        return cyrillic.surname_first(tokens)
     *given, surname = tokens
     return f"{surname}, {' '.join(given)}"
 
@@ -48,9 +42,13 @@ def resolve_known(candidate: str, known: frozenset[str]) -> str:
     return twin if twin in known and candidate not in known else candidate
 
 
-def author_folder(authors: str, known: frozenset[str] = frozenset()) -> str:
+def resolve_alias(candidate: str, aliases: Mapping[str, str]) -> str:
+    return aliases.get(alias_key(candidate), candidate)
+
+
+def author_folder(authors: str, known: frozenset[str] = frozenset(), aliases: Mapping[str, str] = NO_ALIASES) -> str:
     candidate = surname_first(first_author(authors))
-    return resolve_known(candidate, known) if candidate else ""
+    return resolve_alias(resolve_known(candidate, known), aliases) if candidate else ""
 
 
 def pad_index(index: str) -> str:
@@ -71,8 +69,8 @@ def extension(row: Row) -> str:
     return f".{row.format}{PARTIAL_SUFFIX if row.partial else ''}"
 
 
-def stem_for(row: Row, known: frozenset[str] = frozenset()) -> str:
-    author = author_folder(row.authors, known)
+def stem_for(row: Row, known: frozenset[str] = frozenset(), aliases: Mapping[str, str] = NO_ALIASES) -> str:
+    author = author_folder(row.authors, known, aliases)
     head = f"{author} - {row.title}" if author else row.title
     return f"{head}{series_part(row)}{year_part(row)}"
 
@@ -93,13 +91,8 @@ def fat_safe(name: str) -> str:
     return truncate_bytes(stem, MAX_NAME_BYTES - len(suffix.encode())) + suffix
 
 
-def canonical_name(row: Row, known: frozenset[str] = frozenset()) -> str:
-    return fat_safe(stem_for(row, known) + extension(row))
-
-
-def looks_like_person(name: str) -> bool:
-    tokens = name.split()
-    return 2 <= len(tokens) <= 3 and all(t[0].isupper() for t in tokens) and not any(t.lower() in STOPWORDS for t in tokens)
+def canonical_name(row: Row, known: frozenset[str] = frozenset(), aliases: Mapping[str, str] = NO_ALIASES) -> str:
+    return fat_safe(stem_for(row, known, aliases) + extension(row))
 
 
 def known_authors(folders: set[str]) -> set[str]:
@@ -115,6 +108,7 @@ def depth(folder: str) -> int:
 class Shelves:
     authors: frozenset[str]
     genre_homes: dict[str, str]
+    aliases: Mapping[str, str] = field(default_factory=dict)
 
 
 def genre_homes(folders: set[str]) -> dict[str, str]:
@@ -125,8 +119,8 @@ def genre_homes(folders: set[str]) -> dict[str, str]:
     return {genre: min(candidates, key=lambda f: (depth(f), f)) for genre, candidates in homes.items()}
 
 
-def shelves(folders: set[str]) -> Shelves:
-    return Shelves(frozenset(known_authors(folders)), genre_homes(folders))
+def shelves(folders: set[str], aliases: Mapping[str, str] = NO_ALIASES) -> Shelves:
+    return Shelves(frozenset(known_authors(folders)), genre_homes(folders), aliases)
 
 
 def genre_root(genre: str, layout: Shelves) -> str:
@@ -144,7 +138,7 @@ def series_folder_name(series: str) -> str:
 
 def destination_folder(row: Row, genre: str, layout: Shelves, series_count: int) -> str:
     parts = [genre_root(genre, layout)]
-    if author := author_folder(row.authors, layout.authors):
+    if author := author_folder(row.authors, layout.authors, layout.aliases):
         parts.append(fat_safe(author))
     if row.series and series_count > 1:
         parts.append(fat_safe(series_folder_name(row.series)))
@@ -152,4 +146,4 @@ def destination_folder(row: Row, genre: str, layout: Shelves, series_count: int)
 
 
 def destination(row: Row, genre: str, layout: Shelves, series_count: int) -> str:
-    return f"{destination_folder(row, genre, layout, series_count)}/{canonical_name(row, layout.authors)}"
+    return f"{destination_folder(row, genre, layout, series_count)}/{canonical_name(row, layout.authors, layout.aliases)}"

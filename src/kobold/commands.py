@@ -21,7 +21,6 @@ from kobold.config import (
     library_root,
     oracle_model,
     oracle_url,
-    sources,
     sources_db_path,
     sources_index,
     suggestion_store,
@@ -31,6 +30,7 @@ from kobold.genres import GenreStore
 from kobold.history import last_opened
 from kobold.index import EVERYTHING, Index, index_busy, is_current
 from kobold.library import (
+    SourceCount,
     concerning,
     diagnosis,
     is_merge,
@@ -38,6 +38,7 @@ from kobold.library import (
     merge_target,
     not_in_library,
     pending_operations,
+    source_counts,
     suggested_operations,
     unclassified_rows,
 )
@@ -254,10 +255,19 @@ def genre_picker_items(typed: str, books: list[str]) -> list[dict]:
     return [picker_header(rows, store), *(choices or fallback)]
 
 
+def nothing_new_item(words: list[str], held: int) -> dict:
+    if not held:
+        return alfred.empty_item(" ".join(words))
+    what = counted(held, "book matches", "books match") if words else counted(held, "book")
+    where = f" ‘{' '.join(words)}’" if words else " in the sources"
+    return alfred.message_item(f"{what}{where}, already in the library", "kb src shows only what the library does not hold")
+
+
 def source_items(words: list[str]) -> list[dict]:
-    rows = not_in_library(sources_index().search(words))
-    items = [alfred.source_item(r) for r in rows]
-    return headed([alfred.import_all_item(rows)], items, len(rows)) or [alfred.empty_item(" ".join(words))]
+    found = sources_index().search(words, limit=EVERYTHING)
+    fresh = not_in_library(found)
+    items = [alfred.source_item(r) for r in fresh]
+    return headed([alfred.import_all_item(fresh)], items, len(fresh)) or [nothing_new_item(words, len(found))]
 
 
 def sources_items(words: list[str]) -> list[dict]:
@@ -280,11 +290,15 @@ def stats_items() -> list[dict]:
     ]
 
 
+def source_stats_item(count: SourceCount) -> dict:
+    title = f"{count.new} new of {counted(count.total, 'book')} in {count.source.name}"
+    return alfred.navigation_item(title, f"{count.source} · ↩ searches it", f"src {count.source.name} ")
+
+
 def sources_stats_items() -> list[dict]:
     if index_problem(sources_db_path()):
         return []
-    count = sources_index().count()
-    return [alfred.navigation_item(f"{counted(count, 'book')} in {counted(len(sources()), 'source')}", "↩ searches them", "src ")]
+    return [source_stats_item(c) for c in source_counts(sources_index().everything())]
 
 
 def all_stats_items(words: list[str]) -> list[dict]:
