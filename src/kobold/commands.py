@@ -21,14 +21,12 @@ from kobold.config import (
     library_root,
     oracle_model,
     oracle_url,
-    sources_db_path,
-    sources_index,
     suggestion_store,
     vector_store,
 )
 from kobold.genres import GenreStore
 from kobold.history import last_opened
-from kobold.index import EVERYTHING, Index, index_busy, is_current
+from kobold.index import EVERYTHING, LIBRARY, Index, index_busy, is_current
 from kobold.library import (
     SourceCount,
     concerning,
@@ -55,10 +53,6 @@ def index_problem(path: Path | None = None, what: str = "Index") -> str:
     if not is_current(path):
         return f"{what} is from an older version"
     return ""
-
-
-def stale_index() -> bool:
-    return db_path().exists() and not is_current(db_path())
 
 
 EMPTY_INDEX = "Index is empty — is the library folder there? On a removable volume Alfred needs Removable Volumes access"
@@ -264,17 +258,16 @@ def nothing_new_item(words: list[str], held: int) -> dict:
 
 
 def source_items(words: list[str]) -> list[dict]:
-    found = sources_index().search(words, limit=EVERYTHING)
-    fresh = not_in_library(found)
+    fresh, held = not_in_library(words)
     items = [alfred.source_item(r) for r in fresh]
-    return headed([alfred.import_all_item(fresh)], items, len(fresh)) or [nothing_new_item(words, len(found))]
+    return headed([alfred.import_all_item(fresh)], items, len(fresh)) or [nothing_new_item(words, held)]
 
 
 def sources_items(words: list[str]) -> list[dict]:
-    if stale_index():
+    if index_problem():
         return without_index_items()
-    if problem := index_problem(sources_db_path(), "Sources index"):
-        return [alfred.message_item(problem, "Set KOBOLD_SOURCES, then kb update")]
+    if not library_index().count(LIBRARY):
+        return [alfred.message_item("No sources indexed", "Set KOBOLD_SOURCES, then kb update")]
     return source_items(words)
 
 
@@ -296,9 +289,7 @@ def source_stats_item(count: SourceCount) -> dict:
 
 
 def sources_stats_items() -> list[dict]:
-    if index_problem(sources_db_path()):
-        return []
-    return [source_stats_item(c) for c in source_counts(sources_index().everything())]
+    return [source_stats_item(c) for c in source_counts()]
 
 
 def all_stats_items(words: list[str]) -> list[dict]:

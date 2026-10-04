@@ -13,6 +13,7 @@ BASE_ROW = {
     "folder": "02_NonFiction",
     "rel_path": "02_NonFiction/x.epub",
     "root": "/lib",
+    "place": "vault",
     "format": "epub",
     "partial": False,
     "language": "en",

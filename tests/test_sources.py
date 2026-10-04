@@ -1,22 +1,11 @@
 import json
 import os
-import zipfile
 from pathlib import Path
 
 import pytest
 
 from kobold.cli import main
-from tests.conftest import CONTAINER, OPF, PNG_1X1
-
-
-def write_epub(path: Path, title: str) -> Path:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with zipfile.ZipFile(path, "w") as zf:
-        zf.writestr("mimetype", "application/epub+zip")
-        zf.writestr("META-INF/container.xml", CONTAINER)
-        zf.writestr("OEBPS/content.opf", OPF.replace("Deep Work", title))
-        zf.writestr("OEBPS/images/cover.png", PNG_1X1)
-    return path
+from tests.conftest import write_epub
 
 
 @pytest.fixture
@@ -61,13 +50,13 @@ def titles(capsys) -> list[str]:
     return [i["title"] for i in output(capsys)["items"] if i.get("uid") != "src:import-all"]
 
 
-def test_update_builds_a_separate_sources_index(env, tmp_path, capsys):
+def test_update_counts_the_sources_in_the_one_index(env, tmp_path, capsys):
     capsys.readouterr()
     assert main(["update"]) == 0, "updating with sources configured should succeed"
-    assert "Indexed 3 books from 2 sources" in capsys.readouterr().out, "the summary should count books and sources"
-    assert (tmp_path / "alfred-data" / "sources.db").exists(), "sources get their own index file"
+    assert "and 3 from 2 sources" in capsys.readouterr().out, "the one summary should count books and sources"
+    assert not (tmp_path / "alfred-data" / "sources.db").exists(), "sources share books.db"
     main(["search", "slow"])
-    assert titles(capsys)[0].startswith("No books match"), "source books must not leak into the library index"
+    assert titles(capsys)[0].startswith("No books match"), "source books must not leak into the device search"
 
 
 @pytest.mark.parametrize(
@@ -98,10 +87,12 @@ def test_import_refuses_broken_file(env, downloads, capsys):
     assert "unreadable" in capsys.readouterr().out, "the reason should be reported"
 
 
-def test_sources_search_before_index_explains(env, capsys, tmp_path):
-    (tmp_path / "alfred-data" / "sources.db").unlink()
+def test_sources_search_before_index_explains(env, capsys, tmp_path, monkeypatch):
+    monkeypatch.setenv("KOBOLD_SOURCES", "")
+    main(["update"])
+    capsys.readouterr()
     main(["search", "src slow"])
-    assert output(capsys)["items"][0]["title"] == "No sources index yet", "searching sources without an index should tell how to build it"
+    assert output(capsys)["items"][0]["title"] == "No sources indexed", "searching sources without any should tell how to get them"
 
 
 def test_sources_hides_books_already_in_library(env, capsys):
@@ -121,15 +112,13 @@ def test_sources_empty_query_hides_library_copies_too(env, capsys):
     assert "Deep Work" not in titles(capsys), "the newest-first listing should skip what the library already holds"
 
 
-def test_update_also_rebuilds_the_sources_index(env, tmp_path, capsys):
-    (tmp_path / "alfred-data" / "sources.db").unlink(missing_ok=True)
+def test_update_reports_both_counts_in_one_line(env, tmp_path, capsys):
     capsys.readouterr()
 
     assert main(["update"]) == 0, "index should succeed"
 
-    out = capsys.readouterr().out
-    assert "Indexed 4 books from" in out and "Indexed 3 books from 2 sources" in out, "one command reports both indexes"
-    assert (tmp_path / "alfred-data" / "sources.db").exists(), "the sources index should be rebuilt alongside the library"
+    (first, *_) = capsys.readouterr().out.splitlines()
+    assert first.startswith("Indexed 4 books from") and "and 3 from 2 sources" in first, "one build, one notification"
 
 
 def test_update_without_sources_stays_quiet_about_them(env, capsys, monkeypatch):
@@ -268,7 +257,7 @@ def test_import_creates_inbox_when_library_has_none(env, library, calibre, capsy
 
 
 def test_import_is_refused_while_indexing(env, tmp_path, calibre, capsys):
-    (tmp_path / "alfred-data" / "library.lock").write_text("1")
+    (tmp_path / "alfred-data" / "books.lock").write_text("1")
     assert main(["import", str(calibre / "Misc" / "A World Without Email.epub")]) == 1, "import must not write to a database being rebuilt"
 
 

@@ -83,7 +83,7 @@ def test_without_an_index_one_row_offers_to_build_it(env, query):
 
 
 def test_an_index_from_an_older_version_offers_a_rebuild(indexed, tmp_path):
-    with sqlite3.connect(tmp_path / "alfred-data" / "library.db") as conn:
+    with sqlite3.connect(tmp_path / "alfred-data" / "books.db") as conn:
         conn.execute("PRAGMA user_version = 0")
 
     items = search_items("deep")
@@ -474,7 +474,7 @@ def test_picker_without_a_known_book_explains(indexed, books):
 
 
 def test_update_row_says_when_an_update_is_running(indexed, tmp_path):
-    (tmp_path / "alfred-data" / "library.lock").write_text("1")
+    (tmp_path / "alfred-data" / "books.lock").write_text("1")
 
     (row,) = command_rows("update")
 

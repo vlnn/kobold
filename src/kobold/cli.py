@@ -41,7 +41,6 @@ from kobold.config import (
     library_root,
     model_on_update,
     selected_books,
-    sources,
     suggestion_store,
     vector_store,
 )
@@ -60,7 +59,6 @@ from kobold.library import (
     refresh_index,
     row_by_reference,
     run_index,
-    run_index_sources,
     set_genres,
     transfer,
     trash_operations,
@@ -103,8 +101,6 @@ def cmd_update(args) -> int:
     report(message + (inbox_note() if code == 0 else ""), args.notify)
     if code != 0:
         return code
-    if sources():
-        report(run_index_sources()[1], args.notify)
     if not args.no_thumbnails:
         report(f"Generated {fill_thumbnails(library_index(), covers_dir())} PDF covers", args.notify)
     if model_on_update():

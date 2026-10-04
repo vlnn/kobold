@@ -2,14 +2,33 @@ from pathlib import Path
 
 import pytest
 
-from kobold.index import Index, build_index
+from kobold.index import DEVICE, LIBRARY, Index, build_index, fold
 from kobold.query import query_words
+from tests.conftest import write_epub
 
 
 @pytest.fixture
 def index(library: Path, tmp_path: Path) -> Index:
-    db = tmp_path / "cache" / "library.db"
-    build_index(library, db, cover_cache=tmp_path / "cache" / "covers")
+    db = tmp_path / "cache" / "books.db"
+    build_index(library, [], db, cover_cache=tmp_path / "cache" / "covers")
+    return Index(db, library)
+
+
+@pytest.fixture
+def shelf(tmp_path_factory) -> Path:
+    root = tmp_path_factory.mktemp("elsewhere") / "Calibre Library"
+    write_epub(root / "Newport, Cal" / "Slow Productivity.epub", "Slow Productivity")
+    return root
+
+
+@pytest.fixture
+def everywhere(library: Path, shelf: Path, tmp_path: Path) -> Index:
+    (library / "00_Nook").mkdir()
+    write_epub(library / "00_Nook" / "Nook Book.epub", "Nook Book")
+    shelved = shelf / "Newport, Cal" / "Slow Productivity.epub"
+    (library / "02_NonFiction" / "Slow Productivity.epub").write_bytes(shelved.read_bytes())
+    db = tmp_path / "cache" / "books.db"
+    build_index(library, [shelf], db, cover_cache=tmp_path / "cache" / "covers")
     return Index(db, library)
 
 
@@ -87,7 +106,7 @@ def test_partials_lists_oldest_first(index: Index, library: Path):
     older = library / "00_Inbox" / "Older Download.pdf.part"
     older.write_bytes(b"")
     os.utime(older, (1, 1))
-    build_index(library, index.db_path, cover_cache=library / "c")
+    build_index(library, [], index.db_path, cover_cache=library / "c")
 
     assert titles(index.partials(query_words(""))) == ["Older Download", "Nova"], "unfinished downloads should be listed oldest first"
 
@@ -102,7 +121,7 @@ def test_empty_query_lists_recent_first(index: Index, library: Path):
 
     newest = library / "00_Inbox" / "Napkin.pdf"
     os.utime(newest, (time.time() + 100, time.time() + 100))
-    build_index(library, index.db_path, cover_cache=library / "c")
+    build_index(library, [], index.db_path, cover_cache=library / "c")
 
     assert titles(index.search(query_words("")))[0] == "Napkin", "empty query should list most recently added first"
 
@@ -115,7 +134,7 @@ def test_rel_path_and_cover_stored(index: Index):
 
 def test_duplicates_group_by_normalized_title(index: Index, library: Path):
     (library / "00_Inbox" / "Newport, Cal - Deep Work.pdf").write_bytes(b"%PDF-1.4")
-    build_index(library, index.db_path, cover_cache=library / "c")
+    build_index(library, [], index.db_path, cover_cache=library / "c")
 
     groups = index.duplicates()
 
@@ -125,14 +144,14 @@ def test_duplicates_group_by_normalized_title(index: Index, library: Path):
 
 def test_duplicates_leave_out_unfinished_downloads(index: Index, library: Path):
     (library / "00_Inbox" / "Newport, Cal - Deep Work.fb2.part").write_bytes(b"")
-    build_index(library, index.db_path, cover_cache=library / "c")
+    build_index(library, [], index.db_path, cover_cache=library / "c")
 
     assert index.duplicates() == [], "a .part file is not a copy of a title"
 
 
 def test_rebuild_replaces_old_rows(index: Index, library: Path):
     (library / "00_Inbox" / "Napkin.pdf").unlink()
-    build_index(library, index.db_path, cover_cache=library / "c")
+    build_index(library, [], index.db_path, cover_cache=library / "c")
 
     assert index.count() == 3, "rebuild should drop books that no longer exist"
 
@@ -143,12 +162,12 @@ def test_rebuild_swaps_atomically_and_keeps_old_index_readable(index: Index, lib
     seen = []
     original = mod.records
 
-    def spying_records(root, cache, exclude):
+    def spying_records(root, library_dirs, cache, exclude):
         seen.append(index.count())
-        yield from original(root, cache, exclude)
+        yield from original(root, library_dirs, cache, exclude)
 
     mocker.patch("kobold.index.records", side_effect=spying_records)
-    build_index(library, index.db_path, cover_cache=library / "c")
+    build_index(library, [], index.db_path, cover_cache=library / "c")
 
     assert seen == [4], "old index should stay readable while the new one is being built"
     assert not index.db_path.with_suffix(".tmp").exists(), "temporary database should be swapped away"
@@ -159,7 +178,7 @@ def test_concurrent_build_is_refused(index: Index, library: Path):
 
     lock_path(index.db_path).touch()
     with pytest.raises(IndexBusy):
-        build_index(library, index.db_path, cover_cache=library / "c")
+        build_index(library, [], index.db_path, cover_cache=library / "c")
 
 
 def test_stale_lock_is_ignored(index: Index, library: Path):
@@ -172,7 +191,7 @@ def test_stale_lock_is_ignored(index: Index, library: Path):
     lock.touch()
     os.utime(lock, (time.time() - 7200, time.time() - 7200))
 
-    assert build_index(library, index.db_path, cover_cache=library / "c") == 4, "a stale lock should not block indexing"
+    assert build_index(library, [], index.db_path, cover_cache=library / "c") == 4, "a stale lock should not block indexing"
     assert not lock.exists(), "lock should be removed after a successful build"
 
 
@@ -248,7 +267,7 @@ def test_unclassified_lists_books_without_genre_oldest_first(index: Index, libra
     import os
 
     os.utime(library / "00_Inbox" / "Napkin.pdf", (1, 1))
-    build_index(library, index.db_path, cover_cache=library / "c")
+    build_index(library, [], index.db_path, cover_cache=library / "c")
     classified = index.by_rel_path("02_NonFiction/Newport, Cal - Deep Work (2016, GC) - libgen.li.epub")
     with_genre = index.by_fingerprint(classified.fingerprint)
     index.write_genres({with_genre.fingerprint: "nonfiction"})
@@ -265,10 +284,76 @@ def test_genres_and_folders_are_distinct_columns(index: Index):
     assert index.folders() == ["00_Inbox", "02_NonFiction"], "every folder that holds a book, once"
 
 
-def test_fingerprints_among_returns_only_the_known_ones(index: Index):
-    known = index.by_rel_path("00_Inbox/Napkin.pdf").fingerprint
-    assert index.fingerprints_among([known, "nope"]) == {known}, "only fingerprints that are in the index come back"
-    assert index.fingerprints_among([]) == set(), "nothing asked, nothing found"
+@pytest.mark.parametrize(
+    "rel_path, place",
+    [("00_Nook/Nook Book.epub", "nook"), ("02_NonFiction/Slow Productivity.epub", "vault"), ("00_Inbox/Napkin.pdf", "vault")],
+)
+def test_device_rows_are_nook_or_vault_by_their_first_folder(everywhere: Index, rel_path, place):
+    assert everywhere.by_rel_path(rel_path).place == place, f"{rel_path} should be a {place} book; the inbox is not a place of its own"
+
+
+def test_library_rows_keep_their_folders_parent_as_root(everywhere: Index, shelf: Path):
+    (row,) = everywhere.search(query_words("slow"), places=LIBRARY)
+    assert row.place == "library", "a book from another source is a library book"
+    assert row.rel_path == "Calibre Library/Newport, Cal/Slow Productivity.epub", "the source folder is the first path part"
+    assert Path(row.path) == shelf / "Newport, Cal" / "Slow Productivity.epub", "the row knows where its file really is"
+
+
+def test_one_database_holds_every_place(everywhere: Index):
+    assert everywhere.count(None) == 7, "device and library books share one table"
+    assert everywhere.count() == 6, "the device is what counts by default"
+    assert everywhere.count(LIBRARY) == 1, "or to the library"
+
+
+@pytest.mark.parametrize(
+    "places, expected",
+    [
+        (None, ["Nook Book", "Slow Productivity", "Slow Productivity", "Deep Work", "Оперантное поведение", "Napkin"]),
+        (DEVICE, ["Nook Book", "Slow Productivity", "Deep Work", "Оперантное поведение", "Napkin"]),
+        (LIBRARY, ["Slow Productivity"]),
+        (("nook",), ["Nook Book"]),
+    ],
+)
+def test_search_filters_by_place_when_asked(everywhere: Index, places, expected):
+    assert sorted(titles(everywhere.search([], places=places))) == sorted(expected), f"places={places} should list exactly {expected}"
+
+
+def test_fold_keeps_the_nearest_copy_and_names_the_others(everywhere: Index):
+    (slow,) = [r for r in everywhere.fold(query_words("slow")) if r.title == "Slow Productivity"]
+    assert slow.place == "vault", "the vault copy is nearer than the library one"
+    assert slow.copies == "library", "the other places that hold the same book are recorded"
+
+
+def test_fold_leaves_single_copies_alone(everywhere: Index):
+    (nook,) = [r for r in everywhere.fold([]) if r.title == "Nook Book"]
+    assert nook.copies == "", "a book held in one place has no copies"
+
+
+def test_fold_prefers_nook_over_vault(everywhere: Index, library: Path, tmp_path: Path):
+    (library / "00_Nook" / "Slow Productivity.epub").write_bytes((library / "02_NonFiction" / "Slow Productivity.epub").read_bytes())
+    build_index(library, [], everywhere.db_path, cover_cache=tmp_path / "cache" / "covers")
+    (slow,) = [r for r in everywhere.fold(query_words("slow")) if r.title == "Slow Productivity"]
+    assert (slow.place, slow.copies) == ("nook", "vault"), "nook beats vault, and the vault copy is noted"
+
+
+def test_folded_search_cuts_after_folding(everywhere: Index):
+    rows = everywhere.fold(query_words("slow"), limit=1)
+    assert [(r.title, r.place) for r in rows] == [("Slow Productivity", "vault")], "the page holds folded rows, not raw copies"
+
+
+def test_fold_sees_copies_the_words_did_not_match(everywhere: Index):
+    (slow,) = everywhere.fold(query_words("calibre"))
+    assert (slow.place, slow.copies) == ("vault", "library"), "only the library copy carries the word, yet the vault copy is the one shown"
+
+
+def test_fold_works_on_any_rows(everywhere: Index):
+    rows = everywhere.search(query_words("slow"), places=None)
+    assert [(r.place, r.copies) for r in fold(rows)] == [("vault", "library")], "fold is a plain function over rows"
+
+
+def test_library_rows_are_not_offered_as_unclassified_or_duplicates(everywhere: Index):
+    assert all(r.place != "library" for r in everywhere.unclassified([])), "a library book has no genre and is not a chore"
+    assert all(r.place != "library" for g in everywhere.duplicates() for r in g), "duplicates are a device matter"
 
 
 def test_write_genres_touches_only_the_named_book(index: Index):
@@ -285,7 +370,8 @@ def test_columns_follow_the_row_dataclass():
     from kobold.index import COLUMNS, SCHEMA
     from kobold.model import Row
 
-    assert tuple(f.name for f in fields(Row)) == COLUMNS, "the insert order and the Row field order are one and the same"
+    stored = tuple(f.name for f in fields(Row) if f.name != "copies")
+    assert stored == COLUMNS, "the insert order and the Row field order are one and the same; copies is filled by fold, never stored"
     assert all(column in SCHEMA for column in COLUMNS), "every Row field is a column of the books table"
 
 
@@ -316,7 +402,7 @@ def test_words_fold_case_beyond_ascii(index: Index, library: Path, raw):
 
     (library / "03_Пригоди").mkdir()
     shutil.move(library / "02_NonFiction" / "Newport, Cal - Deep Work (2016, GC) - libgen.li.epub", library / "03_Пригоди")
-    build_index(library, index.db_path, cover_cache=library / "c")
+    build_index(library, [], index.db_path, cover_cache=library / "c")
 
     assert titles(index.search(query_words(raw))) == ["Deep Work"], f"{raw!r} should match regardless of case, Cyrillic included"
 
@@ -346,7 +432,7 @@ def indexed(library: Path, tmp_path: Path, monkeypatch) -> Path:
     monkeypatch.setenv("alfred_workflow_data", str(tmp_path / "alfred-data"))
     monkeypatch.delenv("KOBOLD_DATA", raising=False)
     main(["update"])
-    return tmp_path / "alfred-data" / "library.db"
+    return tmp_path / "alfred-data" / "books.db"
 
 
 def age(db: Path) -> None:

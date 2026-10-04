@@ -43,19 +43,20 @@ def adopt_predecessor_data(chosen: Path) -> None:
 
 
 def db_path() -> Path:
-    return data_dir() / "library.db"
+    books = data_dir() / "books.db"
+    adopt_split_indexes(books)
+    return books
 
 
-def sources_db_path() -> Path:
-    return data_dir() / "sources.db"
+def adopt_split_indexes(books: Path) -> None:
+    old = books.with_name("library.db")
+    if old.exists() and not books.exists():
+        old.rename(books)
+    books.with_name("sources.db").unlink(missing_ok=True)
 
 
 def library_index() -> Index:
     return Index(db_path(), library_root())
-
-
-def sources_index() -> Index:
-    return Index(sources_db_path(), library_root())
 
 
 def covers_dir() -> Path:

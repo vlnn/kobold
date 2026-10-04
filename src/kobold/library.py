@@ -6,6 +6,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import astuple, dataclass, replace
 from pathlib import Path
 
+from kobold import index as indexes
 from kobold.alfred import counted
 from kobold.apply import EXECUTABLE, Applied, Entry, apply, last_batch, read_journal, undo
 from kobold.authors import obvious_groups
@@ -19,13 +20,11 @@ from kobold.config import (
     library_index,
     library_root,
     mounted_sources,
-    sources,
-    sources_db_path,
     suggestion_store,
     vector_store,
 )
 from kobold.genres import GenreStore, folder_slug, genre_from_folder, without_author
-from kobold.index import Index, IndexBusy, build_index, build_sources_index
+from kobold.index import DEVICE, EVERYTHING, Index, IndexBusy, build_index
 from kobold.lint import all_folders, author_folders, lint
 from kobold.metadata import is_sound, read_book
 from kobold.model import Finding, GenreEntry, Operation, Row
@@ -105,33 +104,28 @@ def inbox_note() -> str:
     return f" · {counted(waiting, 'book')} without a genre" if waiting else ""
 
 
+def sources_note(found: list[Path], missing: list[Path], count: int) -> str:
+    indexed = f" and {count} from {counted(len(found), 'source')}" if found else ""
+    skipped = f", skipped {len(missing)} unmounted: {', '.join(map(str, missing))}" if missing else ""
+    return indexed + skipped
+
+
 def run_index() -> tuple[int, str]:
     root = library_root()
     if not root.exists():
         return 1, f"Library root not mounted: {root}"
+    found, missing = mounted_sources()
     try:
-        count = build_index(root, db_path(), covers_dir(), exclude=(data_dir(),))
+        total = build_index(root, found, db_path(), covers_dir(), exclude=(data_dir(),))
     except IndexBusy:
         return 1, "Indexing is already running"
+    count = library_index().count() if total else 0
     if count == 0:
         return 1, f"No books found: {probe_root(root) or f'no ebook files under {root}'}"
+    index = library_index()
     bootstrap_genres()
-    prune_suggestions(library_index())
-    return 0, f"Indexed {count} books from {root}"
-
-
-def run_index_sources() -> tuple[int, str]:
-    if not sources():
-        return 1, "No sources configured: set KOBOLD_SOURCES (paths separated by ':')"
-    found, missing = mounted_sources()
-    if not found:
-        return 1, f"No source is mounted: {', '.join(map(str, missing))}"
-    try:
-        count = build_sources_index(found, sources_db_path(), covers_dir(), exclude=(data_dir(),))
-    except IndexBusy:
-        return 1, "Indexing is already running"
-    skipped = f", skipped {len(missing)} unmounted: {', '.join(map(str, missing))}" if missing else ""
-    return 0, f"Indexed {count} books from {len(found)} sources{skipped}"
+    prune_suggestions(index)
+    return 0, f"Indexed {count} books from {root}{sources_note(found, missing, total - count)}"
 
 
 def unclassified_rows(words: list[str]) -> list[Row]:
@@ -361,7 +355,7 @@ def import_blocked(src: Path, dst: Path) -> str:
     book = read_book(src, src.parent)
     if not is_sound(book):
         return f"unreadable or unfinished file: {src.name}"
-    if (copy := library_index().by_fingerprint(book.fingerprint)) is not None:
+    if (copy := library_index().by_fingerprint(book.fingerprint, DEVICE)) is not None:
         return f"already in library: {copy.rel_path}"
     return ""
 
@@ -371,9 +365,11 @@ def transfer(src: Path, dst: Path) -> None:
     shutil.copy2(src, dst)
 
 
-def not_in_library(rows: list[Row]) -> list[Row]:
-    copies = library_index().fingerprints_among([r.fingerprint for r in rows]) if db_path().exists() else set()
-    return [r for r in rows if r.fingerprint not in copies]
+def not_in_library(words: list[str]) -> tuple[list[Row], int]:
+    index = library_index()
+    held = index.count_matching(words, indexes.LIBRARY)
+    fresh = [r for r in index.fold(words, limit=EVERYTHING) if r.place in indexes.LIBRARY]
+    return fresh, held
 
 
 @dataclass(frozen=True)
@@ -387,7 +383,8 @@ def source_of(row: Row) -> Path:
     return Path(row.root) / Path(row.rel_path).parts[0]
 
 
-def source_counts(rows: list[Row]) -> list[SourceCount]:
-    fresh = {r.rel_path for r in not_in_library(rows)}
+def source_counts() -> list[SourceCount]:
+    rows = library_index().everything(places=indexes.LIBRARY)
+    fresh = {r.rel_path for r in not_in_library([])[0]}
     totals, news = Counter(source_of(r) for r in rows), Counter(source_of(r) for r in rows if r.rel_path in fresh)
     return [SourceCount(source, totals[source], news[source]) for source in sorted(totals)]

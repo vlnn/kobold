@@ -62,6 +62,16 @@ FB2 = """<?xml version="1.0" encoding="utf-8"?>
 """
 
 
+def write_epub(path: Path, title: str) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(path, "w") as zf:
+        zf.writestr("mimetype", "application/epub+zip")
+        zf.writestr("META-INF/container.xml", CONTAINER)
+        zf.writestr("OEBPS/content.opf", OPF.replace("Deep Work", title))
+        zf.writestr("OEBPS/images/cover.png", PNG_1X1)
+    return path
+
+
 @pytest.fixture(autouse=True)
 def no_quicklook(mocker):
     mocker.patch("kobold.covers.shutil.which", return_value=None)

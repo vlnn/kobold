@@ -61,7 +61,7 @@ def test_index_fails_when_root_missing(monkeypatch, tmp_path, capsys):
 def test_kobold_data_overrides_alfred_data_dir(env, tmp_path, monkeypatch):
     monkeypatch.setenv("KOBOLD_DATA", str(tmp_path / "custom"))
     main(["update"])
-    assert (tmp_path / "custom" / "library.db").exists(), "KOBOLD_DATA should decide where the index lives"
+    assert (tmp_path / "custom" / "books.db").exists(), "KOBOLD_DATA should decide where the index lives"
 
 
 def test_index_reports_inaccessible_root(env, library, capsys, mocker):
