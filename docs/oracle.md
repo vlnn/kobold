@@ -1,8 +1,16 @@
 # kobold — local model (oracle) design
 
-Status: implemented, 2026-10-03. Builds on the interface described in the README; nothing there changes.
+Status: implemented, 2026-10-03; cut down with the 0.5.0 interface (`docs/interface.md`), 2026-10-04.
 
-Deviations from the proposal as implemented are listed at the end.
+What changed in 0.5.0, so the rest reads right:
+
+- **Two questions, not three.** The author question and its merges are gone with `authors.tsv`; two folders for one person are a manual rename.
+- **A name is a correction, not a rename.** A confident `name` answer rewrites the title and authors of the index row (`Index.correct`) and clears its *guessed* flag; the file keeps its name until the book is filed or copied in, when the canonical name is built from the corrected row. Answers are re-applied after every rebuild, so the correction survives `kb update`.
+- **One index.** Vectors and answers are keyed by fingerprint as before; with device and library rows in one `books.db`, `kb like` and embedding run over the folded index, so a library book is embedded once and shows up as a neighbour.
+- **Nothing to dismiss.** The dismiss row and `kobold dismiss` went with the suggested renames; choosing a different genre or correcting the name is the answer.
+- **The catalogue** (`catalogue.tsv`) replaced `genres.tsv`; the store rows below still say `genres.tsv` where that was the file next to `oracle.tsv`.
+
+Deviations from the original proposal as implemented are listed at the end.
 
 ## Why
 
@@ -10,7 +18,7 @@ Three things in the library still need a human for every book:
 
 1. Giving a new book a genre (`kb classify`, one picker per book).
 2. Naming books whose filename carries no usable metadata (`opaque`, `noisy_name`, and every mobi/azw/pdf/djvu, which are described from the filename by heuristics).
-3. Merging author folders that are the same person spelled differently (`Delany, Samuel R.` / `Delany, Samuel` / `Дилэни, Сэмюэл`).
+3. ~~Merging author folders that are the same person spelled differently.~~ Retired in 0.5.0.
 
 These are judgement calls on short text, which is what a small local language model is good at. A model running in llama.cpp on the Mac can propose answers; the workflow shows them as rows and the person presses ↩. The model never moves a file.
 
@@ -91,13 +99,7 @@ Only title and authors. Series and year are where small models make things up; t
 
 ### Author alias
 
-For the set of author folders. Answer: groups of folder names that denote one person and the canonical form for each group, `Surname, Given` as `naming.surname_first` would write it.
-
-```json
-{"groups": [{"canonical": "Delany, Samuel R.", "aliases": ["Delany, Samuel", "Дилэни, Сэмюэл"]}]}
-```
-
-This question is asked about the whole library at once, not per book, and only on request.
+Retired in 0.5.0. `oracle.author_groups` is still in the module but nothing asks it.
 
 ## Store
 
@@ -151,6 +153,8 @@ A suggested genre shows in the subtitle with a trailing `?` where `genre ?` is t
 **Accept N suggested genres** sets the genre of every listed book that has one, through the existing `genre` command with its fingerprints and genres, so every move is journaled and undoable as one batch. It is a head row, like the others; there is no modifier.
 
 ### `kb fix`
+
+Since 0.5.0 `kb fix` carries no suggestion rows: a confident name corrects the index row instead, and merges are gone. What follows is the original design.
 
 Two kinds of new rows, both below the automatic operations:
 
@@ -221,7 +225,7 @@ Rows are what `/v1/models` returns, from both URLs when they differ. ↩ on a mo
 ### Terminal
 
 ```
-kobold ask [genre|name|authors] [<words>]     ask the unasked, or everything matching the words; --force re-asks
+kobold ask [genre|name] [<words>]             ask the unasked, or everything matching the words; --force re-asks
 kobold ask --dry-run                           print the evidence that would be sent, one book per block
 ```
 

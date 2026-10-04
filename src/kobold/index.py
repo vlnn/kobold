@@ -7,9 +7,10 @@ import time
 from collections import defaultdict
 from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
-from dataclasses import astuple, fields
+from dataclasses import astuple, fields, replace
 from pathlib import Path
 
+from kobold.catalogue import folder_slug
 from kobold.covers import THUMBNAIL_FORMATS, cover_key, ensure_cover
 from kobold.languages import searchable_language
 from kobold.metadata import is_sound, read_book
@@ -17,7 +18,7 @@ from kobold.model import Book, Row
 from kobold.query import fts_match
 from kobold.scan import SKIP_FOLDERS, iter_books
 
-COLUMNS = tuple(f.name for f in fields(Row))
+COLUMNS = tuple(f.name for f in fields(Row) if f.name != "copies")
 SEARCHABLE = {"title", "authors", "series", "series_index", "folder", "rel_path", "genre", "subjects", "format", "language", "year"}
 SCHEMA = f"""
 CREATE VIRTUAL TABLE IF NOT EXISTS books USING fts5(
@@ -26,10 +27,14 @@ CREATE VIRTUAL TABLE IF NOT EXISTS books USING fts5(
 );
 """
 
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 EVERYTHING = 100_000
 PAGE = 40
 LEADING_ARTICLE = re.compile(r"^(?:the|a|an)\s+")
+NOOK = "nook"
+PLACES = ("nook", "vault", "library")
+DEVICE = ("nook", "vault")
+LIBRARY = ("library",)
 
 
 def normalize_title(title: str) -> str:
@@ -38,6 +43,10 @@ def normalize_title(title: str) -> str:
 
 def series_key(series: str) -> str:
     return LEADING_ARTICLE.sub("", normalize_title(series))
+
+
+def device_place(rel_path: str) -> str:
+    return NOOK if folder_slug(Path(rel_path).parts[0]) == NOOK else "vault"
 
 
 def to_row(book: Book, cover: Path | None, root: str = "") -> Row:
@@ -49,6 +58,7 @@ def to_row(book: Book, cover: Path | None, root: str = "") -> Row:
         folder=str(Path(book.rel_path).parent),
         rel_path=book.rel_path,
         root=root,
+        place="library" if root else device_place(book.rel_path),
         format=book.format,
         partial=book.partial,
         language=searchable_language(book.language),
@@ -66,7 +76,7 @@ def to_row(book: Book, cover: Path | None, root: str = "") -> Row:
 
 
 def to_record(book: Book, cover: Path | None, root: str = "") -> tuple:
-    return astuple(to_row(book, cover, root))
+    return astuple(to_row(book, cover, root))[: len(COLUMNS)]
 
 
 def books(root: Path, exclude: tuple[Path, ...], base: Path | None = None) -> Iterator[Book]:
@@ -79,13 +89,18 @@ def to_records(found: Iterable[Book], cover_cache: Path, root: str = "") -> Iter
         yield to_record(book, ensure_cover(book, cover_cache, thumbnails=False), root)
 
 
-def records(root: Path, cover_cache: Path, exclude: tuple[Path, ...]) -> Iterator[tuple]:
+def device_records(root: Path, cover_cache: Path, exclude: tuple[Path, ...]) -> Iterator[tuple]:
     return to_records(books(root, exclude), cover_cache)
 
 
-def source_records(roots: list[Path], cover_cache: Path, exclude: tuple[Path, ...]) -> Iterator[tuple]:
+def library_records(roots: list[Path], cover_cache: Path, exclude: tuple[Path, ...]) -> Iterator[tuple]:
     for root in roots:
         yield from to_records(filter(is_sound, books(root, exclude, base=root.parent)), cover_cache, str(root.parent))
+
+
+def records(device_root: Path, library_dirs: list[Path], cover_cache: Path, exclude: tuple[Path, ...]) -> Iterator[tuple]:
+    yield from device_records(device_root, cover_cache, exclude)
+    yield from library_records(library_dirs, cover_cache, exclude)
 
 
 @contextmanager
@@ -176,12 +191,8 @@ def rebuild(db_path: Path, rows: Iterator[tuple]) -> int:
         lock.unlink(missing_ok=True)
 
 
-def build_index(root: Path, db_path: Path, cover_cache: Path, exclude: tuple[Path, ...] = ()) -> int:
-    return rebuild(db_path, records(root, cover_cache, exclude))
-
-
-def build_sources_index(roots: list[Path], db_path: Path, cover_cache: Path, exclude: tuple[Path, ...] = ()) -> int:
-    return rebuild(db_path, source_records(roots, cover_cache, exclude))
+def build_index(device_root: Path, library_dirs: list[Path], db_path: Path, cover_cache: Path, exclude: tuple[Path, ...] = ()) -> int:
+    return rebuild(db_path, records(device_root, library_dirs, cover_cache, exclude))
 
 
 def add_book(db_path: Path, path: Path, root: Path, cover_cache: Path) -> Book:
@@ -202,6 +213,30 @@ def row_reader(root: str):
 
 
 SELECT_ROWS = f"SELECT {', '.join(COLUMNS)} FROM books"
+NEARNESS = {place: rank for rank, place in enumerate(PLACES)}
+
+
+def nearest(copies: list[Row]) -> Row:
+    return min(copies, key=lambda r: NEARNESS[r.place])
+
+
+def folded(copies: list[Row]) -> Row:
+    kept = nearest(copies)
+    others = sorted({r.place for r in copies} - {kept.place}, key=NEARNESS.__getitem__)
+    return replace(kept, copies=", ".join(others))
+
+
+def fold(rows: list[Row]) -> list[Row]:
+    groups: dict[str, list[Row]] = {}
+    for row in rows:
+        groups.setdefault(row.fingerprint or row.rel_path, []).append(row)
+    return [folded(copies) for copies in groups.values()]
+
+
+def in_places(places: tuple[str, ...] | None) -> str:
+    if places is None:
+        return "1"
+    return f"place IN ({', '.join(repr(p) for p in places)})"
 
 
 class Index:
@@ -227,41 +262,56 @@ class Index:
         with writing(self.db_path) as conn:
             conn.executemany(sql, rows)
 
-    def count(self) -> int:
-        return self.values("SELECT count(*) FROM books")[0]
+    def count(self, places: tuple[str, ...] | None = DEVICE) -> int:
+        return self.values(f"SELECT count(*) FROM books WHERE {in_places(places)}")[0]
 
-    def complete_count(self) -> int:
-        return self.values("SELECT count(*) FROM books WHERE partial = 0")[0]
+    def complete_count(self, places: tuple[str, ...] | None = DEVICE) -> int:
+        return self.values(f"SELECT count(*) FROM books WHERE partial = 0 AND {in_places(places)}")[0]
 
-    def rel_paths(self, words: list[str]) -> set[str]:
-        return {row.rel_path for row in self.search(words, limit=EVERYTHING)}
+    def rel_paths(self, words: list[str], places: tuple[str, ...] | None = DEVICE) -> set[str]:
+        return {row.rel_path for row in self.search(words, limit=EVERYTHING, places=places)}
 
-    def search(self, words: list[str], limit: int = PAGE) -> list[Row]:
+    def search(self, words: list[str], limit: int = PAGE, places: tuple[str, ...] | None = DEVICE) -> list[Row]:
         order = "rank, title" if words else "mtime DESC"
-        return self.matching(words, "partial = 0", order, limit)
+        return self.matching(words, "partial = 0", order, limit, places)
+
+    def fold(self, words: list[str], limit: int = PAGE) -> list[Row]:
+        matched = self.search(words, limit=EVERYTHING, places=None)
+        return fold(matched + self.sharing([r.fingerprint for r in matched]))[:limit]
+
+    def sharing(self, fingerprints: list[str]) -> list[Row]:
+        marks = ", ".join("?" for _ in fingerprints)
+        return self.rows(f"{SELECT_ROWS} WHERE fingerprint IN ({marks})", fingerprints) if fingerprints else []
+
+    def count_matching(self, words: list[str], places: tuple[str, ...] | None = DEVICE) -> int:
+        return len(self.search(words, limit=EVERYTHING, places=places))
 
     def partials(self, words: list[str], limit: int = 1000) -> list[Row]:
-        return self.matching(words, "partial = 1", "mtime", limit)
+        return self.matching(words, "partial = 1", "mtime", limit, DEVICE)
 
-    def matching(self, words: list[str], state: str, order: str, limit: int) -> list[Row]:
+    def matching(self, words: list[str], state: str, order: str, limit: int, places: tuple[str, ...] | None = DEVICE) -> list[Row]:
         match = fts_match(words)
-        where = f"{state} AND books MATCH :match" if match else state
+        where = " AND ".join([state, in_places(places)] + ["books MATCH :match"] * bool(match))
         return self.rows(f"{SELECT_ROWS} WHERE {where} ORDER BY {order} LIMIT :limit", {"match": match, "limit": limit})
 
-    def everything(self) -> list[Row]:
-        return self.rows(f"{SELECT_ROWS} ORDER BY mtime DESC")
+    def everything(self, places: tuple[str, ...] | None = DEVICE) -> list[Row]:
+        return self.rows(f"{SELECT_ROWS} WHERE {in_places(places)} ORDER BY mtime DESC")
 
-    def by_fingerprint(self, fingerprint: str) -> Row | None:
-        return self.one("fingerprint = ?", fingerprint)
+    def by_fingerprint(self, fingerprint: str, places: tuple[str, ...] | None = None) -> Row | None:
+        return self.one("fingerprint = ?", fingerprint, places)
 
-    def by_rel_path(self, rel_path: str) -> Row | None:
-        return self.one("rel_path = ?", rel_path)
+    def by_rel_path(self, rel_path: str, places: tuple[str, ...] | None = DEVICE) -> Row | None:
+        return self.one("rel_path = ?", rel_path, places)
 
-    def one(self, condition: str, value: str) -> Row | None:
-        return next(iter(self.rows(f"{SELECT_ROWS} WHERE {condition}", (value,))), None)
+    def by_path(self, path: str) -> Row | None:
+        return self.one("root || '/' || rel_path = ?", path, LIBRARY)
+
+    def one(self, condition: str, value: str, places: tuple[str, ...] | None = None) -> Row | None:
+        rows = self.rows(f"{SELECT_ROWS} WHERE {condition} AND {in_places(places)} ORDER BY place", (value,))
+        return next(iter(rows), None)
 
     def unclassified(self, words: list[str], limit: int = 1000) -> list[Row]:
-        return self.matching(words, "partial = 0 AND genre = ''", "mtime", limit)
+        return self.matching(words, "partial = 0 AND genre = ''", "mtime", limit, DEVICE)
 
     def genres(self) -> list[str]:
         return self.distinct("genre")
@@ -270,13 +320,11 @@ class Index:
         return self.distinct("folder")
 
     def distinct(self, column: str) -> list[str]:
-        return self.values(f"SELECT DISTINCT {column} FROM books WHERE {column} != '' ORDER BY {column}")
+        return self.values(f"SELECT DISTINCT {column} FROM books WHERE {column} != '' AND {in_places(DEVICE)} ORDER BY {column}")
 
-    def fingerprints_among(self, fingerprints: list[str]) -> set[str]:
-        if not fingerprints:
-            return set()
-        marks = ", ".join("?" for _ in fingerprints)
-        return set(self.values(f"SELECT fingerprint FROM books WHERE fingerprint IN ({marks})", fingerprints))
+    def correct(self, fingerprint: str, title: str, authors: str) -> None:
+        corrected = (title, authors, normalize_title(title), fingerprint)
+        self.execute("UPDATE books SET title = ?, authors = ?, norm_title = ?, guessed = 0 WHERE fingerprint = ?", corrected)
 
     def write_genres(self, genres: dict[str, str]) -> None:
         self.execute_many("UPDATE books SET genre = ? WHERE fingerprint = ?", [(g, fp) for fp, g in genres.items()])
@@ -286,15 +334,16 @@ class Index:
             return self.remove(src)
         row = self.by_rel_path(src)
         cover = carry_cover(row.cover, dst) if row else ""
-        moved = (dst, str(Path(dst).parent), cover, src)
-        self.execute("UPDATE books SET rel_path = ?, folder = ?, cover = ? WHERE rel_path = ?", moved)
+        moved = (dst, str(Path(dst).parent), device_place(dst), cover, src)
+        self.execute(f"UPDATE books SET rel_path = ?, folder = ?, place = ?, cover = ? WHERE rel_path = ? AND {in_places(DEVICE)}", moved)
 
     def remove(self, rel_path: str) -> None:
-        self.execute("DELETE FROM books WHERE rel_path = ?", (rel_path,))
+        self.execute(f"DELETE FROM books WHERE rel_path = ? AND {in_places(DEVICE)}", (rel_path,))
 
     def duplicates(self) -> list[list[Row]]:
         groups = defaultdict(list)
-        for row in self.rows(f"{SELECT_ROWS} WHERE partial = 0 AND norm_title != '' ORDER BY norm_title, rel_path"):
+        sql = f"{SELECT_ROWS} WHERE partial = 0 AND norm_title != '' AND {in_places(DEVICE)} ORDER BY norm_title, rel_path"
+        for row in self.rows(sql):
             groups[row.norm_title].append(row)
         return [books for books in groups.values() if len(books) > 1]
 

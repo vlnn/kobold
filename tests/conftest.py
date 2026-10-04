@@ -5,6 +5,36 @@ from pathlib import Path
 import pytest
 
 from kobold.cli import main
+from kobold.model import Row
+
+BASE_ROW = {
+    "title": "Deep Work",
+    "authors": "Cal Newport",
+    "series": "Focus",
+    "series_index": "2",
+    "folder": "02_NonFiction",
+    "rel_path": "02_NonFiction/x.epub",
+    "root": "/lib",
+    "place": "vault",
+    "format": "epub",
+    "partial": False,
+    "language": "en",
+    "year": "2016",
+    "cover": "/cache/abc.png",
+    "size": 1_500_000,
+    "mtime": 0.0,
+    "norm_title": "deep work",
+    "fingerprint": "f00",
+    "genre": "",
+    "subjects": "",
+    "description": "",
+    "guessed": False,
+}
+
+
+def row(**overrides) -> Row:
+    return Row(**{**BASE_ROW, **overrides})
+
 
 PNG_1X1 = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==")
 
@@ -60,6 +90,16 @@ FB2 = """<?xml version="1.0" encoding="utf-8"?>
   <binary id="cover.png" content-type="image/png">{cover}</binary>
 </FictionBook>
 """
+
+
+def write_epub(path: Path, title: str) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(path, "w") as zf:
+        zf.writestr("mimetype", "application/epub+zip")
+        zf.writestr("META-INF/container.xml", CONTAINER)
+        zf.writestr("OEBPS/content.opf", OPF.replace("Deep Work", title))
+        zf.writestr("OEBPS/images/cover.png", PNG_1X1)
+    return path
 
 
 @pytest.fixture(autouse=True)

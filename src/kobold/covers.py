@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 import shutil
 import subprocess
 import tempfile
@@ -63,3 +64,34 @@ def ensure_cover(book: Book, cache: Path, thumbnails: bool = True) -> Path | Non
     if book.cover and (written := write_embedded(book, cache)):
         return written
     return quicklook_thumbnail(book, cache) if thumbnails else None
+
+
+FRAME_WIDTH = 3
+FRAME_COLOR = "2ECC71"
+SIZE_LINE = re.compile(r"pixel(Height|Width):\s*(\d+)")
+
+
+def framed_path(cover: Path) -> Path:
+    return cover.with_name(f"{cover.stem}.framed.png")
+
+
+def sips(*args: str) -> str | None:
+    done = subprocess.run(["sips", *args], capture_output=True, text=True, check=False, timeout=QUICKLOOK_TIMEOUT)
+    return done.stdout if done.returncode == 0 else None
+
+
+def pixel_size(cover: Path) -> tuple[int, int] | None:
+    listed = sips("-g", "pixelHeight", "-g", "pixelWidth", str(cover))
+    found = dict(SIZE_LINE.findall(listed or ""))
+    return (int(found["Height"]), int(found["Width"])) if len(found) == 2 else None
+
+
+def framed(cover: Path) -> Path:
+    target = framed_path(cover)
+    if target.exists():
+        return target
+    if not shutil.which("sips") or (size := pixel_size(cover)) is None:
+        return cover
+    height, width = (side + 2 * FRAME_WIDTH for side in size)
+    padded = sips("--padToHeightWidth", str(height), str(width), "--padColor", FRAME_COLOR, str(cover), "--out", str(target))
+    return target if padded is not None and target.exists() else cover

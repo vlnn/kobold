@@ -1,7 +1,7 @@
 import pytest
 
 from kobold.naming import author_folder, canonical_name, destination, fat_safe, genre_root, shelves
-from tests.test_alfred import row
+from tests.conftest import row
 
 
 @pytest.mark.parametrize(

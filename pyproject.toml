@@ -1,6 +1,6 @@
 [project]
 name = "kobold"
-version = "0.4.0"
+version = "0.5.0"
 description = "Alfred workflow: search and tidy an ebook library by metadata, with covers and an optional local model"
 requires-python = ">=3.9"
 dependencies = []
@@ -31,6 +31,7 @@ ignore = ["SIM112"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/test_filenames.py" = ["E501"]
+"scripts/make_plist.py" = ["E501"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["kobold", "tests"]

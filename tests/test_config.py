@@ -50,3 +50,25 @@ def test_explicit_data_dir_is_never_migrated(tmp_path, monkeypatch, chosen):
 
     assert config.data_dir() == tmp_path / chosen, "KOBOLD_DATA should be taken literally"
     assert (tmp_path / "kobolib").exists(), "nothing should be moved when the folder was chosen explicitly"
+
+
+def test_db_path_adopts_the_old_library_index_once(workflow_data):
+    data = workflow_data / "com.anokhin.kobold"
+    data.mkdir()
+    (data / "library.db").write_text("old index")
+    (data / "sources.db").write_text("old sources")
+
+    assert config.db_path() == data / "books.db", "the one index is books.db"
+    assert (data / "books.db").read_text() == "old index", "the device index is carried over so the version check can ask for a rebuild"
+    assert not (data / "library.db").exists() and not (data / "sources.db").exists(), "the split indexes are gone"
+
+
+def test_db_path_leaves_an_existing_books_db_alone(workflow_data):
+    data = workflow_data / "com.anokhin.kobold"
+    data.mkdir()
+    (data / "books.db").write_text("new")
+    (data / "library.db").write_text("old")
+
+    config.db_path()
+
+    assert (data / "books.db").read_text() == "new", "an index that already exists is never overwritten by an older one"

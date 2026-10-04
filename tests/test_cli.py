@@ -5,12 +5,12 @@ import pytest
 
 from kobold.cli import main, notify
 from kobold.index import IndexBusy
+from tests.conftest import write_epub
 
-
-def inbox_rows() -> list[dict]:
-    from kobold.commands import inbox_items
-
-    return [i for i in inbox_items([]) if "quicklookurl" in i]
+DEEP = "02_NonFiction/Newport, Cal - Deep Work (2016, GC) - libgen.li.epub"
+DEEP_HOME = "02_NonFiction/Newport, Cal/Newport, Cal - Deep Work (Focus 02) (2016).epub"
+DEEP_IN_NOOK = "Nook/Newport, Cal - Deep Work (Focus 02) (2016).epub"
+NOVA = "00_Inbox/Delany, Samuel R - Nova - 2014.epub.part"
 
 
 def output(capsys) -> dict:
@@ -22,397 +22,249 @@ def run(argv: list[str], capsys) -> dict:
     return output(capsys)
 
 
-def test_search_before_index_explains(env, capsys):
-    assert run(["search", "deep"], capsys)["items"][0]["title"] == "No index yet", "search without index should tell how to build it"
+def titles(capsys) -> list[str]:
+    return [i["title"] for i in output(capsys)["items"] if "quicklookurl" in i]
 
 
-def test_index_then_search(env, capsys):
-    assert main(["update"]) == 0, "index should succeed on a mounted library"
+@pytest.fixture
+def shelf(tmp_path_factory, library: Path) -> Path:
+    root = tmp_path_factory.mktemp("elsewhere") / "Calibre Library"
+    write_epub(root / "Misc" / "A World Without Email.epub", "A World Without Email")
+    (root / "Misc" / "deep_work_copy.epub").write_bytes((library / DEEP).read_bytes())
+    return root
+
+
+@pytest.fixture
+def stocked(env, shelf: Path, monkeypatch, capsys):
+    monkeypatch.setenv("KOBOLD_SOURCES", str(shelf))
+    main(["update"])
     capsys.readouterr()
 
-    items = run(["search", "deep"], capsys)["items"]
-    assert [i["title"] for i in items] == ["Deep Work"], "search should hit the indexed epub"
-    assert items[0]["subtitle"].endswith("02_NonFiction/Newport, Cal - Deep Work (2016, GC) - libgen.li.epub"), (
-        "subtitle should end with the library-relative path"
-    )
+
+def test_search_before_index_explains(env, capsys):
+    assert [i["title"] for i in run(["search", "deep"], capsys)["items"]] == ["No index yet"], "search without an index should say so"
 
 
-def test_update_ends_with_the_inbox_count(env, capsys):
-    assert main(["update", "--no-thumbnails"]) == 0, "update should succeed on a mounted library"
-
+def test_update_then_search(env, capsys):
+    assert main(["update", "--no-thumbnails"]) == 0, "update should succeed"
     first = capsys.readouterr().out.splitlines()[0]
-    assert first.startswith("Indexed 4 books from ") and first.endswith(" · 2 books without a genre"), (
-        "the update summary should end with the inbox count"
-    )
+    assert first.startswith("Indexed 4 books from ") and first.endswith(" · 2 books without a genre"), "the summary ends with the chores"
+    main(["search", "deep"])
+    assert titles(capsys) == ["Deep Work"], "a word should find its book"
 
 
-@pytest.mark.parametrize("retired", ["index", "index-sources"])
-def test_index_subcommands_are_gone(env, retired):
-    with pytest.raises(SystemExit):
-        main([retired])
+def test_update_fails_when_root_missing(monkeypatch, tmp_path, capsys):
+    monkeypatch.setenv("KOBOLD_ROOT", str(tmp_path / "nope"))
+    monkeypatch.setenv("alfred_workflow_data", str(tmp_path / "data"))
+    assert main(["update"]) == 1 and "not mounted" in capsys.readouterr().out, "a missing root is reported"
 
 
-def test_index_fails_when_root_missing(monkeypatch, tmp_path, capsys):
-    monkeypatch.setenv("KOBOLD_ROOT", str(tmp_path / "missing"))
-    monkeypatch.setenv("alfred_workflow_data", str(tmp_path / "c"))
-    assert main(["update"]) == 1, "index should fail when the volume is not mounted"
+def test_update_reports_a_busy_index(env, capsys, mocker):
+    mocker.patch("kobold.places.build_index", side_effect=IndexBusy("busy"))
+    assert main(["update"]) == 1 and "already running" in capsys.readouterr().out, "a running build is explained"
 
 
-def test_kobold_data_overrides_alfred_data_dir(env, tmp_path, monkeypatch):
-    monkeypatch.setenv("KOBOLD_DATA", str(tmp_path / "custom"))
-    main(["update"])
-    assert (tmp_path / "custom" / "library.db").exists(), "KOBOLD_DATA should decide where the index lives"
-
-
-def test_index_reports_inaccessible_root(env, library, capsys, mocker):
-    mocker.patch("kobold.library.build_index", return_value=0)
-    mocker.patch("kobold.library.probe_root", return_value="permission denied reading root")
-
-    assert main(["update"]) == 1, "index should fail when no books were found"
-    assert "permission denied" in capsys.readouterr().out, "the failure message should explain why"
-
-
-def test_index_notify_posts_notification(env, capsys, mocker):
-    run = mocker.patch("kobold.cli.subprocess.run")
+def test_update_notifies_each_step(env, capsys, mocker):
+    osascript = mocker.patch("kobold.cli.subprocess.run")
 
     main(["update", "--notify"])
 
-    scripts = [c.args[0][-1] for c in run.call_args_list if c.args[0][0] == "osascript"]
-    assert "Indexed 4 books" in scripts[0], "first notification should carry the index summary"
-    assert "PDF covers" in scripts[1], "second notification should report the thumbnail pass"
+    scripts = [c.args[0][-1] for c in osascript.call_args_list if c.args[0][0] == "osascript"]
+    assert "Indexed 4 books" in scripts[0] and "PDF covers" in scripts[1], "the index summary, then the thumbnail pass"
 
 
-def test_index_busy_is_reported(env, capsys, mocker):
-    mocker.patch("kobold.library.build_index", side_effect=IndexBusy("busy"))
-
-    assert main(["update"]) == 1, "busy index should exit non-zero"
-    assert "already running" in capsys.readouterr().out, "busy index should be explained"
-
-
-def test_no_thumbnails_flag_skips_second_pass(env, capsys, mocker):
-    fill = mocker.patch("kobold.cli.fill_thumbnails")
-    main(["update", "--no-thumbnails"])
-    fill.assert_not_called()
+def test_notify_passes_the_message_as_an_argument(mocker):
+    osascript = mocker.patch("kobold.cli.subprocess.run")
+    notify("Done · 3 moves")
+    assert osascript.call_args.args[0][-2:] == ["--", "Done · 3 moves"], "the message is an argument, never interpolated into the script"
 
 
-def test_index_bootstraps_genres_from_folders(indexed, tmp_path, capsys):
-
-    titles = [i["title"] for i in inbox_rows()]
-    assert "Deep Work" not in titles, "a book in a genre folder should be classified by index"
-    assert "Napkin" in titles, "an inbox book should wait for classification"
-
-
-def test_genre_command_sets_genre_by_path(indexed, library, capsys):
-    book = str(library / "00_Inbox" / "Napkin.pdf")
-
-    assert main(["genre", book, "reference"]) == 0, "setting a genre by path should succeed"
-    assert capsys.readouterr().out.startswith("Napkin → reference"), "the result should be reported"
-    assert [i["title"] for i in run(["search", "reference"], capsys)["items"]] == ["Napkin"], "the genre should be searchable"
-    assert "Napkin" not in [i["title"] for i in inbox_rows()], "a classified book leaves the inbox"
+def test_nook_moves_a_vault_book_into_the_nook(indexed, library, capsys):
+    assert main(["nook", str(library / DEEP)]) == 0, "nook should succeed"
+    assert capsys.readouterr().out.rstrip() == "Deep Work → Nook/", "the summary names the book and the nook"
+    assert (library / DEEP_IN_NOOK).exists(), "the file is in the nook under its canonical name"
+    main(["search", "nook deep"])
+    assert titles(capsys) == ["Deep Work"], "the index follows"
 
 
-def test_genre_command_accepts_a_fingerprint(indexed, capsys):
-    fingerprint = run(["search", "napkin"], capsys)["items"][0]["variables"]["book"]
-
-    assert main(["genre", fingerprint, "reference"]) == 0, "a fingerprint from the picker should identify the book"
-    assert capsys.readouterr().out.startswith("Napkin → reference"), "the result should be reported"
+def test_nook_takes_several_references_and_counts(indexed, library, capsys):
+    main(["nook", f"{library / DEEP}\n{library / '00_Inbox' / 'Napkin.pdf'}"])
+    assert capsys.readouterr().out.rstrip() == "2 books → Nook/", "several books are counted"
 
 
-@pytest.mark.parametrize("argv", [["genre", "reference"], ["genre"]])
+def test_nook_reports_a_book_already_there(indexed, library, capsys):
+    main(["nook", str(library / DEEP)])
+    capsys.readouterr()
+    assert main(["nook", str(library / DEEP_IN_NOOK)]) == 0, "not an error"
+    assert capsys.readouterr().out.rstrip() == "Deep Work is already in the nook", "but nothing to do"
+
+
+def test_done_sends_a_nook_book_home(indexed, library, capsys):
+    main(["nook", str(library / DEEP)])
+    capsys.readouterr()
+
+    assert main(["done", str(library / DEEP_IN_NOOK)]) == 0, "done should succeed"
+
+    assert capsys.readouterr().out.rstrip().startswith("Deep Work → nonfiction/Newport, Cal/"), "the summary says where it went"
+    assert not (library / DEEP_IN_NOOK).exists(), "and it left the nook"
+
+
+def test_done_keeps_a_book_without_a_home_in_the_nook(indexed, library, capsys):
+    napkin = library / "00_Inbox" / "Napkin.pdf"
+    main(["nook", str(napkin)])
+    capsys.readouterr()
+
+    main(["done", str(library / "Nook" / "Napkin.pdf")])
+
+    assert capsys.readouterr().out.rstrip() == "Napkin stays put (no author or already home)", (
+        "no genre, no author: it has nowhere to go yet"
+    )
+
+
+def test_remove_sets_aside_a_book_the_library_holds(stocked, library, capsys):
+    assert main(["remove", str(library / DEEP)]) == 0, "remove should succeed"
+    assert capsys.readouterr().out.rstrip() == "Moved 1 book to _trash/", "the summary counts"
+    assert (library / "_trash" / DEEP).exists(), "the file is set aside, not deleted"
+
+
+def test_remove_refuses_the_only_copy(indexed, library, capsys):
+    main(["remove", str(library / DEEP)])
+    assert capsys.readouterr().out.rstrip() == f"Moved 0 books to _trash/ · skipped 1: {DEEP}: no library copy", (
+        "the device holds the only copy"
+    )
+
+
+def test_remove_takes_unfinished_downloads(indexed, library, capsys):
+    main(["remove", str(library / NOVA)])
+    assert (library / "_trash" / NOVA).exists(), "a .part file goes without a second thought"
+
+
+def test_trash_is_an_alias_of_remove(indexed, library, capsys):
+    assert main(["trash", str(library / NOVA)]) == 0 and (library / "_trash" / NOVA).exists(), "the old name still works"
+
+
+def test_remove_names_unknown_paths(indexed, library, capsys):
+    unknown = library / "00_Inbox" / "Nope.epub"
+    assert main(["remove", str(unknown)]) == 1 and capsys.readouterr().out == f"Not indexed: {unknown}\n", "nothing known is a failure"
+
+
+def test_import_copies_a_library_book_into_the_nook(stocked, library, shelf, capsys):
+    src = shelf / "Misc" / "A World Without Email.epub"
+
+    assert main(["import", str(src)]) == 0, "import should succeed"
+
+    assert capsys.readouterr().out.rstrip() == "Imported A World Without Email → Nook/", "the summary names the book and the nook"
+    assert (library / "Nook" / "Newport, Cal - A World Without Email (Focus 02) (2016).epub").exists() and src.exists(), "a copy, canonical"
+    main(["search", "email"])
+    assert titles(capsys) == ["A World Without Email"], "searchable at once"
+
+
+def test_import_skips_what_the_device_holds(stocked, library, shelf, capsys):
+    paths = f"{shelf / 'Misc' / 'A World Without Email.epub'}\n{shelf / 'Misc' / 'deep_work_copy.epub'}"
+
+    assert main(["import", paths]) == 0, "one blocked book does not fail the batch"
+
+    out = capsys.readouterr().out
+    assert out.startswith("Imported A World Without Email → Nook/ · skipped 1: already on the device: 02_NonFiction/"), "the skip says why"
+
+
+def test_import_only_copies(stocked, shelf):
+    src = shelf / "Misc" / "A World Without Email.epub"
+    with pytest.raises(SystemExit):
+        main(["import", "--move", str(src)])
+    assert src.exists(), "there is no way to move a library book"
+
+
+def test_genre_sets_the_genre_and_files_the_book(indexed, library, capsys):
+    assert main(["genre", str(library / DEEP), "productivity"]) == 0, "genre should succeed"
+    assert capsys.readouterr().out.startswith("Deep Work → productivity · moved → productivity/Newport, Cal/"), "set, then filed"
+    assert (library / "productivity" / "Newport, Cal" / "Newport, Cal - Deep Work (Focus 02) (2016).epub").exists(), "the file is home"
+
+
+def test_genre_accepts_a_fingerprint_and_lowercases(indexed, library, capsys):
+    napkin = next(i for i in run(["search", "napkin"], capsys)["items"] if "quicklookurl" in i)["variables"]["book"]
+    main(["genre", napkin, " Games/Go "])
+    assert capsys.readouterr().out.startswith("Napkin → games/go · stays put"), "trimmed, lower-cased; no author, so no move"
+
+
+def test_genre_takes_fingerprint_and_genre_pairs(indexed, library, capsys):
+    items = [i for i in run(["search", ""], capsys)["items"] if "quicklookurl" in i]
+    books = "\n".join(f"{i['variables']['book']}\treference" for i in items)
+
+    main(["genre", books, "ignored"])
+
+    assert capsys.readouterr().out.startswith("3 books → reference · 2 moved, 1 stayed put"), "each line may carry its own genre"
+
+
+@pytest.mark.parametrize("argv", [["genre"], ["genre", "/x"]])
 def test_genre_needs_books_then_a_genre(indexed, argv):
     with pytest.raises(SystemExit):
         main(argv)
 
 
-def test_genre_lowercases_and_trims_the_genre(indexed, library, capsys):
-    main(["genre", str(library / "00_Inbox" / "Napkin.pdf"), "  Games/Go "])
-
-    assert capsys.readouterr().out.startswith("Napkin → games/go"), "genres are stored trimmed and in lower case"
-
-
 def test_genres_renders_the_picker_for_the_selected_book(indexed, capsys, monkeypatch):
-    monkeypatch.setenv("book", run(["search", "napkin"], capsys)["items"][0]["variables"]["book"])
+    napkin = next(i for i in run(["search", "napkin"], capsys)["items"] if "quicklookurl" in i)["variables"]["book"]
+    monkeypatch.setenv("book", napkin)
 
     items = run(["genres", "non"], capsys)["items"]
 
-    assert [i["title"] for i in items] == ["Napkin", "nonfiction"], "the picker shows the book, then genres matching the typed text"
+    assert [i["title"] for i in items] == ["Napkin", "nonfiction"], "the book, then the genres matching the typed text"
+    assert items[1]["variables"] == {"book": napkin, "action": "genre"}, "↩ hands the book and the genre to the genre step"
 
 
-def test_index_writes_the_genre_store(indexed, tmp_path):
-    assert (tmp_path / "alfred-data" / "genres.tsv").exists(), "indexing should save genres to genres.tsv"
-
-
-def test_classify_lists_unclassified_with_book_variable(indexed, library, capsys):
-
-    items = run(["search", "classify napkin"], capsys)["items"]
-    assert [i["title"] for i in items] == ["Napkin"], "classify should filter the inbox by the query"
-    assert items[0]["arg"] == "" and len(items[0]["variables"]["book"]) == 40, "the book travels as a variable, the query starts empty"
-
-
-@pytest.mark.parametrize("book", ["one", "one\ntwo"])
-def test_genres_before_any_index_explains(env, capsys, monkeypatch, book):
-    monkeypatch.setenv("book", book)
-
-    assert run(["genres", ""], capsys)["items"][0]["title"] == "No index yet", "the genre picker without an index should explain"
-
-
-def test_genres_without_book_explains(indexed, library, capsys, monkeypatch):
-    monkeypatch.delenv("book", raising=False)
-
-    assert run(["genres", ""], capsys)["items"][0]["valid"] is False, "without a selected book the picker must not be actionable"
-
-
-def test_search_items_offer_the_genre_picker_on_shift(indexed, capsys):
-
-    item = run(["search", "deep"], capsys)["items"][0]
-    assert item["mods"]["shift"]["arg"] == "", "shift+↩ should open the genre picker with an empty query"
-    assert "genre" in item["mods"]["shift"]["subtitle"].lower(), "the shift subtitle should say it sets the genre"
-    assert item["variables"]["book"] == item["mods"]["shift"]["variables"]["book"], "the fingerprint must travel with the shift action"
-
-
-def test_genre_moves_the_book_to_its_genre_home(indexed, library, capsys):
-    book = library / "02_NonFiction" / "Newport, Cal - Deep Work (2016, GC) - libgen.li.epub"
-
-    assert main(["genre", str(book), "productivity"]) == 0, "tagging with a genre should succeed"
-    out = capsys.readouterr().out
-
-    assert not book.exists(), "the book should leave its old folder as soon as the genre is set"
-    moved = list(library.rglob("*.epub"))
-    assert len(moved) == 1 and moved[0].parts[-3:-1] == ("productivity", "Newport, Cal"), "the book should land in genre/author"
-    assert "Deep Work → productivity" in out and "→ productivity/Newport, Cal/" in out, "the report should name the new home"
-    assert run(["search", "deep"], capsys)["items"][0]["subtitle"].count("productivity") >= 1, "the index should already know the new path"
-
-
-def test_single_book_moves_update_the_index_in_place(indexed, library, capsys, mocker):
-    rebuild = mocker.patch("kobold.library.build_index")
-    book = library / "02_NonFiction" / "Newport, Cal - Deep Work (2016, GC) - libgen.li.epub"
-
-    main(["genre", str(book), "productivity"])
-    capsys.readouterr()
-
-    rebuild.assert_not_called()
-    items = run(["search", "deep"], capsys)["items"]
-    assert items[0]["subtitle"].endswith("productivity/Newport, Cal/Newport, Cal - Deep Work (Focus 02) (2016).epub"), (
-        "one moved book should not re-read every other book; the row itself is relocated"
-    )
-    assert "No books match" in run(["search", "nonfiction"], capsys)["items"][0]["title"], "the old path should be gone from the index"
-
-
-def test_single_book_move_updates_the_genre_store_path(indexed, library, tmp_path, capsys):
-    import csv
-
-    main(["genre", str(library / "02_NonFiction" / "Newport, Cal - Deep Work (2016, GC) - libgen.li.epub"), "productivity"])
-
-    with (tmp_path / "alfred-data" / "genres.tsv").open(newline="", encoding="utf-8") as handle:
-        paths = {r["rel_path"] for r in csv.DictReader(handle, delimiter="\t")}
-    assert "productivity/Newport, Cal/Newport, Cal - Deep Work (Focus 02) (2016).epub" in paths, (
-        "genres.tsv should name the book's new path right away"
-    )
-
-
-def test_genre_reports_when_there_is_no_home_yet(indexed, library, capsys):
-    book = library / "00_Inbox" / "Napkin.pdf"
-
-    assert main(["genre", str(book), "reference"]) == 0, "a book without an author can still be tagged"
-
-    assert book.exists(), "a book whose home cannot be derived stays put"
-    assert "stays put" in capsys.readouterr().out, "the report should say the book was not moved"
-
-
-def test_genre_accepts_notify_like_the_other_movers(indexed, library, mocker):
-    notify = mocker.patch("kobold.cli.notify")
-    book = library / "02_NonFiction" / "Newport, Cal - Deep Work (2016, GC) - libgen.li.epub"
-
-    assert main(["genre", "--notify", str(book), "productivity"]) == 0, "--notify should be accepted before the book"
-
-    assert notify.call_count == 1 and "moved → productivity/" in notify.call_args.args[0], "the notification should name the new home"
-
-
-def test_notify_passes_the_message_as_an_argument(mocker):
-    run = mocker.patch("kobold.cli.subprocess.run")
-    message = 'Deep "Work" → C:\\Users'
-
-    notify(message)
-
-    argv = run.call_args.args[0]
-    assert argv[-1] == message, "the message must reach osascript verbatim, never spliced into the script"
-    assert not any(message in a for a in argv[:-1]), "the message must not be interpolated into the AppleScript source"
-
-
-def fingerprints_of(items: list[dict]) -> list[str]:
-    return [i["variables"]["book"] for i in items if "mods" in i and i.get("valid", True)]
-
-
-def test_genre_classifies_many_books_at_once(indexed, library, capsys):
-    books = "\n".join(fingerprints_of(inbox_rows()))
-
-    assert main(["genre", books, "reference"]) == 0, "setting the genre of several books should succeed"
-
-    assert capsys.readouterr().out.startswith("2 books → reference · 1 moved, 1 stayed put"), "the summary counts moved and unmoved books"
-    assert fingerprints_of(inbox_rows()) == [], "both books leave the inbox; only the partial download stays"
-    assert len(run(["search", "reference"], capsys)["items"]) == 2, "both books carry the genre"
-
-
-def test_genre_skips_unknown_references_in_a_batch(indexed, library, capsys):
-    known = fingerprints_of(inbox_rows())[0]
-
-    assert main(["genre", f"{known}\nnope", "reference"]) == 0, "one unknown reference does not fail the batch"
-    assert "skipped 1" in capsys.readouterr().out, "the unknown reference should be mentioned"
-
-
-DEEP_WORK = "02_NonFiction/Newport, Cal - Deep Work (2016, GC) - libgen.li.epub"
-DEEP_WORK_HOME = "02_NonFiction/Newport, Cal/Newport, Cal - Deep Work (Focus 02) (2016).epub"
-NOVA = "00_Inbox/Delany, Samuel R - Nova - 2014.epub.part"
+def test_genres_without_a_book_explains(indexed, capsys, monkeypatch):
+    monkeypatch.setenv("book", "")
+    assert run(["genres", ""], capsys)["items"][0]["title"] == "No book selected", "the picker needs a book"
 
 
 def test_fix_dry_run_prints_one_operation_per_line(indexed, library, capsys):
-    assert main(["fix", "--dry-run"]) == 0, "a dry run should succeed"
-
-    assert capsys.readouterr().out == f"move\t{DEEP_WORK}\t{DEEP_WORK_HOME}\trelocate + rename\n", (
-        "one line per operation: kind, src, dst, reason"
-    )
-    assert (library / DEEP_WORK).exists(), "a dry run must not move anything"
+    main(["fix", "--dry-run"])
+    assert capsys.readouterr().out == f"move\t{DEEP}\t{DEEP_HOME}\trelocate + rename\n", "kind, src, dst, reason"
 
 
-def test_fix_applies_everything_then_rebuilds_the_index(indexed, library, tmp_path, capsys):
+def test_fix_applies_everything_then_rebuilds(indexed, library, capsys):
     assert main(["fix"]) == 0, "fix should succeed"
-
-    assert capsys.readouterr().out.startswith("Applied 1"), "the summary should count what was applied"
-    assert (library / DEEP_WORK_HOME).exists(), "the misnamed epub should be renamed into its author folder"
-    assert (tmp_path / "alfred-data" / "journal.jsonl").exists(), "the move should be journaled"
-    assert "Newport, Cal/" in run(["search", "deep"], capsys)["items"][0]["subtitle"], "the index should know the new path"
+    assert capsys.readouterr().out.startswith("Applied 1 · Indexed 4 books"), "applied, then re-indexed"
+    assert (library / DEEP_HOME).exists(), "the book is home"
 
 
-@pytest.fixture
-def junk(library: Path) -> Path:
-    path = library / "00_Inbox" / "FSCK0000.000"
-    path.write_bytes(b"")
-    return path
-
-
-def test_fix_with_a_path_applies_only_that_operation_without_a_full_rebuild(indexed, library, junk, capsys, mocker):
-    rebuild = mocker.patch("kobold.library.build_index")
-
-    assert main(["fix", str(library / DEEP_WORK)]) == 0, "fixing one book should succeed"
-    capsys.readouterr()
-
+def test_fix_with_a_path_applies_only_that_operation(indexed, library, capsys, mocker):
+    rebuild = mocker.patch("kobold.places.build_index")
+    assert main(["fix", str(library / DEEP)]) == 0, "fixing one book should succeed"
     rebuild.assert_not_called()
-    assert (library / DEEP_WORK_HOME).exists() and junk.exists(), "only the named book's operation should run"
-    assert run(["search", "deep"], capsys)["items"][0]["subtitle"].endswith(DEEP_WORK_HOME), "the index row should follow the move"
+    assert (library / DEEP_HOME).exists(), "the named book moved"
 
 
-def test_fix_takes_paths_one_per_line(indexed, library, junk, capsys):
-    assert main(["fix", f"{library / DEEP_WORK}\n{junk}"]) == 0, "the narrowed Fix all row passes its paths one per line"
-
-    assert (library / DEEP_WORK_HOME).exists() and (library / "_trash" / "00_Inbox" / "FSCK0000.000").exists(), "both should be fixed"
-
-
-def test_fix_with_words_applies_only_what_concerns_matching_books(indexed, library, junk, capsys):
-    assert main(["fix", "newport"]) == 0, "fixing by words should succeed"
-
-    assert (library / DEEP_WORK_HOME).exists() and junk.exists(), "only operations on books matching the words should run"
-
-
-def test_fix_computes_operations_when_it_runs(indexed, library, junk, capsys):
-    main(["genre", str(library / "00_Inbox" / "Napkin.pdf"), "reference"])
-    capsys.readouterr()
-
-    assert main(["fix", str(junk)]) == 0, "↩ on a row still works after the library changed"
-    assert (library / "_trash" / "00_Inbox" / "FSCK0000.000").exists(), "the operation is recomputed from the current library"
-
-
-def test_fix_summary_names_the_skip_reason(indexed, library, capsys):
-    (library / DEEP_WORK).unlink()
-
-    main(["fix", str(library / DEEP_WORK)])
-
-    assert capsys.readouterr().out.startswith("Applied 0, skipped 1 (source missing)"), "the summary should say why it skipped"
-
-
-def test_undo_reverses_the_last_fix(indexed, library, capsys):
+def test_undo_reverses_the_last_batch(indexed, library, capsys):
     main(["fix"])
-    capsys.readouterr()
-
-    assert main(["undo"]) == 0, "undo should succeed"
-    assert (library / DEEP_WORK).exists(), "the original name should be back"
-    assert capsys.readouterr().out.startswith("Undid 1"), "undo should report what it reversed"
-
-
-def test_fix_is_refused_without_an_index(env, capsys):
-    assert main(["fix"]) == 1 and "No index yet" in capsys.readouterr().out, "fix needs a current index"
-
-
-def test_trash_sets_an_unfinished_download_aside(indexed, library, tmp_path, capsys):
-    assert main(["trash", str(library / NOVA)]) == 0, "trashing a download should succeed"
-
-    assert capsys.readouterr().out.startswith("Moved 1 book to _trash/"), "the summary should count the books"
-    assert (library / "_trash" / NOVA).exists() and not (library / NOVA).exists(), "the file should move to _trash/<original path>"
-    assert [i["title"] for i in run(["search", "trash"], capsys)["items"]] == ["Nothing to trash"], "it should leave the index"
-    assert (tmp_path / "alfred-data" / "journal.jsonl").exists(), "the move should be journaled"
-
-
-def test_trash_takes_several_books_and_undo_brings_them_back(indexed, library, capsys):
-    napkin = library / "00_Inbox" / "Napkin.pdf"
-
-    assert main(["trash", f"{library / NOVA}\n{napkin}"]) == 0, "the Trash all row passes its paths one per line"
-    assert capsys.readouterr().out.startswith("Moved 2 books to _trash/"), "both books should be counted"
-
     main(["undo"])
-    assert napkin.exists() and (library / NOVA).exists(), "undo should bring both back"
+    assert (library / DEEP).exists() and not (library / DEEP_HOME).exists(), "undo puts the book back"
 
 
-def test_trash_reports_unknown_paths(indexed, library, capsys):
-    unknown = library / "00_Inbox" / "Nope.epub"
-
-    assert main(["trash", str(unknown)]) == 1, "nothing known to trash is a failure"
-    assert capsys.readouterr().out == f"Not indexed: {unknown}\n", "the unknown path should be named exactly as given"
-
-
-def test_genre_names_unknown_references_exactly(indexed, library, capsys):
-    unknown = library / "00_Inbox" / "Nope.epub"
-
-    assert main(["genre", str(unknown), "reference"]) == 1, "nothing known to classify is a failure"
-    assert capsys.readouterr().out == f"Not indexed: {unknown}\n", "the unknown path should be named exactly as given"
+def test_undo_takes_an_imported_book_out_of_the_nook(stocked, library, shelf, capsys):
+    main(["import", str(shelf / "Misc" / "A World Without Email.epub")])
+    main(["undo"])
+    assert not (library / "Nook" / "Newport, Cal - A World Without Email (Focus 02) (2016).epub").exists(), "the copy is gone again"
 
 
-@pytest.mark.parametrize("retired", ["dups", "random", "inbox", "classify", "sources", "stats"])
-def test_one_purpose_subcommands_are_gone(env, retired):
-    with pytest.raises(SystemExit):
-        main([retired])
+def test_writes_are_refused_while_indexing(indexed, library, tmp_path, capsys):
+    (tmp_path / "alfred-data" / "books.lock").write_text("1")
+    for argv in (["nook", str(library / DEEP)], ["done", str(library / DEEP)], ["remove", str(library / DEEP)], ["fix"], ["undo"]):
+        assert main(argv) == 1, f"{argv[0]} must not write to a database being rebuilt"
 
 
-def oracle_store(tmp_path: Path):
-    from kobold.suggestions import SuggestionStore
-
-    return SuggestionStore(tmp_path / "alfred-data" / "oracle.tsv").load()
+def test_catalogue_prints_the_path(indexed, library, capsys):
+    assert main(["catalogue"]) == 0 and capsys.readouterr().out.strip() == str(library / "catalogue.tsv"), "one line, the path"
 
 
-def test_update_prunes_suggestions_for_books_that_left(indexed, library, tmp_path, capsys):
-    napkin = run(["search", "napkin"], capsys)["items"][0]["variables"]["book"]
-    store = oracle_store(tmp_path)
-    store.set(napkin, "genre", {"genre": "none"}, "h")
-    store.set("vanished", "genre", {"genre": "none"}, "h")
-    store.save()
+def test_a_genre_changed_in_the_catalogue_moves_the_book_on_update(indexed, library, capsys):
+    text = (library / "catalogue.tsv").read_text(encoding="utf-8")
+    (library / "catalogue.tsv").write_text(text.replace("nonfiction\t", "productivity\t"), encoding="utf-8")
 
     main(["update"])
 
-    store = oracle_store(tmp_path)
-    assert store.get("vanished", "genre") is None and store.get(napkin, "genre") is not None, "only answers about absent books are pruned"
-
-
-def test_trash_prunes_the_books_suggestions(indexed, library, tmp_path, capsys):
-    napkin = run(["search", "napkin"], capsys)["items"][0]["variables"]["book"]
-    store = oracle_store(tmp_path)
-    store.set(napkin, "genre", {"genre": "reference"}, "h")
-    store.save()
-
-    main(["trash", str(library / "00_Inbox" / "Napkin.pdf")])
-
-    assert oracle_store(tmp_path).get(napkin, "genre") is None, "a book set aside takes its suggestions with it"
-
-
-def test_update_does_not_create_an_empty_oracle_store(indexed, tmp_path):
-    assert not (tmp_path / "alfred-data" / "oracle.tsv").exists(), "nothing mentions the oracle until there is something to store"
+    assert (library / "productivity" / "Newport, Cal" / "Newport, Cal - Deep Work (Focus 02) (2016).epub").exists(), "the edit is the plan"
+    assert "Catalogue: 1 genre changed" in capsys.readouterr().out, "and is reported"
 
 
 @pytest.fixture
@@ -420,580 +272,109 @@ def oracle_env(indexed, monkeypatch):
     monkeypatch.setenv("KOBOLD_ORACLE_URL", "http://127.0.0.1:8080")
 
 
-def test_ask_is_refused_without_a_model_server(indexed, monkeypatch, capsys):
-    monkeypatch.delenv("KOBOLD_ORACLE_URL", raising=False)
-
-    assert main(["ask", "genre"]) == 1, "nothing to ask without a server"
-    assert "KOBOLD_ORACLE_URL" in capsys.readouterr().out, "the message should name the setting"
-
-
-def test_ask_genre_stores_an_answer_per_inbox_book(oracle_env, tmp_path, capsys, mocker):
-    ask = mocker.patch("kobold.oracle.ask", side_effect=[{"genre": "nonfiction"}, {"genre": "none"}])
-
-    assert main(["ask", "genre"]) == 0, "asking should succeed"
-
-    assert capsys.readouterr().out.strip() == "Asked about 2 books: 1 genre suggested, 1 without an answer", "the summary counts answers"
-    assert ask.call_count == 2, "one request per inbox book"
-    answers = oracle_store(tmp_path).answers("genre")
-    assert sorted(a["genre"] for a in answers.values()) == ["none", "nonfiction"], "both answers are kept, none included"
-    assert ask.call_args_list[0].args[0] == "genre" and "Genres: nonfiction" in ask.call_args_list[0].args[1], (
-        "the known genres are part of the evidence"
-    )
-
-
-def test_ask_twice_asks_nothing_the_second_time(oracle_env, capsys, mocker):
-    ask = mocker.patch("kobold.oracle.ask", return_value={"genre": "none"})
-    main(["ask", "genre"])
-    capsys.readouterr()
-
-    main(["ask", "genre"])
-
-    assert ask.call_count == 2, "answered books are not asked again"
-    assert capsys.readouterr().out.strip() == "The model had no suggestions", "nothing new is said plainly"
-
-
-def test_ask_force_asks_again(oracle_env, capsys, mocker):
-    ask = mocker.patch("kobold.oracle.ask", return_value={"genre": "none"})
-    main(["ask", "genre"])
-
-    main(["ask", "--force", "genre"])
-
-    assert ask.call_count == 4, "--force re-asks every book"
-
-
-def test_ask_counts_skipped_requests(oracle_env, capsys, mocker):
-    mocker.patch("kobold.oracle.ask", side_effect=[{"genre": "nonfiction"}, None])
-
-    main(["ask", "genre"])
-
-    assert capsys.readouterr().out.strip() == "Asked about 2 books: 1 genre suggested, 1 skipped", "a timeout is counted, not fatal"
-
-
-def test_ask_dry_run_prints_the_evidence_and_writes_nothing(oracle_env, tmp_path, capsys, mocker):
-    ask = mocker.patch("kobold.oracle.ask")
-
-    assert main(["ask", "--dry-run", "genre"]) == 0, "a dry run succeeds"
-
-    out = capsys.readouterr().out
-    assert out.count("Title: ") == 2 and "Genres: nonfiction" in out, "one block per book, exactly what the model would see"
-    assert not ask.called and not (tmp_path / "alfred-data" / "oracle.tsv").exists(), "a dry run neither asks nor stores"
-
-
-def test_ask_words_narrow_the_books(oracle_env, capsys, mocker):
-    ask = mocker.patch("kobold.oracle.ask", return_value={"genre": "none"})
-
-    main(["ask", "genre", "napkin"])
-
-    assert ask.call_count == 1 and "Title: Napkin" in ask.call_args.args[1], "only books matching the words are asked about"
-
-
-def test_genre_takes_fingerprint_and_genre_pairs_as_one_batch(indexed, library, tmp_path, capsys):
-    from kobold.apply import last_batch, read_journal
-
-    napkin, skinner = (run(["search", w], capsys)["items"][0]["variables"]["book"] for w in ("napkin", "оперантное"))
-
-    assert main(["genre", f"{napkin}\treference\n{skinner}\tnonfiction/psychology", ""]) == 0, "pairs carry their own genre"
-
-    assert capsys.readouterr().out.startswith("2 books → 2 genres · 1 moved, 1 stayed put"), "the summary counts moved and unmoved books"
-    assert [i["title"] for i in run(["search", "psychology"], capsys)["items"]] == ["Оперантное поведение"], "each book gets its own genre"
-    assert len(last_batch(read_journal(tmp_path / "alfred-data" / "journal.jsonl"))) == 1, "the moves are one journaled batch"
-
-
-def test_genre_for_several_books_is_one_batch(indexed, library, tmp_path, capsys):
-    from kobold.apply import last_batch, read_journal
-
-    books = "\n".join(fingerprints_of(inbox_rows()))
-    (library / "00_Inbox" / "Delany, Samuel R - Nova - 2014.epub.part").unlink()
-    main(["update"])
-    capsys.readouterr()
-
-    main(["genre", books, "reference"])
-
-    batch = last_batch(read_journal(tmp_path / "alfred-data" / "journal.jsonl"))
-    assert len(batch) == 1 and "Napkin" not in batch[0].src, "the one book that can move does, in the batch of this command"
-
-
-def test_setting_a_genre_drops_the_models_suggestion(indexed, library, tmp_path, capsys):
-    napkin = run(["search", "napkin"], capsys)["items"][0]["variables"]["book"]
-    store = oracle_store(tmp_path)
-    store.set(napkin, "genre", {"genre": "reference"}, "h")
-    store.save()
-
-    main(["genre", napkin, "fiction/spy"])
-
-    assert oracle_store(tmp_path).get(napkin, "genre") is None, "a suggestion acted on, or overruled, is forgotten"
-
-
 NAPKIN_NAME = {"title": "Table Napkin Folding", "authors": ["Ivor Penhale"], "confident": True}
 
 
-def test_ask_name_asks_about_books_described_from_their_filename(oracle_env, tmp_path, capsys, mocker):
+def test_ask_is_refused_without_a_model_server(indexed, monkeypatch, capsys):
+    monkeypatch.delenv("KOBOLD_ORACLE_URL", raising=False)
+    assert main(["ask"]) == 1 and "No model server" in capsys.readouterr().out, "ask needs a server"
+
+
+def test_ask_knows_only_genre_and_name(oracle_env):
+    with pytest.raises(SystemExit):
+        main(["ask", "authors"])
+
+
+def test_ask_name_corrects_the_index_row(oracle_env, library, capsys, mocker):
     ask = mocker.patch("kobold.oracle.ask", return_value=NAPKIN_NAME)
 
     main(["ask", "name"])
 
-    assert ask.call_count == 1 and "Path: 00_Inbox/Napkin.pdf" in ask.call_args.args[1], (
-        "only the pdf's name is a guess from an opaque filename"
+    assert ask.call_count == 1 and capsys.readouterr().out.strip() == "Asked about 1 book: 1 name suggested", "one unnamed file, one answer"
+    (row,) = [i for i in run(["search", "penhale"], capsys)["items"] if "quicklookurl" in i]
+    assert row["title"] == "Table Napkin Folding" and (library / "00_Inbox" / "Napkin.pdf").exists(), (
+        "the row is corrected, the file untouched"
     )
-    assert "Genres:" not in ask.call_args.args[1], "a name question does not list the genres"
-    assert capsys.readouterr().out.strip() == "Asked about 1 book: 1 name suggested", "the summary counts names"
-    assert oracle_store(tmp_path).get(fingerprint_of_napkin(capsys), "name").answer == NAPKIN_NAME, "the answer is stored as given"
 
 
-def fingerprint_of_napkin(capsys) -> str:
-    return run(["search", "napkin"], capsys)["items"][0]["variables"]["book"]
+def test_ask_genre_stores_an_answer_per_unclassified_book(oracle_env, tmp_path, capsys, mocker):
+    from kobold.suggestions import SuggestionStore
+
+    ask = mocker.patch("kobold.oracle.ask", return_value={"genre": "nonfiction"})
+
+    main(["ask", "genre"])
+
+    assert ask.call_count == 2 and capsys.readouterr().out.strip() == "Asked about 2 books: 2 genres suggested", "the two inbox books"
+    assert len(SuggestionStore(tmp_path / "alfred-data" / "oracle.tsv").load().answers("genre")) == 2, "stored per fingerprint"
 
 
-def test_an_unconfident_name_is_stored_but_not_counted(oracle_env, tmp_path, capsys, mocker):
-    mocker.patch("kobold.oracle.ask", return_value={**NAPKIN_NAME, "confident": False})
-
-    main(["ask", "name"])
-
-    assert capsys.readouterr().out.strip() == "The model had no suggestions", "an unsure answer is no suggestion"
-    assert oracle_store(tmp_path).get(fingerprint_of_napkin(capsys), "name") is not None, "but it is kept so the book is not asked again"
+def test_ask_dry_run_prints_the_evidence(oracle_env, capsys, mocker):
+    ask = mocker.patch("kobold.oracle.ask")
+    main(["ask", "genre", "--dry-run"])
+    assert "Genres:" in capsys.readouterr().out and not ask.called, "the evidence, nothing asked"
 
 
-def test_ask_without_a_question_asks_names_before_genres(oracle_env, capsys, mocker):
-    ask = mocker.patch("kobold.oracle.ask", side_effect=[NAPKIN_NAME, {"genre": "none"}, {"genre": "none"}])
+def test_embed_stores_a_vector_per_book_in_every_place(stocked, tmp_path, capsys, mocker, monkeypatch):
+    from kobold.vectors import VectorStore
 
-    main(["ask"])
-
-    assert [c.args[0] for c in ask.call_args_list] == ["name", "genre", "genre"], "a book that gets a title is classified under it"
-
-
-def test_dismiss_silences_a_book(oracle_env, tmp_path, capsys):
-    napkin = fingerprint_of_napkin(capsys)
-    store = oracle_store(tmp_path)
-    store.set(napkin, "name", NAPKIN_NAME, "h")
-    store.save()
-
-    assert main(["dismiss", napkin]) == 0, "dismissing should succeed"
-
-    assert capsys.readouterr().out.strip() == "Suggestions for Napkin dismissed", "the book is named"
-    assert oracle_store(tmp_path).get(napkin, "name").answer == {}, "the suggestion is gone"
-
-
-def test_dismiss_names_an_unknown_book(indexed, capsys):
-    assert main(["dismiss", "nope"]) == 1 and capsys.readouterr().out == "Not indexed: nope\n", "an unknown reference is a failure"
-
-
-@pytest.fixture
-def napkin_named(oracle_env, tmp_path, capsys) -> str:
-    napkin = fingerprint_of_napkin(capsys)
-    store = oracle_store(tmp_path)
-    store.set(napkin, "name", NAPKIN_NAME, "h")
-    store.save()
-    return napkin
-
-
-SUGGESTED_NAME = "00_Inbox/Penhale, Ivor - Table Napkin Folding.pdf"
-
-
-def test_bare_fix_leaves_suggested_renames_alone(napkin_named, library, capsys):
-    main(["fix"])
-
-    assert (library / "00_Inbox" / "Napkin.pdf").exists(), "what the model suggested is not applied without being asked for"
-
-
-def test_fix_dry_run_lists_only_what_is_certain(napkin_named, capsys):
-    main(["fix", "--dry-run"])
-
-    assert "suggested" not in capsys.readouterr().out, "a bare dry run is the certain plan"
-
-
-def test_fix_with_the_path_applies_the_suggested_rename_and_forgets_it(napkin_named, library, tmp_path, capsys):
-    assert main(["fix", str(library / "00_Inbox" / "Napkin.pdf")]) == 0, "↩ on a suggested row applies that one move"
-    capsys.readouterr()
-
-    assert (library / SUGGESTED_NAME).exists(), "the book is renamed from the suggested title and author"
-    assert oracle_store(tmp_path).get(napkin_named, "name") is None, "a suggestion acted on is forgotten"
-    assert run(["search", "penhale"], capsys)["items"][0]["subtitle"].endswith(SUGGESTED_NAME), "the index follows the rename"
-
-
-def author_epub(path: Path, title: str, author: str) -> Path:
-    import zipfile
-
-    from tests.conftest import CONTAINER, OPF
-
-    opf = "\n".join(
-        line for line in OPF.replace("Deep Work", title).splitlines() if "calibre:series" not in line and "Someone Else" not in line
-    )
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with zipfile.ZipFile(path, "w") as zf:
-        zf.writestr("META-INF/container.xml", CONTAINER)
-        zf.writestr("OEBPS/content.opf", opf.replace("Cal Newport", author))
-    return path
-
-
-NOVA_HOME = "01_Fiction/02_Sci-Fi/Delany, Samuel Ray/Delany, Samuel Ray - Nova (2016).epub"
-BABEL_ALIAS = "01_Fiction/02_Sci-Fi/Delany, Samuel/Delany, Samuel - Babel-17 (2016).epub"
-GROUPS = {"groups": [{"canonical": "Delany, Samuel Ray", "aliases": ["Delany, Samuel"]}]}
-
-
-@pytest.fixture
-def delany_folders(env, library, capsys, monkeypatch) -> None:
-    author_epub(library / NOVA_HOME, "Nova", "Samuel Ray Delany")
-    author_epub(library / BABEL_ALIAS, "Babel-17", "Samuel Delany")
     monkeypatch.setenv("KOBOLD_ORACLE_URL", "http://127.0.0.1:8080")
-    main(["update"])
-    capsys.readouterr()
+    monkeypatch.setenv("KOBOLD_EMBED_MODEL", "bge-m3")
+    mocker.patch("kobold.embedder.embed", return_value=[1.0, 0.0])
+
+    assert main(["embed"]) == 0 and capsys.readouterr().out.strip() == "Embedded 4 books", "3 device books and 1 library-only book"
+    assert VectorStore(tmp_path / "alfred-data" / "vectors.db").count("bge-m3") == 4, "one vector per fingerprint"
 
 
-def test_ask_authors_asks_once_about_every_author_folder(delany_folders, tmp_path, capsys, mocker):
-    ask = mocker.patch("kobold.oracle.ask", return_value=GROUPS)
-
-    assert main(["ask", "authors"]) == 0, "asking should succeed"
-
-    assert ask.call_count == 1 and ask.call_args.args[0] == "authors", "one request for the whole library"
-    assert ask.call_args.args[1].splitlines()[1:] == ["Delany, Samuel · Babel-17", "Delany, Samuel Ray · Nova"], (
-        "the evidence is the sorted author folder list, each with sample titles"
-    )
-    assert capsys.readouterr().out.strip() == "Asked about the author folders: 1 merge suggested", "the summary counts groups"
-    assert oracle_store(tmp_path).get("*", "authors").answer == GROUPS, "the answer is stored for the library"
-
-    main(["ask", "authors"])
-    assert ask.call_count == 1, "the same folder list is not asked about twice"
-
-
-def test_ask_authors_with_nothing_to_merge_says_so(delany_folders, capsys, mocker):
-    mocker.patch("kobold.oracle.ask", return_value={"groups": []})
-
-    main(["ask", "authors"])
-
-    assert capsys.readouterr().out.strip() == "The model had no suggestions", "an empty answer is stored and reported"
-
-
-@pytest.fixture
-def delany_merge(delany_folders, tmp_path) -> None:
-    store = oracle_store(tmp_path)
-    store.set("*", "authors", GROUPS, "h")
-    store.save()
-
-
-BABEL_HOME = "01_Fiction/02_Sci-Fi/Delany, Samuel Ray/Delany, Samuel Ray - Babel-17 (2016).epub"
-
-
-def test_fix_with_the_paths_applies_a_suggested_merge(delany_merge, library, capsys):
-    assert main(["fix", str(library / BABEL_ALIAS)]) == 0, "↩ on the merge row passes the group's paths"
-
-    assert (library / BABEL_HOME).exists(), "the book joins the canonical folder under the canonical name"
-    assert not (library / "01_Fiction" / "02_Sci-Fi" / "Delany, Samuel").exists(), "the emptied alias folder is pruned"
-
-
-def test_a_merged_book_stays_home_afterwards(delany_merge, library, tmp_path, capsys):
-    main(["fix", str(library / BABEL_ALIAS)])
-    capsys.readouterr()
-
-    main(["fix", "--dry-run"])
-
-    assert "Babel-17" not in capsys.readouterr().out, "the alias is remembered, so the planner no longer wants the book back"
-    assert "Delany, Samuel\tDelany, Samuel Ray" in (tmp_path / "alfred-data" / "authors.tsv").read_text(), (
-        "the accepted merge is written down as an alias"
-    )
-
-
-def test_undoing_a_merge_forgets_the_alias(delany_merge, library, tmp_path, capsys):
-    main(["fix", str(library / BABEL_ALIAS)])
-
-    assert main(["undo"]) == 0, "undo should succeed"
-
-    assert (library / BABEL_ALIAS).exists(), "the book is back in its own folder"
-    assert "Delany, Samuel\t" not in (tmp_path / "alfred-data" / "authors.tsv").read_text(), "an undone merge is no longer an alias"
-    capsys.readouterr()
-    main(["fix", "--dry-run"])
-    assert "Babel-17" not in capsys.readouterr().out, "and the planner does not try the move again on its own"
-
-
-def test_obvious_aliases_merge_without_a_model(delany_folders, library, monkeypatch, capsys):
-    monkeypatch.delenv("KOBOLD_ORACLE_URL")
-
-    assert main(["fix", str(library / BABEL_ALIAS)]) == 0, "a folder that only lacks a middle name is an obvious alias"
-
-    assert (library / BABEL_HOME).exists(), "the book joins the fuller spelling"
-
-
-def test_bare_fix_leaves_obvious_merges_alone(delany_folders, library, monkeypatch):
-    monkeypatch.delenv("KOBOLD_ORACLE_URL")
-
-    main(["fix"])
-
-    assert (library / BABEL_ALIAS).exists(), "an obvious merge still waits for ↩ on its row"
-
-
-def test_bare_fix_leaves_merges_alone(delany_merge, library, capsys):
-    main(["fix"])
-
-    assert (library / BABEL_ALIAS).exists(), "a merge is a suggestion until ↩ on its row"
+def test_embed_is_refused_without_an_embedding_model(oracle_env, capsys, monkeypatch):
+    monkeypatch.delenv("KOBOLD_EMBED_MODEL", raising=False)
+    assert main(["embed"]) == 1 and "No embedding model" in capsys.readouterr().out, "embed needs a model"
 
 
 def test_choose_writes_the_workflow_configuration(env, capsys, mocker):
-    run_script = mocker.patch("kobold.cli.subprocess.run")
+    osascript = mocker.patch("kobold.cli.subprocess.run")
 
-    assert main(["choose", "oracle", "qwen2.5-7b-instruct"]) == 0, "choosing should succeed"
+    assert main(["choose", "embed", "bge-m3"]) == 0, "choose should succeed"
 
-    argv = run_script.call_args.args[0]
-    assert argv[0] == "osascript" and argv[-3:] == ["KOBOLD_ORACLE_MODEL", "qwen2.5-7b-instruct", "com.anokhin.kobold"], (
-        "the variable, the value and the bundle id reach the script as arguments, never spliced into it"
+    args = osascript.call_args.args[0]
+    assert args[-3:] == ["KOBOLD_EMBED_MODEL", "bge-m3", "com.anokhin.kobold"] and "set configuration" in " ".join(args), (
+        "Alfred's config is set"
     )
-    assert "set configuration" in " ".join(argv) and "com.runningwithcrayons.Alfred" in " ".join(argv), (
-        "Alfred is asked to set the variable"
-    )
-    assert capsys.readouterr().out.strip() == "Oracle: qwen2.5-7b-instruct", "the choice is reported"
-
-
-def test_choose_embed_sets_the_embedding_model(env, capsys, mocker):
-    run_script = mocker.patch("kobold.cli.subprocess.run")
-
-    main(["choose", "embed", "bge-m3"])
-
-    assert run_script.call_args.args[0][-3] == "KOBOLD_EMBED_MODEL", "embed chooses the embedding model"
-    assert capsys.readouterr().out.strip() == "Embeddings: bge-m3", "the choice is reported"
-
-
-def test_choose_uses_the_running_workflows_bundle_id(env, capsys, mocker, monkeypatch):
-    monkeypatch.setenv("alfred_workflow_bundleid", "com.example.fork")
-    run_script = mocker.patch("kobold.cli.subprocess.run")
-
-    main(["choose", "oracle", "x"])
-
-    assert run_script.call_args.args[0][-1] == "com.example.fork", "a renamed workflow configures itself, not the original"
+    assert capsys.readouterr().out.strip() == "Embeddings: bge-m3", "and the choice is reported"
 
 
 def test_models_prints_the_list_with_the_current_choices(env, capsys, mocker, monkeypatch):
     monkeypatch.setenv("KOBOLD_ORACLE_URL", "http://127.0.0.1:8080")
-    monkeypatch.setenv("KOBOLD_ORACLE_MODEL", "qwen2.5-7b-instruct")
-    mocker.patch("kobold.embedder.models", return_value=["qwen2.5-7b-instruct", "bge-m3"])
+    monkeypatch.setenv("KOBOLD_ORACLE_MODEL", "qwen")
+    mocker.patch("kobold.embedder.models", return_value=["qwen", "bge-m3"])
 
-    assert main(["models"]) == 0, "listing should succeed"
-
-    assert capsys.readouterr().out == "qwen2.5-7b-instruct\toracle\nbge-m3\t\n", "one model per line with its role"
-
-
-def test_models_reports_a_server_that_is_down(env, capsys, mocker, monkeypatch):
-    monkeypatch.setenv("KOBOLD_ORACLE_URL", "http://127.0.0.1:8080")
-    mocker.patch("kobold.embedder.models", return_value=None)
-
-    assert main(["models"]) == 1, "no list is a failure"
-    assert capsys.readouterr().out.strip() == "Model not reachable at http://127.0.0.1:8080", "the server is named"
+    assert main(["models"]) == 0 and capsys.readouterr().out == "qwen\toracle\nbge-m3\t\n", "one line per model with its roles"
 
 
 def test_chooser_renders_rows_for_the_selected_model(env, capsys, monkeypatch):
     monkeypatch.setenv("model", "bge-m3")
-
-    items = run(["chooser", ""], capsys)["items"]
-
-    assert [i["title"] for i in items] == ["Use bge-m3 for the oracle", "Use bge-m3 for embeddings"], "the chooser reads the model variable"
-
-
-@pytest.fixture
-def embed_env(oracle_env, monkeypatch):
-    monkeypatch.setenv("KOBOLD_EMBED_MODEL", "bge-m3")
-
-
-def vector_store(tmp_path: Path):
-    from kobold.vectors import VectorStore
-
-    return VectorStore(tmp_path / "alfred-data" / "vectors.db")
-
-
-def test_embed_is_refused_without_an_embedding_model(oracle_env, capsys):
-    assert main(["embed"]) == 1 and "KOBOLD_EMBED_MODEL" in capsys.readouterr().out, "the setting to fill is named"
-
-
-def test_embed_stores_a_vector_per_complete_book(embed_env, tmp_path, capsys, mocker):
-    embed = mocker.patch("kobold.embedder.embed", return_value=[1.0, 0.0])
-
-    assert main(["embed"]) == 0, "embedding should succeed"
-
-    assert capsys.readouterr().out.strip() == "Embedded 3 books", "every complete book, the unfinished download left out"
-    assert vector_store(tmp_path).count("bge-m3") == 3, "the vectors are stored under the model"
-    assert all(len(c.args[0]) <= 1500 and "Genres:" not in c.args[0] for c in embed.call_args_list), (
-        "the text is the evidence without the genre list, cut to fit an embedding window"
+    assert [i["title"] for i in run(["chooser", "emb"], capsys)["items"]] == ["Use bge-m3 for embeddings"], (
+        "the typed text narrows the roles"
     )
 
 
-def test_embed_skips_embedded_books_unless_forced(embed_env, capsys, mocker):
-    embed = mocker.patch("kobold.embedder.embed", return_value=[1.0, 0.0])
-    main(["embed"])
-    capsys.readouterr()
-
-    main(["embed"])
-    assert embed.call_count == 3 and capsys.readouterr().out.strip() == "Every book is embedded", "nothing new is said plainly"
-
-    main(["embed", "--force"])
-    assert embed.call_count == 6, "--force re-embeds everything"
-
-
-def test_embed_counts_skipped_requests(embed_env, capsys, mocker):
-    mocker.patch("kobold.embedder.embed", side_effect=[[1.0, 0.0], None, [0.0, 1.0]])
-
-    main(["embed"])
-
-    assert capsys.readouterr().out.strip() == "Embedded 2 books, skipped 1", "a failed request is counted, not fatal"
-
-
-def test_embed_words_narrow_the_books(embed_env, tmp_path, capsys, mocker):
-    mocker.patch("kobold.embedder.embed", return_value=[1.0, 0.0])
-
-    main(["embed", "napkin"])
-
-    assert vector_store(tmp_path).count("bge-m3") == 1, "only books matching the words are embedded"
-
-
-@pytest.fixture
-def both_models(env, monkeypatch, mocker):
+def test_update_asks_and_embeds_when_the_setting_is_on(env, monkeypatch, mocker, capsys):
     monkeypatch.setenv("KOBOLD_ORACLE_URL", "http://127.0.0.1:8080")
     monkeypatch.setenv("KOBOLD_EMBED_MODEL", "bge-m3")
-    ask = mocker.patch(
-        "kobold.oracle.ask",
-        side_effect=lambda question, *_: {"name": NAPKIN_NAME, "authors": {"groups": []}}.get(question, {"genre": "none"}),
-    )
-    embed = mocker.patch("kobold.embedder.embed", return_value=[1.0, 0.0])
-    return ask, embed
-
-
-def test_update_leaves_the_models_alone_by_default(both_models, capsys):
-    ask, embed = both_models
-
-    main(["update", "--no-thumbnails"])
-
-    assert not ask.called and not embed.called, "indexing stays as fast as it is unless asked otherwise"
-
-
-def test_update_asks_and_embeds_when_the_setting_is_on(both_models, monkeypatch, tmp_path, capsys):
-    ask, embed = both_models
     monkeypatch.setenv("KOBOLD_MODEL_ON_UPDATE", "1")
+    ask = mocker.patch("kobold.oracle.ask", side_effect=[NAPKIN_NAME, {"genre": "none"}, {"genre": "none"}])
+    embed = mocker.patch("kobold.embedder.embed", return_value=[1.0, 0.0])
 
     assert main(["update", "--no-thumbnails"]) == 0, "update should succeed"
 
-    lines = capsys.readouterr().out.splitlines()
-    assert lines[0].startswith("Indexed 4 books"), "indexing comes first and is reported as before"
-    assert lines[1:] == ["Asked about 1 book: 1 name suggested", "The model had no suggestions", "Embedded 3 books"], (
-        "then names, genres and embeddings, each reported like any update step; no author folders, so no author question"
-    )
-    assert [c.args[0] for c in ask.call_args_list] == ["name", "genre", "genre"], "names before genres"
-    assert embed.call_count == 3, "every complete book is embedded"
-    assert vector_store(tmp_path).count("bge-m3") == 3 and oracle_store(tmp_path).answers("name"), "the stores are written"
+    assert capsys.readouterr().out.splitlines()[1:] == [
+        "Asked about 1 book: 1 name suggested",
+        "The model had no suggestions",
+        "Embedded 3 books",
+    ], "names, genres, embeddings, each reported like any update step"
+    assert [c.args[0] for c in ask.call_args_list] == ["name", "genre", "genre"] and embed.call_count == 3, "names before genres"
 
 
-def test_update_with_the_setting_on_is_quiet_when_nothing_is_new(both_models, monkeypatch, capsys):
-    ask, embed = both_models
-    monkeypatch.setenv("KOBOLD_MODEL_ON_UPDATE", "1")
-    main(["update", "--no-thumbnails"])
-    capsys.readouterr()
-
-    main(["update", "--no-thumbnails"])
-
-    assert capsys.readouterr().out.splitlines()[1:] == [], "answered and embedded books cost nothing on the next update"
-    assert ask.call_count == 3 and embed.call_count == 3, "no request is repeated"
-
-
-def test_update_with_the_setting_on_skips_what_is_not_configured(both_models, monkeypatch, capsys):
-    ask, embed = both_models
-    monkeypatch.setenv("KOBOLD_MODEL_ON_UPDATE", "true")
-    monkeypatch.delenv("KOBOLD_EMBED_MODEL")
-
-    main(["update", "--no-thumbnails"])
-
-    assert ask.called and not embed.called, "without an embedding model only the questions run; no refusal"
-
-
-def test_ask_takes_the_words_as_one_argument_from_alfred(oracle_env, capsys, mocker):
-    ask = mocker.patch("kobold.oracle.ask", side_effect=[NAPKIN_NAME, {"genre": "none"}])
-
-    main(["ask", "", "napkin inbox"])
-
-    assert [c.args[0] for c in ask.call_args_list] == ["name", "genre"], "only the one matching book is asked about, name then genre"
-    assert all("Title: Napkin" in c.args[1] for c in ask.call_args_list), (
-        "the Alfred row passes the words as one argument; each must match, as in a search"
-    )
-
-
-def test_only_one_model_pass_runs_at_a_time(oracle_env, tmp_path, capsys, mocker):
-    ask = mocker.patch("kobold.oracle.ask", return_value={"genre": "none"})
-    (tmp_path / "alfred-data" / "oracle.lock").write_text("1")
-
-    assert main(["ask", "genre"]) == 1 and main(["embed"]) == 1, "a second pass is refused while one runs"
-    assert "already" in capsys.readouterr().out and not ask.called, "and says so"
-
-
-def test_a_pass_releases_its_lock_and_trims_the_log(oracle_env, tmp_path, capsys, mocker):
-    mocker.patch("kobold.oracle.ask", return_value={"genre": "none"})
-
-    main(["ask", "genre"])
-
-    assert not (tmp_path / "alfred-data" / "oracle.lock").exists(), "the lock goes with the pass"
-
-
-def test_update_skips_the_model_steps_while_a_pass_runs(both_models, monkeypatch, tmp_path, capsys):
-    ask, embed = both_models
-    monkeypatch.setenv("KOBOLD_MODEL_ON_UPDATE", "1")
-    (tmp_path / "alfred-data").mkdir(parents=True, exist_ok=True)
-    (tmp_path / "alfred-data" / "oracle.lock").write_text("1")
-
-    assert main(["update", "--no-thumbnails"]) == 0, "indexing still succeeds"
-    assert not ask.called and not embed.called and "already" in capsys.readouterr().out, "the model steps wait for the next update"
-
-
-ZELAZNY_ALIAS = "01_Fiction/02_Sci-Fi/Желязни, Роджер/Желязни, Роджер - Володар Світла (2016).epub"
-ZELAZNY_HOME = "01_Fiction/02_Sci-Fi/Zelazny, Roger/Zelazny, Roger - Володар Світла (2016).epub"
-SHEVCHUK = "01_Fiction/02_Sci-Fi/Шевчук, Валерій/Шевчук, Валерій - Дім на горі (2016).epub"
-LATIN_GROUPS = {"groups": [{"canonical": "Zelazny, Roger", "aliases": ["Желязни, Роджер"]}]}
-
-
-@pytest.fixture
-def cyrillic_folders(env, library, capsys, monkeypatch) -> None:
-    author_epub(library / ZELAZNY_ALIAS, "Володар Світла", "Роджер Желязни")
-    author_epub(library / SHEVCHUK, "Дім на горі", "Шевчук Валерій")
-    monkeypatch.setenv("KOBOLD_ORACLE_URL", "http://127.0.0.1:8080")
-    main(["update"])
-    capsys.readouterr()
-
-
-def test_ask_authors_shows_the_model_a_title_per_folder(cyrillic_folders, capsys, mocker):
-    ask = mocker.patch("kobold.oracle.ask", return_value=LATIN_GROUPS)
-
-    main(["ask", "authors"])
-
-    lines = ask.call_args.args[1].splitlines()
-    assert "Желязни, Роджер · Володар Світла" in lines and "Шевчук, Валерій · Дім на горі" in lines, (
-        "a sample title per folder lets the model tell a translated author from a native one"
-    )
-    assert ask.call_args.args[0] == "authors", "it is the one authors question, not a new one"
-
-
-def test_a_lone_cyrillic_folder_can_merge_into_its_latin_name(cyrillic_folders, library, tmp_path, capsys):
-    store = oracle_store(tmp_path)
-    store.set("*", "authors", LATIN_GROUPS, "h")
-    store.save()
-
-    assert main(["fix", str(library / ZELAZNY_ALIAS)]) == 0, "↩ on the merge row applies it"
-
-    assert (library / ZELAZNY_HOME).exists(), "the book files under the English name, title untouched"
-    assert (library / SHEVCHUK).exists(), "a native author keeps the Cyrillic folder"
-    capsys.readouterr()
-    main(["fix", "--dry-run"])
-    assert "Володар" not in capsys.readouterr().out, "the alias keeps the book home afterwards"
-
-
-def test_embed_dry_run_ranks_latin_neighbours_of_each_cyrillic_folder(delany_folders, library, monkeypatch, mocker, capsys):
-    author_epub(library / ZELAZNY_ALIAS, "Володар Світла", "Роджер Желязни")
-    author_epub(library / "01_Fiction/02_Sci-Fi/Zelazny, Roger/Zelazny, Roger - Roadmarks (2016).epub", "Roadmarks", "Roger Zelazny")
-    monkeypatch.setenv("KOBOLD_EMBED_MODEL", "bge-m3")
-    vectors = {"Желязни, Роджер": [1.0, 0.0], "Zelazny, Roger": [0.98, 0.2], "Delany, Samuel Ray": [0.0, 1.0], "Delany, Samuel": [0.1, 1.0]}
-    mocker.patch("kobold.embedder.embed", side_effect=vectors.get)
-    main(["update"])
-    capsys.readouterr()
-
-    assert main(["ask", "authors", "--embed-dry-run"]) == 0, "the probe should run"
-
-    lines = capsys.readouterr().out.splitlines()
-    assert lines[0] == "Желязни, Роджер", "each Cyrillic folder heads its own block"
-    assert lines[1].startswith("  0.98\tZelazny, Roger") and lines[2].startswith("  0.1") and "Delany" in lines[2], (
-        "Latin folders follow, nearest first, with their cosine score"
-    )
-
-
-def test_embed_dry_run_needs_an_embedding_model(delany_folders, capsys):
-    assert main(["ask", "authors", "--embed-dry-run"]) == 1, "without an embedding model there is nothing to probe with"
-    assert "embedding model" in capsys.readouterr().out, "the reason is reported"
+def test_retired_subcommands_are_gone(env):
+    for retired in ("dismiss", "index", "index-sources", "src"):
+        with pytest.raises(SystemExit):
+            main([retired])

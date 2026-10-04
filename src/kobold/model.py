@@ -36,6 +36,7 @@ class Row:
     folder: str
     rel_path: str
     root: str
+    place: str
     format: str
     partial: bool
     language: str
@@ -49,16 +50,11 @@ class Row:
     subjects: str
     description: str
     guessed: bool
+    copies: str = ""
 
     @property
     def path(self) -> str:
         return f"{self.root}/{self.rel_path}"
-
-
-@dataclass
-class GenreEntry:
-    genre: str = ""
-    rel_path: str = ""
 
 
 @dataclass

@@ -4,45 +4,1019 @@
 <dict>
 	<key>bundleid</key>
 	<string>com.anokhin.kobold</string>
-	<key>name</key>
-	<string>Kobold</string>
-	<key>description</key>
-	<string>Search the ebook library by metadata, with covers</string>
-	<key>createdby</key>
-	<string>Volodymyr Anokhin</string>
 	<key>category</key>
 	<string>Productivity</string>
-	<key>readme</key>
-	<string>kb &lt;words&gt; searches the library: every word must match, by prefix, one of title, authors, series, folder, path, genre, subjects, format, language or year (kb delany epub 1975). Empty kb lists the newest books after a reminder of books without a genre.
-A first word that names a command adds its rows above the books matching all the words: kb rnd, kb inbox, kb classify, kb dups, kb stats, kb fix, kb trash, kb src, kb update. Typing two letters of a command offers to complete it.
-↩ does a list's main thing, ⌥↩ reveals in Finder, ⇧↩ sets the genre of a book. A list with several books starts with a head row (Import all, Set genre for all, Fix all, Trash all) that does it for every row shown.
-kb classify lists the inbox; ↩ picks a genre and moves the book to its genre home at once. In the genre picker ⇧↩ creates the typed text as a new genre.
-kb fix shows what is wrong and how to fix it, with Undo for the last batch; kb trash sets unfinished downloads and other books aside in _trash/; nothing is ever deleted.
-kb src searches other sources (a Calibre library, a downloads folder) and ↩ copies the book into the library inbox.
-Optional: point Model server at a running llama-server and the workflow can propose genres, titles and author merges, shown with a ? in kb classify and as rows in kb fix; nothing happens until you press ↩. With an embedding model, kb like lists the books nearest the one you name or read last, and kb model shows what the server serves.
-Set the library root (and optionally other sources and the index folder) in the workflow configuration, then run kb update once; rerun after adding books. Needs only macOS's /usr/bin/python3.</string>
-	<key>variables</key>
+	<key>connections</key>
 	<dict>
-		<key>KOBOLD_ROOT</key>
-		<string>/Volumes/Transcend/kobo</string>
-		<key>KOBOLD_DATA</key>
-		<string></string>
-		<key>KOBOLD_SOURCES</key>
-		<string></string>
-		<key>KOBOLD_ORACLE_URL</key>
-		<string></string>
-		<key>KOBOLD_ORACLE_MODEL</key>
-		<string></string>
-		<key>KOBOLD_ORACLE_KEY</key>
-		<string></string>
-		<key>KOBOLD_EMBED_URL</key>
-		<string></string>
-		<key>KOBOLD_EMBED_MODEL</key>
-		<string></string>
-		<key>KOBOLD_EMBED_KEY</key>
-		<string></string>
-		<key>KOBOLD_MODEL_ON_UPDATE</key>
-		<string>0</string>
+		<key>CHOOSE</key>
+		<array>
+			<dict>
+				<key>destinationuid</key>
+				<string>NOTIFY</string>
+				<key>modifiers</key>
+				<integer>0</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>vitoclose</key>
+				<false/>
+			</dict>
+		</array>
+		<key>CHOOSER</key>
+		<array>
+			<dict>
+				<key>destinationuid</key>
+				<string>CHOOSE</string>
+				<key>modifiers</key>
+				<integer>0</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>vitoclose</key>
+				<false/>
+			</dict>
+		</array>
+		<key>DISPATCH</key>
+		<array>
+			<dict>
+				<key>destinationuid</key>
+				<string>RUN</string>
+				<key>modifiers</key>
+				<integer>0</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>sourceoutputuid</key>
+				<string>3B6F0C2E-5A1D-4E7B-9C84-0A5B00000001</string>
+				<key>vitoclose</key>
+				<false/>
+			</dict>
+			<dict>
+				<key>destinationuid</key>
+				<string>RUN</string>
+				<key>modifiers</key>
+				<integer>0</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>sourceoutputuid</key>
+				<string>3B6F0C2E-5A1D-4E7B-9C84-0A5B00000002</string>
+				<key>vitoclose</key>
+				<false/>
+			</dict>
+			<dict>
+				<key>destinationuid</key>
+				<string>RUN</string>
+				<key>modifiers</key>
+				<integer>0</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>sourceoutputuid</key>
+				<string>3B6F0C2E-5A1D-4E7B-9C84-0A5B00000003</string>
+				<key>vitoclose</key>
+				<false/>
+			</dict>
+			<dict>
+				<key>destinationuid</key>
+				<string>RUN</string>
+				<key>modifiers</key>
+				<integer>0</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>sourceoutputuid</key>
+				<string>3B6F0C2E-5A1D-4E7B-9C84-0A5B00000004</string>
+				<key>vitoclose</key>
+				<false/>
+			</dict>
+			<dict>
+				<key>destinationuid</key>
+				<string>RUN</string>
+				<key>modifiers</key>
+				<integer>0</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>sourceoutputuid</key>
+				<string>3B6F0C2E-5A1D-4E7B-9C84-0A5B00000005</string>
+				<key>vitoclose</key>
+				<false/>
+			</dict>
+			<dict>
+				<key>destinationuid</key>
+				<string>RUN</string>
+				<key>modifiers</key>
+				<integer>0</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>sourceoutputuid</key>
+				<string>3B6F0C2E-5A1D-4E7B-9C84-0A5B00000006</string>
+				<key>vitoclose</key>
+				<false/>
+			</dict>
+			<dict>
+				<key>destinationuid</key>
+				<string>RUN</string>
+				<key>modifiers</key>
+				<integer>0</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>sourceoutputuid</key>
+				<string>3B6F0C2E-5A1D-4E7B-9C84-0A5B00000007</string>
+				<key>vitoclose</key>
+				<false/>
+			</dict>
+			<dict>
+				<key>destinationuid</key>
+				<string>RUN</string>
+				<key>modifiers</key>
+				<integer>0</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>sourceoutputuid</key>
+				<string>3B6F0C2E-5A1D-4E7B-9C84-0A5B00000008</string>
+				<key>vitoclose</key>
+				<false/>
+			</dict>
+			<dict>
+				<key>destinationuid</key>
+				<string>RUN</string>
+				<key>modifiers</key>
+				<integer>0</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>sourceoutputuid</key>
+				<string>3B6F0C2E-5A1D-4E7B-9C84-0A5B00000009</string>
+				<key>vitoclose</key>
+				<false/>
+			</dict>
+			<dict>
+				<key>destinationuid</key>
+				<string>RUN</string>
+				<key>modifiers</key>
+				<integer>0</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>sourceoutputuid</key>
+				<string>3B6F0C2E-5A1D-4E7B-9C84-0A5B0000000A</string>
+				<key>vitoclose</key>
+				<false/>
+			</dict>
+			<dict>
+				<key>destinationuid</key>
+				<string>PICKER</string>
+				<key>modifiers</key>
+				<integer>0</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>sourceoutputuid</key>
+				<string>3B6F0C2E-5A1D-4E7B-9C84-0A5B0000000B</string>
+				<key>vitoclose</key>
+				<false/>
+			</dict>
+			<dict>
+				<key>destinationuid</key>
+				<string>CHOOSER</string>
+				<key>modifiers</key>
+				<integer>0</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>sourceoutputuid</key>
+				<string>3B6F0C2E-5A1D-4E7B-9C84-0A5B0000000C</string>
+				<key>vitoclose</key>
+				<false/>
+			</dict>
+			<dict>
+				<key>destinationuid</key>
+				<string>REVEAL</string>
+				<key>modifiers</key>
+				<integer>0</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>sourceoutputuid</key>
+				<string>3B6F0C2E-5A1D-4E7B-9C84-0A5B0000000D</string>
+				<key>vitoclose</key>
+				<false/>
+			</dict>
+			<dict>
+				<key>destinationuid</key>
+				<string>LIKE</string>
+				<key>modifiers</key>
+				<integer>0</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>sourceoutputuid</key>
+				<string>3B6F0C2E-5A1D-4E7B-9C84-0A5B0000000E</string>
+				<key>vitoclose</key>
+				<false/>
+			</dict>
+			<dict>
+				<key>destinationuid</key>
+				<string>OPEN</string>
+				<key>modifiers</key>
+				<integer>0</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>sourceoutputuid</key>
+				<string>3B6F0C2E-5A1D-4E7B-9C84-0A5B0000000F</string>
+				<key>vitoclose</key>
+				<false/>
+			</dict>
+			<dict>
+				<key>destinationuid</key>
+				<string>OPEN</string>
+				<key>modifiers</key>
+				<integer>0</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>vitoclose</key>
+				<false/>
+			</dict>
+		</array>
+		<key>KB</key>
+		<array>
+			<dict>
+				<key>destinationuid</key>
+				<string>DISPATCH</string>
+				<key>modifiers</key>
+				<integer>0</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>vitoclose</key>
+				<false/>
+			</dict>
+			<dict>
+				<key>destinationuid</key>
+				<string>DISPATCH</string>
+				<key>modifiers</key>
+				<integer>131072</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>vitoclose</key>
+				<false/>
+			</dict>
+			<dict>
+				<key>destinationuid</key>
+				<string>DISPATCH</string>
+				<key>modifiers</key>
+				<integer>524288</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>vitoclose</key>
+				<false/>
+			</dict>
+			<dict>
+				<key>destinationuid</key>
+				<string>DISPATCH</string>
+				<key>modifiers</key>
+				<integer>262144</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>vitoclose</key>
+				<false/>
+			</dict>
+			<dict>
+				<key>destinationuid</key>
+				<string>DISPATCH</string>
+				<key>modifiers</key>
+				<integer>1048576</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>vitoclose</key>
+				<false/>
+			</dict>
+		</array>
+		<key>KBI</key>
+		<array>
+			<dict>
+				<key>destinationuid</key>
+				<string>DISPATCH</string>
+				<key>modifiers</key>
+				<integer>0</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>vitoclose</key>
+				<false/>
+			</dict>
+			<dict>
+				<key>destinationuid</key>
+				<string>DISPATCH</string>
+				<key>modifiers</key>
+				<integer>131072</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>vitoclose</key>
+				<false/>
+			</dict>
+			<dict>
+				<key>destinationuid</key>
+				<string>DISPATCH</string>
+				<key>modifiers</key>
+				<integer>524288</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>vitoclose</key>
+				<false/>
+			</dict>
+			<dict>
+				<key>destinationuid</key>
+				<string>DISPATCH</string>
+				<key>modifiers</key>
+				<integer>262144</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>vitoclose</key>
+				<false/>
+			</dict>
+			<dict>
+				<key>destinationuid</key>
+				<string>DISPATCH</string>
+				<key>modifiers</key>
+				<integer>1048576</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>vitoclose</key>
+				<false/>
+			</dict>
+		</array>
+		<key>PICKER</key>
+		<array>
+			<dict>
+				<key>destinationuid</key>
+				<string>RUN</string>
+				<key>modifiers</key>
+				<integer>0</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>vitoclose</key>
+				<false/>
+			</dict>
+			<dict>
+				<key>destinationuid</key>
+				<string>RUN</string>
+				<key>modifiers</key>
+				<integer>131072</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>vitoclose</key>
+				<false/>
+			</dict>
+		</array>
+		<key>RUN</key>
+		<array>
+			<dict>
+				<key>destinationuid</key>
+				<string>NOTIFY</string>
+				<key>modifiers</key>
+				<integer>0</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>vitoclose</key>
+				<false/>
+			</dict>
+		</array>
+	</dict>
+	<key>createdby</key>
+	<string>Volodymyr Anokhin</string>
+	<key>description</key>
+	<string>Search the ebook library, keep a nook of books being read on the e-reader, tidy the rest</string>
+	<key>name</key>
+	<string>Kobold</string>
+	<key>objects</key>
+	<array>
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>alfredfiltersresults</key>
+				<false/>
+				<key>alfredfiltersresultsmatchmode</key>
+				<integer>0</integer>
+				<key>argumenttreatemptyqueryasnil</key>
+				<false/>
+				<key>argumenttrimmode</key>
+				<integer>0</integer>
+				<key>argumenttype</key>
+				<integer>1</integer>
+				<key>escaping</key>
+				<integer>102</integer>
+				<key>keyword</key>
+				<string>kb</string>
+				<key>queuedelaycustom</key>
+				<integer>1</integer>
+				<key>queuedelayimmediatelyinitially</key>
+				<true/>
+				<key>queuedelaymode</key>
+				<integer>0</integer>
+				<key>queuemode</key>
+				<integer>1</integer>
+				<key>runningsubtext</key>
+				<string>Kobold is looking…</string>
+				<key>script</key>
+				<string>PYTHONPATH="$PWD" /usr/bin/python3 -m kobold search "$1"</string>
+				<key>scriptargtype</key>
+				<integer>1</integer>
+				<key>scriptfile</key>
+				<string></string>
+				<key>subtext</key>
+				<string>kb &lt;words&gt; searches every place — nook, vault, library — newest first; ↩ brings a book to the nook (or opens it when it is there), ⇧↩ opens, ⌥↩ reveals, ⌃↩ finds books like it, ⌘↩ sets the genre</string>
+				<key>title</key>
+				<string>Kobold</string>
+				<key>type</key>
+				<integer>0</integer>
+				<key>withspace</key>
+				<true/>
+			</dict>
+			<key>type</key>
+			<string>alfred.workflow.input.scriptfilter</string>
+			<key>uid</key>
+			<string>KB</string>
+			<key>version</key>
+			<integer>3</integer>
+		</dict>
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>alfredfiltersresults</key>
+				<false/>
+				<key>alfredfiltersresultsmatchmode</key>
+				<integer>0</integer>
+				<key>argumenttreatemptyqueryasnil</key>
+				<false/>
+				<key>argumenttrimmode</key>
+				<integer>0</integer>
+				<key>argumenttype</key>
+				<integer>1</integer>
+				<key>escaping</key>
+				<integer>102</integer>
+				<key>keyword</key>
+				<string>kbi</string>
+				<key>queuedelaycustom</key>
+				<integer>1</integer>
+				<key>queuedelayimmediatelyinitially</key>
+				<true/>
+				<key>queuedelaymode</key>
+				<integer>0</integer>
+				<key>queuemode</key>
+				<integer>1</integer>
+				<key>runningsubtext</key>
+				<string>Kobold is looking…</string>
+				<key>script</key>
+				<string>PYTHONPATH="$PWD" /usr/bin/python3 -m kobold search "import $1"</string>
+				<key>scriptargtype</key>
+				<integer>1</integer>
+				<key>scriptfile</key>
+				<string></string>
+				<key>subtext</key>
+				<string>library books the device lacks · ↩ copies one into the nook</string>
+				<key>title</key>
+				<string>Import into the nook</string>
+				<key>type</key>
+				<integer>0</integer>
+				<key>withspace</key>
+				<true/>
+			</dict>
+			<key>type</key>
+			<string>alfred.workflow.input.scriptfilter</string>
+			<key>uid</key>
+			<string>KBI</string>
+			<key>version</key>
+			<integer>3</integer>
+		</dict>
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>alfredfiltersresults</key>
+				<false/>
+				<key>alfredfiltersresultsmatchmode</key>
+				<integer>0</integer>
+				<key>argumenttreatemptyqueryasnil</key>
+				<false/>
+				<key>argumenttrimmode</key>
+				<integer>0</integer>
+				<key>argumenttype</key>
+				<integer>1</integer>
+				<key>escaping</key>
+				<integer>102</integer>
+				<key>queuedelaycustom</key>
+				<integer>1</integer>
+				<key>queuedelayimmediatelyinitially</key>
+				<true/>
+				<key>queuedelaymode</key>
+				<integer>0</integer>
+				<key>queuemode</key>
+				<integer>1</integer>
+				<key>runningsubtext</key>
+				<string>Kobold is looking…</string>
+				<key>script</key>
+				<string>PYTHONPATH="$PWD" /usr/bin/python3 -m kobold genres "$1"</string>
+				<key>scriptargtype</key>
+				<integer>1</integer>
+				<key>scriptfile</key>
+				<string></string>
+				<key>subtext</key>
+				<string></string>
+				<key>title</key>
+				<string>Set genre</string>
+				<key>type</key>
+				<integer>0</integer>
+				<key>withspace</key>
+				<true/>
+			</dict>
+			<key>type</key>
+			<string>alfred.workflow.input.scriptfilter</string>
+			<key>uid</key>
+			<string>PICKER</string>
+			<key>version</key>
+			<integer>3</integer>
+		</dict>
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>alfredfiltersresults</key>
+				<false/>
+				<key>alfredfiltersresultsmatchmode</key>
+				<integer>0</integer>
+				<key>argumenttreatemptyqueryasnil</key>
+				<false/>
+				<key>argumenttrimmode</key>
+				<integer>0</integer>
+				<key>argumenttype</key>
+				<integer>1</integer>
+				<key>escaping</key>
+				<integer>102</integer>
+				<key>queuedelaycustom</key>
+				<integer>1</integer>
+				<key>queuedelayimmediatelyinitially</key>
+				<true/>
+				<key>queuedelaymode</key>
+				<integer>0</integer>
+				<key>queuemode</key>
+				<integer>1</integer>
+				<key>runningsubtext</key>
+				<string>Kobold is looking…</string>
+				<key>script</key>
+				<string>PYTHONPATH="$PWD" /usr/bin/python3 -m kobold chooser "$1"</string>
+				<key>scriptargtype</key>
+				<integer>1</integer>
+				<key>scriptfile</key>
+				<string></string>
+				<key>subtext</key>
+				<string></string>
+				<key>title</key>
+				<string>Use model for…</string>
+				<key>type</key>
+				<integer>0</integer>
+				<key>withspace</key>
+				<true/>
+			</dict>
+			<key>type</key>
+			<string>alfred.workflow.input.scriptfilter</string>
+			<key>uid</key>
+			<string>CHOOSER</string>
+			<key>version</key>
+			<integer>3</integer>
+		</dict>
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>conditions</key>
+				<array>
+					<dict>
+						<key>inputstring</key>
+						<string>{var:action}</string>
+						<key>matchcasesensitive</key>
+						<false/>
+						<key>matchmode</key>
+						<integer>0</integer>
+						<key>matchstring</key>
+						<string>update</string>
+						<key>outputlabel</key>
+						<string>update</string>
+						<key>uid</key>
+						<string>3B6F0C2E-5A1D-4E7B-9C84-0A5B00000001</string>
+					</dict>
+					<dict>
+						<key>inputstring</key>
+						<string>{var:action}</string>
+						<key>matchcasesensitive</key>
+						<false/>
+						<key>matchmode</key>
+						<integer>0</integer>
+						<key>matchstring</key>
+						<string>fix</string>
+						<key>outputlabel</key>
+						<string>fix</string>
+						<key>uid</key>
+						<string>3B6F0C2E-5A1D-4E7B-9C84-0A5B00000002</string>
+					</dict>
+					<dict>
+						<key>inputstring</key>
+						<string>{var:action}</string>
+						<key>matchcasesensitive</key>
+						<false/>
+						<key>matchmode</key>
+						<integer>0</integer>
+						<key>matchstring</key>
+						<string>undo</string>
+						<key>outputlabel</key>
+						<string>undo</string>
+						<key>uid</key>
+						<string>3B6F0C2E-5A1D-4E7B-9C84-0A5B00000003</string>
+					</dict>
+					<dict>
+						<key>inputstring</key>
+						<string>{var:action}</string>
+						<key>matchcasesensitive</key>
+						<false/>
+						<key>matchmode</key>
+						<integer>0</integer>
+						<key>matchstring</key>
+						<string>nook</string>
+						<key>outputlabel</key>
+						<string>nook</string>
+						<key>uid</key>
+						<string>3B6F0C2E-5A1D-4E7B-9C84-0A5B00000004</string>
+					</dict>
+					<dict>
+						<key>inputstring</key>
+						<string>{var:action}</string>
+						<key>matchcasesensitive</key>
+						<false/>
+						<key>matchmode</key>
+						<integer>0</integer>
+						<key>matchstring</key>
+						<string>done</string>
+						<key>outputlabel</key>
+						<string>done</string>
+						<key>uid</key>
+						<string>3B6F0C2E-5A1D-4E7B-9C84-0A5B00000005</string>
+					</dict>
+					<dict>
+						<key>inputstring</key>
+						<string>{var:action}</string>
+						<key>matchcasesensitive</key>
+						<false/>
+						<key>matchmode</key>
+						<integer>0</integer>
+						<key>matchstring</key>
+						<string>remove</string>
+						<key>outputlabel</key>
+						<string>remove</string>
+						<key>uid</key>
+						<string>3B6F0C2E-5A1D-4E7B-9C84-0A5B00000006</string>
+					</dict>
+					<dict>
+						<key>inputstring</key>
+						<string>{var:action}</string>
+						<key>matchcasesensitive</key>
+						<false/>
+						<key>matchmode</key>
+						<integer>0</integer>
+						<key>matchstring</key>
+						<string>import</string>
+						<key>outputlabel</key>
+						<string>import</string>
+						<key>uid</key>
+						<string>3B6F0C2E-5A1D-4E7B-9C84-0A5B00000007</string>
+					</dict>
+					<dict>
+						<key>inputstring</key>
+						<string>{var:action}</string>
+						<key>matchcasesensitive</key>
+						<false/>
+						<key>matchmode</key>
+						<integer>0</integer>
+						<key>matchstring</key>
+						<string>genre</string>
+						<key>outputlabel</key>
+						<string>genre</string>
+						<key>uid</key>
+						<string>3B6F0C2E-5A1D-4E7B-9C84-0A5B00000008</string>
+					</dict>
+					<dict>
+						<key>inputstring</key>
+						<string>{var:action}</string>
+						<key>matchcasesensitive</key>
+						<false/>
+						<key>matchmode</key>
+						<integer>0</integer>
+						<key>matchstring</key>
+						<string>ask</string>
+						<key>outputlabel</key>
+						<string>ask</string>
+						<key>uid</key>
+						<string>3B6F0C2E-5A1D-4E7B-9C84-0A5B00000009</string>
+					</dict>
+					<dict>
+						<key>inputstring</key>
+						<string>{var:action}</string>
+						<key>matchcasesensitive</key>
+						<false/>
+						<key>matchmode</key>
+						<integer>0</integer>
+						<key>matchstring</key>
+						<string>embed</string>
+						<key>outputlabel</key>
+						<string>embed</string>
+						<key>uid</key>
+						<string>3B6F0C2E-5A1D-4E7B-9C84-0A5B0000000A</string>
+					</dict>
+					<dict>
+						<key>inputstring</key>
+						<string>{var:action}</string>
+						<key>matchcasesensitive</key>
+						<false/>
+						<key>matchmode</key>
+						<integer>0</integer>
+						<key>matchstring</key>
+						<string>classify</string>
+						<key>outputlabel</key>
+						<string>classify</string>
+						<key>uid</key>
+						<string>3B6F0C2E-5A1D-4E7B-9C84-0A5B0000000B</string>
+					</dict>
+					<dict>
+						<key>inputstring</key>
+						<string>{var:action}</string>
+						<key>matchcasesensitive</key>
+						<false/>
+						<key>matchmode</key>
+						<integer>0</integer>
+						<key>matchstring</key>
+						<string>model</string>
+						<key>outputlabel</key>
+						<string>model</string>
+						<key>uid</key>
+						<string>3B6F0C2E-5A1D-4E7B-9C84-0A5B0000000C</string>
+					</dict>
+					<dict>
+						<key>inputstring</key>
+						<string>{var:action}</string>
+						<key>matchcasesensitive</key>
+						<false/>
+						<key>matchmode</key>
+						<integer>0</integer>
+						<key>matchstring</key>
+						<string>reveal</string>
+						<key>outputlabel</key>
+						<string>reveal</string>
+						<key>uid</key>
+						<string>3B6F0C2E-5A1D-4E7B-9C84-0A5B0000000D</string>
+					</dict>
+					<dict>
+						<key>inputstring</key>
+						<string>{var:action}</string>
+						<key>matchcasesensitive</key>
+						<false/>
+						<key>matchmode</key>
+						<integer>0</integer>
+						<key>matchstring</key>
+						<string>like</string>
+						<key>outputlabel</key>
+						<string>like</string>
+						<key>uid</key>
+						<string>3B6F0C2E-5A1D-4E7B-9C84-0A5B0000000E</string>
+					</dict>
+					<dict>
+						<key>inputstring</key>
+						<string>{var:action}</string>
+						<key>matchcasesensitive</key>
+						<false/>
+						<key>matchmode</key>
+						<integer>0</integer>
+						<key>matchstring</key>
+						<string>open</string>
+						<key>outputlabel</key>
+						<string>open</string>
+						<key>uid</key>
+						<string>3B6F0C2E-5A1D-4E7B-9C84-0A5B0000000F</string>
+					</dict>
+				</array>
+				<key>elselabel</key>
+				<string>open</string>
+				<key>hideelse</key>
+				<false/>
+			</dict>
+			<key>type</key>
+			<string>alfred.workflow.utility.conditional</string>
+			<key>uid</key>
+			<string>DISPATCH</string>
+			<key>version</key>
+			<integer>1</integer>
+		</dict>
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>openwith</key>
+				<string></string>
+				<key>sourcefile</key>
+				<string>{query}</string>
+			</dict>
+			<key>type</key>
+			<string>alfred.workflow.action.openfile</string>
+			<key>uid</key>
+			<string>OPEN</string>
+			<key>version</key>
+			<integer>1</integer>
+		</dict>
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>path</key>
+				<string>{query}</string>
+			</dict>
+			<key>type</key>
+			<string>alfred.workflow.action.revealfile</string>
+			<key>uid</key>
+			<string>REVEAL</string>
+			<key>version</key>
+			<integer>1</integer>
+		</dict>
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>concurrently</key>
+				<false/>
+				<key>escaping</key>
+				<integer>102</integer>
+				<key>script</key>
+				<string>osascript -e 'on run argv' -e 'tell application id "com.runningwithcrayons.Alfred" to search ("kb like " &amp; item 1 of argv)' -e 'end run' -- "$1"</string>
+				<key>scriptargtype</key>
+				<integer>1</integer>
+				<key>scriptfile</key>
+				<string></string>
+				<key>type</key>
+				<integer>0</integer>
+			</dict>
+			<key>type</key>
+			<string>alfred.workflow.action.script</string>
+			<key>uid</key>
+			<string>LIKE</string>
+			<key>version</key>
+			<integer>2</integer>
+		</dict>
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>concurrently</key>
+				<false/>
+				<key>escaping</key>
+				<integer>102</integer>
+				<key>script</key>
+				<string>export PYTHONPATH="$PWD"
+run() { nohup /usr/bin/python3 -m kobold "$@" --notify &gt;/dev/null 2&gt;&amp;1 &amp; }
+case "$action" in
+  update) run update; echo "Rebuilding the index… a notification follows";;
+  fix) run fix "$1"; echo "Fixing… a notification follows";;
+  undo) run undo; echo "Undoing the last batch… a notification follows";;
+  nook) run nook "$1"; echo "To the nook… a notification follows";;
+  done) run done "$1"; echo "Filing away… a notification follows";;
+  remove) run remove "$1"; echo "Moving to _trash/… a notification follows";;
+  import) run import "$1"; echo "Importing… a notification follows";;
+  genre) run genre "$book" "$1"; echo "Setting the genre… a notification follows";;
+  ask) run ask "" "$1"; echo "Asking the model… a notification follows";;
+  embed) run embed; echo "Embedding… a notification follows";;
+esac</string>
+				<key>scriptargtype</key>
+				<integer>1</integer>
+				<key>scriptfile</key>
+				<string></string>
+				<key>type</key>
+				<integer>0</integer>
+			</dict>
+			<key>type</key>
+			<string>alfred.workflow.action.script</string>
+			<key>uid</key>
+			<string>RUN</string>
+			<key>version</key>
+			<integer>2</integer>
+		</dict>
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>concurrently</key>
+				<false/>
+				<key>escaping</key>
+				<integer>102</integer>
+				<key>script</key>
+				<string>PYTHONPATH="$PWD" /usr/bin/python3 -m kobold choose "$1" "$model"</string>
+				<key>scriptargtype</key>
+				<integer>1</integer>
+				<key>scriptfile</key>
+				<string></string>
+				<key>type</key>
+				<integer>0</integer>
+			</dict>
+			<key>type</key>
+			<string>alfred.workflow.action.script</string>
+			<key>uid</key>
+			<string>CHOOSE</string>
+			<key>version</key>
+			<integer>2</integer>
+		</dict>
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>lastpathcomponent</key>
+				<false/>
+				<key>onlyshowifquerypopulated</key>
+				<true/>
+				<key>removeextension</key>
+				<false/>
+				<key>text</key>
+				<string>{query}</string>
+				<key>title</key>
+				<string>Kobold</string>
+			</dict>
+			<key>type</key>
+			<string>alfred.workflow.output.notification</string>
+			<key>uid</key>
+			<string>NOTIFY</string>
+			<key>version</key>
+			<integer>1</integer>
+		</dict>
+	</array>
+	<key>readme</key>
+	<string>Three places: the library (where books arrive: Calibre, Downloads…), the vault (the device tree genre/Author/Series, kept tidy by kb fix) and the nook (one folder on the device for the books being read now).
+kb &lt;words&gt; searches every place, newest first. ↩ brings a book to the nook (a library book is copied, a vault book moved; a nook book opens). ⇧↩ opens, ⌥↩ reveals in Finder, ⌃↩ lists books like it, ⌘↩ sets its genre — on every row.
+kb nook lists the nook. kb done (or finish) files a nook book back into the vault; its head rows finish all, or remove them to _trash/ instead when the library still holds them. kbi (or kb lib, kb import) lists the library books the device lacks; ↩ copies one, Import all copies them all.
+kb fix (or tidy) shows what is wrong on the device — moves into genre/author homes, junk, duplicates, conflicts, catalogue lines naming no book — with Fix all and Undo; kb classify picks a genre for books without one; kb remove sets unfinished downloads aside. Nothing is ever deleted.
+kb catalogue opens catalogue.tsv at the device root: genre, authors, title, year, path, one line per book. Edit it; kb update applies the changes.
+Optional: point Model server at a running llama-server and the workflow proposes genres and names; with an embedding model, kb like lists the nearest books and kb model shows what the server serves.
+Set the device root (and the library folders) in the workflow configuration, then run kb update once; rerun after adding books. Needs only macOS's /usr/bin/python3.</string>
+	<key>uidata</key>
+	<dict>
+		<key>CHOOSE</key>
+		<dict>
+			<key>xpos</key>
+			<integer>820</integer>
+			<key>ypos</key>
+			<integer>430</integer>
+		</dict>
+		<key>CHOOSER</key>
+		<dict>
+			<key>xpos</key>
+			<integer>560</integer>
+			<key>ypos</key>
+			<integer>430</integer>
+		</dict>
+		<key>DISPATCH</key>
+		<dict>
+			<key>xpos</key>
+			<integer>300</integer>
+			<key>ypos</key>
+			<integer>150</integer>
+		</dict>
+		<key>KB</key>
+		<dict>
+			<key>xpos</key>
+			<integer>30</integer>
+			<key>ypos</key>
+			<integer>80</integer>
+		</dict>
+		<key>KBI</key>
+		<dict>
+			<key>xpos</key>
+			<integer>30</integer>
+			<key>ypos</key>
+			<integer>230</integer>
+		</dict>
+		<key>LIKE</key>
+		<dict>
+			<key>xpos</key>
+			<integer>560</integer>
+			<key>ypos</key>
+			<integer>230</integer>
+		</dict>
+		<key>NOTIFY</key>
+		<dict>
+			<key>xpos</key>
+			<integer>1080</integer>
+			<key>ypos</key>
+			<integer>330</integer>
+		</dict>
+		<key>OPEN</key>
+		<dict>
+			<key>xpos</key>
+			<integer>560</integer>
+			<key>ypos</key>
+			<integer>30</integer>
+		</dict>
+		<key>PICKER</key>
+		<dict>
+			<key>xpos</key>
+			<integer>560</integer>
+			<key>ypos</key>
+			<integer>330</integer>
+		</dict>
+		<key>REVEAL</key>
+		<dict>
+			<key>xpos</key>
+			<integer>560</integer>
+			<key>ypos</key>
+			<integer>130</integer>
+		</dict>
+		<key>RUN</key>
+		<dict>
+			<key>xpos</key>
+			<integer>820</integer>
+			<key>ypos</key>
+			<integer>230</integer>
+		</dict>
 	</dict>
 	<key>userconfigurationconfig</key>
 	<array>
@@ -52,16 +1026,16 @@ Set the library root (and optionally other sources and the index folder) in the 
 				<key>default</key>
 				<string>/Volumes/Transcend/kobo</string>
 				<key>placeholder</key>
-				<string>/Volumes/Transcend/kobo</string>
+				<string></string>
 				<key>required</key>
 				<true/>
 				<key>trim</key>
 				<true/>
 			</dict>
 			<key>description</key>
-			<string>Root folder of the ebook library (paths are shown relative to it)</string>
+			<string>The folder that is (or syncs with) the e-reader: the vault tree and the nook (paths are shown relative to it)</string>
 			<key>label</key>
-			<string>Library root</string>
+			<string>Device root</string>
 			<key>type</key>
 			<string>textfield</string>
 			<key>variable</key>
@@ -73,14 +1047,35 @@ Set the library root (and optionally other sources and the index folder) in the 
 				<key>default</key>
 				<string></string>
 				<key>placeholder</key>
-				<string>leave empty for Alfred's workflow data folder</string>
+				<string></string>
 				<key>required</key>
 				<false/>
 				<key>trim</key>
 				<true/>
 			</dict>
 			<key>description</key>
-			<string>Where library.db and covers/ are stored. Empty = ~/Library/Application Support/Alfred/Workflow Data/com.anokhin.kobold</string>
+			<string>Where books arrive (a Calibre library, a downloads folder), separated by ':'. kbi lists what the device lacks</string>
+			<key>label</key>
+			<string>Library folders (optional)</string>
+			<key>type</key>
+			<string>textfield</string>
+			<key>variable</key>
+			<string>KOBOLD_SOURCES</string>
+		</dict>
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>default</key>
+				<string></string>
+				<key>placeholder</key>
+				<string></string>
+				<key>required</key>
+				<false/>
+				<key>trim</key>
+				<true/>
+			</dict>
+			<key>description</key>
+			<string>Where books.db, covers/ and the journal are stored. Empty = Alfred's workflow data folder</string>
 			<key>label</key>
 			<string>Index folder (optional)</string>
 			<key>type</key>
@@ -94,20 +1089,20 @@ Set the library root (and optionally other sources and the index folder) in the 
 				<key>default</key>
 				<string></string>
 				<key>placeholder</key>
-				<string>/Volumes/Backup/Calibre Library:~/Downloads/books</string>
+				<string></string>
 				<key>required</key>
 				<false/>
 				<key>trim</key>
 				<true/>
 			</dict>
 			<key>description</key>
-			<string>Other folders of ebooks (a Calibre library, a downloads folder), separated by ':'. Indexed by kb update alongside the library, searched with kb src (books already in the library are hidden), imported into the library inbox with ↩.</string>
+			<string>Where catalogue.tsv lives. Empty = the device root, or the index folder while the device is away</string>
 			<key>label</key>
-			<string>Other sources (optional)</string>
+			<string>Catalogue (optional)</string>
 			<key>type</key>
 			<string>textfield</string>
 			<key>variable</key>
-			<string>KOBOLD_SOURCES</string>
+			<string>KOBOLD_CATALOGUE</string>
 		</dict>
 		<dict>
 			<key>config</key>
@@ -115,14 +1110,14 @@ Set the library root (and optionally other sources and the index folder) in the 
 				<key>default</key>
 				<string></string>
 				<key>placeholder</key>
-				<string>http://127.0.0.1:8080</string>
+				<string></string>
 				<key>required</key>
 				<false/>
 				<key>trim</key>
 				<true/>
 			</dict>
 			<key>description</key>
-			<string>Base URL of a running llama-server (its OpenAI-compatible endpoint). Empty turns the model off: nothing in the workflow mentions it. With it set, kb classify and kb fix offer to ask the model about inbox books and unnamed files; its answers are suggestions until you press ↩.</string>
+			<string>Base URL of a running llama-server (its OpenAI-compatible endpoint). Empty turns the model off</string>
 			<key>label</key>
 			<string>Model server (optional)</string>
 			<key>type</key>
@@ -136,14 +1131,14 @@ Set the library root (and optionally other sources and the index folder) in the 
 				<key>default</key>
 				<string></string>
 				<key>placeholder</key>
-				<string>qwen2.5-7b-instruct</string>
+				<string></string>
 				<key>required</key>
 				<false/>
 				<key>trim</key>
 				<true/>
 			</dict>
 			<key>description</key>
-			<string>The model that answers genre, name and author questions, as /v1/models names it. Empty uses whatever the server loads by default. kb model sets this for you.</string>
+			<string>The model that answers the genre and name questions, as /v1/models names it; kb model sets it</string>
 			<key>label</key>
 			<string>Model for questions (optional)</string>
 			<key>type</key>
@@ -164,7 +1159,7 @@ Set the library root (and optionally other sources and the index folder) in the 
 				<true/>
 			</dict>
 			<key>description</key>
-			<string>Sent as a bearer token when the model server was started with --api-key (or has LLAMA_API_KEY set). Empty sends none. Also used for the embedding server unless it has its own key.</string>
+			<string>Sent as a bearer token when the model server was started with --api-key</string>
 			<key>label</key>
 			<string>Model server API key (optional)</string>
 			<key>type</key>
@@ -178,14 +1173,14 @@ Set the library root (and optionally other sources and the index folder) in the 
 				<key>default</key>
 				<string></string>
 				<key>placeholder</key>
-				<string>http://127.0.0.1:8081</string>
+				<string></string>
 				<key>required</key>
 				<false/>
 				<key>trim</key>
 				<true/>
 			</dict>
 			<key>description</key>
-			<string>Base URL of the server that computes embeddings, when it is not the model server above. Empty uses the model server.</string>
+			<string>Base URL of the server that computes embeddings, when it is not the model server</string>
 			<key>label</key>
 			<string>Embedding server (optional)</string>
 			<key>type</key>
@@ -199,14 +1194,14 @@ Set the library root (and optionally other sources and the index folder) in the 
 				<key>default</key>
 				<string></string>
 				<key>placeholder</key>
-				<string>bge-m3</string>
+				<string></string>
 				<key>required</key>
 				<false/>
 				<key>trim</key>
 				<true/>
 			</dict>
 			<key>description</key>
-			<string>The embedding model behind kb like, as /v1/models names it; multilingual if the library mixes scripts. Empty turns kb like off. kb model sets this for you; kobold embed, or ↩ in kb model, embeds the books.</string>
+			<string>The embedding model behind kb like, as /v1/models names it; kb model sets it</string>
 			<key>label</key>
 			<string>Embedding model (optional)</string>
 			<key>type</key>
@@ -227,7 +1222,7 @@ Set the library root (and optionally other sources and the index folder) in the 
 				<true/>
 			</dict>
 			<key>description</key>
-			<string>The embedding server's key, when it differs from the model server's.</string>
+			<string>The embedding server's key, when it differs from the model server's</string>
 			<key>label</key>
 			<string>Embedding server API key (optional)</string>
 			<key>type</key>
@@ -239,14 +1234,12 @@ Set the library root (and optionally other sources and the index folder) in the 
 			<key>config</key>
 			<dict>
 				<key>default</key>
-				<false/>
+				<string>0</string>
 				<key>required</key>
 				<false/>
-				<key>text</key>
-				<string>after indexing, ask the model about new books and embed them</string>
 			</dict>
 			<key>description</key>
-			<string>With this on, kb update also asks the model about inbox books and unnamed files that have no answer yet, asks about author folders when they changed, and embeds books without a vector — each step a notification, nothing when there is nothing new. Off, kb update stays as fast as it is and you ask with the rows in kb classify, kb fix and kb model.</string>
+			<string>With this on, kb update also asks the model about unclassified books and unnamed files, and embeds new books</string>
 			<key>label</key>
 			<string>Ask and embed on update</string>
 			<key>type</key>
@@ -255,754 +1248,33 @@ Set the library root (and optionally other sources and the index folder) in the 
 			<string>KOBOLD_MODEL_ON_UPDATE</string>
 		</dict>
 	</array>
-	<key>objects</key>
-	<array>
-		<dict>
-			<key>type</key>
-			<string>alfred.workflow.input.scriptfilter</string>
-			<key>uid</key>
-			<string>KB</string>
-			<key>version</key>
-			<integer>3</integer>
-			<key>config</key>
-			<dict>
-				<key>keyword</key>
-				<string>kb</string>
-				<key>title</key>
-				<string>Search library</string>
-				<key>subtext</key>
-				<string>words match title, author, series, path, genre, subjects, format, language, year · rnd inbox classify dups stats fix trash src update like model</string>
-				<key>runningsubtext</key>
-				<string>Searching…</string>
-				<key>withspace</key>
-				<true/>
-				<key>argumenttype</key>
-				<integer>1</integer>
-				<key>argumenttrimmode</key>
-				<integer>0</integer>
-				<key>alfredfiltersresults</key>
-				<false/>
-				<key>alfredfiltersresultsmatchmode</key>
-				<integer>0</integer>
-				<key>queuedelaycustom</key>
-				<integer>1</integer>
-				<key>queuedelayimmediatelyinitially</key>
-				<true/>
-				<key>queuedelaymode</key>
-				<integer>0</integer>
-				<key>queuemode</key>
-				<integer>1</integer>
-				<key>escaping</key>
-				<integer>102</integer>
-				<key>scriptargtype</key>
-				<integer>1</integer>
-				<key>type</key>
-				<integer>0</integer>
-				<key>script</key>
-				<string>PYTHONPATH="$PWD" /usr/bin/python3 -m kobold search "$1"</string>
-			</dict>
-		</dict>
-		<dict>
-			<key>type</key>
-			<string>alfred.workflow.action.script</string>
-			<key>uid</key>
-			<string>RUN</string>
-			<key>version</key>
-			<integer>2</integer>
-			<key>config</key>
-			<dict>
-				<key>concurrently</key>
-				<true/>
-				<key>escaping</key>
-				<integer>102</integer>
-				<key>scriptargtype</key>
-				<integer>1</integer>
-				<key>type</key>
-				<integer>0</integer>
-				<key>script</key>
-				<string>export PYTHONPATH="$PWD"
-run() { nohup /usr/bin/python3 -m kobold "$@" --notify &gt;/dev/null 2&gt;&amp;1 &amp; }
-case "$action" in
-  update) run update; echo "Rebuilding the index… a notification follows";;
-  fix) run fix "$1"; echo "Fixing… a notification follows";;
-  trash) run trash "$1"; echo "Moving to _trash/… a notification follows";;
-  undo) run undo; echo "Undoing the last batch… a notification follows";;
-  import) run import "$1"; echo "Importing… a notification follows";;
-  genre) run genre "$book" "$1"; echo "Setting the genre… a notification follows";;
-  ask) run ask "" "$1"; echo "Asking the model… a notification follows";;
-  dismiss) run dismiss "$book"; echo "Dismissing… a notification follows";;
-  embed) run embed; echo "Embedding… a notification follows";;
-esac</string>
-			</dict>
-		</dict>
-		<dict>
-			<key>type</key>
-			<string>alfred.workflow.output.notification</string>
-			<key>uid</key>
-			<string>NOTIFY</string>
-			<key>version</key>
-			<integer>1</integer>
-			<key>config</key>
-			<dict>
-				<key>title</key>
-				<string>Kobold</string>
-				<key>text</key>
-				<string>{query}</string>
-				<key>lastpathcomponent</key>
-				<false/>
-				<key>onlyshowifquerypopulated</key>
-				<true/>
-				<key>removeextension</key>
-				<false/>
-			</dict>
-		</dict>
-		<dict>
-			<key>type</key>
-			<string>alfred.workflow.action.openfile</string>
-			<key>uid</key>
-			<string>OPEN</string>
-			<key>version</key>
-			<integer>1</integer>
-			<key>config</key>
-			<dict>
-				<key>openwith</key>
-				<string></string>
-				<key>sourcefile</key>
-				<string>{query}</string>
-			</dict>
-		</dict>
-		<dict>
-			<key>type</key>
-			<string>alfred.workflow.action.revealfile</string>
-			<key>uid</key>
-			<string>REVEAL</string>
-			<key>version</key>
-			<integer>1</integer>
-			<key>config</key>
-			<dict>
-				<key>path</key>
-				<string>{query}</string>
-			</dict>
-		</dict>
-		<dict>
-			<key>type</key>
-			<string>alfred.workflow.input.scriptfilter</string>
-			<key>uid</key>
-			<string>PICKER</string>
-			<key>version</key>
-			<integer>3</integer>
-			<key>config</key>
-			<dict>
-				<key>title</key>
-				<string>Set genre</string>
-				<key>subtext</key>
-				<string>type to filter · ⇧↩ creates the typed text as a new genre</string>
-				<key>runningsubtext</key>
-				<string>…</string>
-				<key>withspace</key>
-				<true/>
-				<key>argumenttype</key>
-				<integer>1</integer>
-				<key>argumenttrimmode</key>
-				<integer>0</integer>
-				<key>alfredfiltersresults</key>
-				<false/>
-				<key>alfredfiltersresultsmatchmode</key>
-				<integer>0</integer>
-				<key>queuedelaycustom</key>
-				<integer>1</integer>
-				<key>queuedelayimmediatelyinitially</key>
-				<true/>
-				<key>queuedelaymode</key>
-				<integer>0</integer>
-				<key>queuemode</key>
-				<integer>1</integer>
-				<key>escaping</key>
-				<integer>102</integer>
-				<key>scriptargtype</key>
-				<integer>1</integer>
-				<key>type</key>
-				<integer>0</integer>
-				<key>script</key>
-				<string>PYTHONPATH="$PWD" /usr/bin/python3 -m kobold genres "$1"</string>
-			</dict>
-		</dict>
-		<dict>
-			<key>type</key>
-			<string>alfred.workflow.input.scriptfilter</string>
-			<key>uid</key>
-			<string>CHOOSER</string>
-			<key>version</key>
-			<integer>3</integer>
-			<key>config</key>
-			<dict>
-				<key>title</key>
-				<string>Use model for…</string>
-				<key>subtext</key>
-				<string>↩ writes the choice into the workflow configuration</string>
-				<key>runningsubtext</key>
-				<string>…</string>
-				<key>withspace</key>
-				<true/>
-				<key>argumenttype</key>
-				<integer>1</integer>
-				<key>argumenttrimmode</key>
-				<integer>0</integer>
-				<key>alfredfiltersresults</key>
-				<false/>
-				<key>alfredfiltersresultsmatchmode</key>
-				<integer>0</integer>
-				<key>queuedelaycustom</key>
-				<integer>1</integer>
-				<key>queuedelayimmediatelyinitially</key>
-				<true/>
-				<key>queuedelaymode</key>
-				<integer>0</integer>
-				<key>queuemode</key>
-				<integer>1</integer>
-				<key>escaping</key>
-				<integer>102</integer>
-				<key>scriptargtype</key>
-				<integer>1</integer>
-				<key>type</key>
-				<integer>0</integer>
-				<key>script</key>
-				<string>PYTHONPATH="$PWD" /usr/bin/python3 -m kobold chooser "$1"</string>
-			</dict>
-		</dict>
-		<dict>
-			<key>type</key>
-			<string>alfred.workflow.action.script</string>
-			<key>uid</key>
-			<string>CHOOSE</string>
-			<key>version</key>
-			<integer>2</integer>
-			<key>config</key>
-			<dict>
-				<key>concurrently</key>
-				<false/>
-				<key>escaping</key>
-				<integer>102</integer>
-				<key>scriptargtype</key>
-				<integer>1</integer>
-				<key>type</key>
-				<integer>0</integer>
-				<key>script</key>
-				<string>PYTHONPATH="$PWD" /usr/bin/python3 -m kobold choose "$1" "$model"</string>
-			</dict>
-		</dict>
-		<dict>
-			<key>config</key>
-			<dict>
-				<key>conditions</key>
-				<array>
-					<dict>
-						<key>inputstring</key>
-						<string>{var:action}</string>
-						<key>matchcasesensitive</key>
-						<false/>
-						<key>matchmode</key>
-						<integer>0</integer>
-						<key>matchstring</key>
-						<string>update</string>
-						<key>outputlabel</key>
-						<string>update</string>
-						<key>uid</key>
-						<string>D2BB2AA4-9769-43F6-A150-1C28D648FDB6</string>
-					</dict>
-					<dict>
-						<key>inputstring</key>
-						<string>{var:action}</string>
-						<key>matchcasesensitive</key>
-						<false/>
-						<key>matchmode</key>
-						<integer>0</integer>
-						<key>matchstring</key>
-						<string>fix</string>
-						<key>outputlabel</key>
-						<string>fix</string>
-						<key>uid</key>
-						<string>489683B0-6179-4060-9F20-FA7A2B93EB4A</string>
-					</dict>
-					<dict>
-						<key>inputstring</key>
-						<string>{var:action}</string>
-						<key>matchcasesensitive</key>
-						<false/>
-						<key>matchmode</key>
-						<integer>0</integer>
-						<key>matchstring</key>
-						<string>trash</string>
-						<key>outputlabel</key>
-						<string>trash</string>
-						<key>uid</key>
-						<string>E632C43E-DC2F-4845-99A9-E19EB44CFBCF</string>
-					</dict>
-					<dict>
-						<key>inputstring</key>
-						<string>{var:action}</string>
-						<key>matchcasesensitive</key>
-						<false/>
-						<key>matchmode</key>
-						<integer>0</integer>
-						<key>matchstring</key>
-						<string>undo</string>
-						<key>outputlabel</key>
-						<string>undo</string>
-						<key>uid</key>
-						<string>0D99B9A6-3966-44BE-8958-5965343A6415</string>
-					</dict>
-					<dict>
-						<key>inputstring</key>
-						<string>{var:action}</string>
-						<key>matchcasesensitive</key>
-						<false/>
-						<key>matchmode</key>
-						<integer>0</integer>
-						<key>matchstring</key>
-						<string>import</string>
-						<key>outputlabel</key>
-						<string>import</string>
-						<key>uid</key>
-						<string>9CD12F4D-E799-4CF1-A9E6-A750E02699F7</string>
-					</dict>
-					<dict>
-						<key>inputstring</key>
-						<string>{var:action}</string>
-						<key>matchcasesensitive</key>
-						<false/>
-						<key>matchmode</key>
-						<integer>0</integer>
-						<key>matchstring</key>
-						<string>classify</string>
-						<key>outputlabel</key>
-						<string>classify</string>
-						<key>uid</key>
-						<string>A5D663CF-09F5-4681-9BED-24D48AEB4FEB</string>
-					</dict>
-					<dict>
-						<key>inputstring</key>
-						<string>{var:action}</string>
-						<key>matchcasesensitive</key>
-						<false/>
-						<key>matchmode</key>
-						<integer>0</integer>
-						<key>matchstring</key>
-						<string>reveal</string>
-						<key>outputlabel</key>
-						<string>reveal</string>
-						<key>uid</key>
-						<string>FA7FCF63-245D-4B88-936C-BDDCFD3D4C6C</string>
-					</dict>
-					<dict>
-						<key>inputstring</key>
-						<string>{var:action}</string>
-						<key>matchcasesensitive</key>
-						<false/>
-						<key>matchmode</key>
-						<integer>0</integer>
-						<key>matchstring</key>
-						<string>ask</string>
-						<key>outputlabel</key>
-						<string>ask</string>
-						<key>uid</key>
-						<string>3B6F0C2E-5A1D-4E7B-9C84-0A5B000001C1</string>
-					</dict>
-					<dict>
-						<key>inputstring</key>
-						<string>{var:action}</string>
-						<key>matchcasesensitive</key>
-						<false/>
-						<key>matchmode</key>
-						<integer>0</integer>
-						<key>matchstring</key>
-						<string>dismiss</string>
-						<key>outputlabel</key>
-						<string>dismiss</string>
-						<key>uid</key>
-						<string>3B6F0C2E-5A1D-4E7B-9C84-0A5B000001C2</string>
-					</dict>
-					<dict>
-						<key>inputstring</key>
-						<string>{var:action}</string>
-						<key>matchcasesensitive</key>
-						<false/>
-						<key>matchmode</key>
-						<integer>0</integer>
-						<key>matchstring</key>
-						<string>model</string>
-						<key>outputlabel</key>
-						<string>model</string>
-						<key>uid</key>
-						<string>3B6F0C2E-5A1D-4E7B-9C84-0A5B000001C3</string>
-					</dict>
-					<dict>
-						<key>inputstring</key>
-						<string>{var:action}</string>
-						<key>matchcasesensitive</key>
-						<false/>
-						<key>matchmode</key>
-						<integer>0</integer>
-						<key>matchstring</key>
-						<string>embed</string>
-						<key>outputlabel</key>
-						<string>embed</string>
-						<key>uid</key>
-						<string>3B6F0C2E-5A1D-4E7B-9C84-0A5B000001C4</string>
-					</dict>
-					<dict>
-						<key>inputstring</key>
-						<string>{var:action}</string>
-						<key>matchcasesensitive</key>
-						<false/>
-						<key>matchmode</key>
-						<integer>0</integer>
-						<key>matchstring</key>
-						<string>genre</string>
-						<key>outputlabel</key>
-						<string>genre</string>
-						<key>uid</key>
-						<string>3B6F0C2E-5A1D-4E7B-9C84-0A5B000001C5</string>
-					</dict>
-				</array>
-				<key>elselabel</key>
-				<string>open</string>
-				<key>hideelse</key>
-				<false/>
-			</dict>
-			<key>type</key>
-			<string>alfred.workflow.utility.conditional</string>
-			<key>uid</key>
-			<string>DISPATCH</string>
-			<key>version</key>
-			<integer>1</integer>
-		</dict>
-	</array>
-	<key>connections</key>
+	<key>variables</key>
 	<dict>
-		<key>DISPATCH</key>
-		<array>
-			<dict>
-				<key>destinationuid</key>
-				<string>RUN</string>
-				<key>modifiers</key>
-				<integer>0</integer>
-				<key>modifiersubtext</key>
-				<string></string>
-				<key>vitoclose</key>
-				<false/>
-				<key>sourceoutputuid</key>
-				<string>D2BB2AA4-9769-43F6-A150-1C28D648FDB6</string>
-			</dict>
-			<dict>
-				<key>destinationuid</key>
-				<string>RUN</string>
-				<key>modifiers</key>
-				<integer>0</integer>
-				<key>modifiersubtext</key>
-				<string></string>
-				<key>vitoclose</key>
-				<false/>
-				<key>sourceoutputuid</key>
-				<string>489683B0-6179-4060-9F20-FA7A2B93EB4A</string>
-			</dict>
-			<dict>
-				<key>destinationuid</key>
-				<string>RUN</string>
-				<key>modifiers</key>
-				<integer>0</integer>
-				<key>modifiersubtext</key>
-				<string></string>
-				<key>vitoclose</key>
-				<false/>
-				<key>sourceoutputuid</key>
-				<string>E632C43E-DC2F-4845-99A9-E19EB44CFBCF</string>
-			</dict>
-			<dict>
-				<key>destinationuid</key>
-				<string>RUN</string>
-				<key>modifiers</key>
-				<integer>0</integer>
-				<key>modifiersubtext</key>
-				<string></string>
-				<key>vitoclose</key>
-				<false/>
-				<key>sourceoutputuid</key>
-				<string>0D99B9A6-3966-44BE-8958-5965343A6415</string>
-			</dict>
-			<dict>
-				<key>destinationuid</key>
-				<string>RUN</string>
-				<key>modifiers</key>
-				<integer>0</integer>
-				<key>modifiersubtext</key>
-				<string></string>
-				<key>vitoclose</key>
-				<false/>
-				<key>sourceoutputuid</key>
-				<string>9CD12F4D-E799-4CF1-A9E6-A750E02699F7</string>
-			</dict>
-			<dict>
-				<key>destinationuid</key>
-				<string>PICKER</string>
-				<key>modifiers</key>
-				<integer>0</integer>
-				<key>modifiersubtext</key>
-				<string></string>
-				<key>vitoclose</key>
-				<false/>
-				<key>sourceoutputuid</key>
-				<string>A5D663CF-09F5-4681-9BED-24D48AEB4FEB</string>
-			</dict>
-			<dict>
-				<key>destinationuid</key>
-				<string>REVEAL</string>
-				<key>modifiers</key>
-				<integer>0</integer>
-				<key>modifiersubtext</key>
-				<string></string>
-				<key>vitoclose</key>
-				<false/>
-				<key>sourceoutputuid</key>
-				<string>FA7FCF63-245D-4B88-936C-BDDCFD3D4C6C</string>
-			</dict>
-			<dict>
-				<key>destinationuid</key>
-				<string>RUN</string>
-				<key>modifiers</key>
-				<integer>0</integer>
-				<key>modifiersubtext</key>
-				<string></string>
-				<key>vitoclose</key>
-				<false/>
-				<key>sourceoutputuid</key>
-				<string>3B6F0C2E-5A1D-4E7B-9C84-0A5B000001C1</string>
-			</dict>
-			<dict>
-				<key>destinationuid</key>
-				<string>RUN</string>
-				<key>modifiers</key>
-				<integer>0</integer>
-				<key>modifiersubtext</key>
-				<string></string>
-				<key>vitoclose</key>
-				<false/>
-				<key>sourceoutputuid</key>
-				<string>3B6F0C2E-5A1D-4E7B-9C84-0A5B000001C2</string>
-			</dict>
-			<dict>
-				<key>destinationuid</key>
-				<string>CHOOSER</string>
-				<key>modifiers</key>
-				<integer>0</integer>
-				<key>modifiersubtext</key>
-				<string></string>
-				<key>vitoclose</key>
-				<false/>
-				<key>sourceoutputuid</key>
-				<string>3B6F0C2E-5A1D-4E7B-9C84-0A5B000001C3</string>
-			</dict>
-			<dict>
-				<key>destinationuid</key>
-				<string>RUN</string>
-				<key>modifiers</key>
-				<integer>0</integer>
-				<key>modifiersubtext</key>
-				<string></string>
-				<key>vitoclose</key>
-				<false/>
-				<key>sourceoutputuid</key>
-				<string>3B6F0C2E-5A1D-4E7B-9C84-0A5B000001C4</string>
-			</dict>
-			<dict>
-				<key>destinationuid</key>
-				<string>RUN</string>
-				<key>modifiers</key>
-				<integer>0</integer>
-				<key>modifiersubtext</key>
-				<string></string>
-				<key>vitoclose</key>
-				<false/>
-				<key>sourceoutputuid</key>
-				<string>3B6F0C2E-5A1D-4E7B-9C84-0A5B000001C5</string>
-			</dict>
-			<dict>
-				<key>destinationuid</key>
-				<string>OPEN</string>
-				<key>modifiers</key>
-				<integer>0</integer>
-				<key>modifiersubtext</key>
-				<string></string>
-				<key>vitoclose</key>
-				<false/>
-			</dict>
-		</array>
-		<key>RUN</key>
-		<array>
-			<dict>
-				<key>destinationuid</key>
-				<string>NOTIFY</string>
-				<key>modifiers</key>
-				<integer>0</integer>
-				<key>modifiersubtext</key>
-				<string></string>
-				<key>vitoclose</key>
-				<false/>
-			</dict>
-		</array>
-		<key>NOTIFY</key>
-		<array/>
-		<key>KB</key>
-		<array>
-			<dict>
-				<key>destinationuid</key>
-				<string>DISPATCH</string>
-				<key>modifiers</key>
-				<integer>0</integer>
-				<key>modifiersubtext</key>
-				<string></string>
-				<key>vitoclose</key>
-				<false/>
-			</dict>
-			<dict>
-				<key>destinationuid</key>
-				<string>REVEAL</string>
-				<key>modifiers</key>
-				<integer>524288</integer>
-				<key>modifiersubtext</key>
-				<string></string>
-				<key>vitoclose</key>
-				<false/>
-			</dict>
-			<dict>
-				<key>destinationuid</key>
-				<string>PICKER</string>
-				<key>modifiers</key>
-				<integer>131072</integer>
-				<key>modifiersubtext</key>
-				<string></string>
-				<key>vitoclose</key>
-				<false/>
-			</dict>
-		</array>
-		<key>CHOOSER</key>
-		<array>
-			<dict>
-				<key>destinationuid</key>
-				<string>CHOOSE</string>
-				<key>modifiers</key>
-				<integer>0</integer>
-				<key>modifiersubtext</key>
-				<string></string>
-				<key>vitoclose</key>
-				<false/>
-			</dict>
-		</array>
-		<key>CHOOSE</key>
-		<array>
-			<dict>
-				<key>destinationuid</key>
-				<string>NOTIFY</string>
-				<key>modifiers</key>
-				<integer>0</integer>
-				<key>modifiersubtext</key>
-				<string></string>
-				<key>vitoclose</key>
-				<false/>
-			</dict>
-		</array>
-		<key>PICKER</key>
-		<array>
-			<dict>
-				<key>destinationuid</key>
-				<string>RUN</string>
-				<key>modifiers</key>
-				<integer>0</integer>
-				<key>modifiersubtext</key>
-				<string></string>
-				<key>vitoclose</key>
-				<false/>
-			</dict>
-			<dict>
-				<key>destinationuid</key>
-				<string>RUN</string>
-				<key>modifiers</key>
-				<integer>131072</integer>
-				<key>modifiersubtext</key>
-				<string></string>
-				<key>vitoclose</key>
-				<false/>
-			</dict>
-		</array>
-	</dict>
-	<key>uidata</key>
-	<dict>
-		<key>DISPATCH</key>
-		<dict>
-			<key>xpos</key>
-			<real>320.0</real>
-			<key>ypos</key>
-			<real>60.0</real>
-		</dict>
-		<key>OPEN</key>
-		<dict>
-			<key>xpos</key>
-			<real>580.0</real>
-			<key>ypos</key>
-			<real>20.0</real>
-		</dict>
-		<key>REVEAL</key>
-		<dict>
-			<key>xpos</key>
-			<real>580.0</real>
-			<key>ypos</key>
-			<real>160.0</real>
-		</dict>
-		<key>RUN</key>
-		<dict>
-			<key>xpos</key>
-			<real>580.0</real>
-			<key>ypos</key>
-			<real>320.0</real>
-		</dict>
-		<key>NOTIFY</key>
-		<dict>
-			<key>xpos</key>
-			<real>840.0</real>
-			<key>ypos</key>
-			<real>320.0</real>
-		</dict>
-		<key>KB</key>
-		<dict>
-			<key>xpos</key>
-			<real>60.0</real>
-			<key>ypos</key>
-			<real>60.0</real>
-		</dict>
-		<key>PICKER</key>
-		<dict>
-			<key>xpos</key>
-			<real>320.0</real>
-			<key>ypos</key>
-			<real>320.0</real>
-		</dict>
-		<key>CHOOSER</key>
-		<dict>
-			<key>xpos</key>
-			<real>320.0</real>
-			<key>ypos</key>
-			<real>480.0</real>
-		</dict>
-		<key>CHOOSE</key>
-		<dict>
-			<key>xpos</key>
-			<real>580.0</real>
-			<key>ypos</key>
-			<real>480.0</real>
-		</dict>
+		<key>KOBOLD_CATALOGUE</key>
+		<string></string>
+		<key>KOBOLD_DATA</key>
+		<string></string>
+		<key>KOBOLD_EMBED_KEY</key>
+		<string></string>
+		<key>KOBOLD_EMBED_MODEL</key>
+		<string></string>
+		<key>KOBOLD_EMBED_URL</key>
+		<string></string>
+		<key>KOBOLD_MODEL_ON_UPDATE</key>
+		<string>0</string>
+		<key>KOBOLD_ORACLE_KEY</key>
+		<string></string>
+		<key>KOBOLD_ORACLE_MODEL</key>
+		<string></string>
+		<key>KOBOLD_ORACLE_URL</key>
+		<string></string>
+		<key>KOBOLD_ROOT</key>
+		<string>/Volumes/Transcend/kobo</string>
+		<key>KOBOLD_SOURCES</key>
+		<string></string>
 	</dict>
 	<key>version</key>
-	<string>0.4.0</string>
+	<string>0.5.0</string>
 	<key>webaddress</key>
 	<string>https://github.com/vlnn/kobold</string>
 </dict>

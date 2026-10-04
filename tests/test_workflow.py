@@ -4,6 +4,8 @@ from pathlib import Path
 
 import pytest
 
+from kobold.alfred import FIXED_MODIFIERS
+
 PLIST = Path(__file__).parent.parent / "workflow" / "info.plist"
 OBJECT_VERSIONS = {
     "alfred.workflow.input.scriptfilter": 3,
@@ -13,21 +15,18 @@ OBJECT_VERSIONS = {
     "alfred.workflow.action.revealfile": 1,
     "alfred.workflow.utility.conditional": 1,
 }
-OBJECTS = {"KB", "PICKER", "DISPATCH", "OPEN", "REVEAL", "RUN", "NOTIFY", "CHOOSER", "CHOOSE"}
-RUNNER_ACTIONS = ("update", "fix", "trash", "undo", "import", "genre", "ask", "dismiss", "embed")
+OBJECTS = {"KB", "KBI", "PICKER", "DISPATCH", "OPEN", "REVEAL", "LIKE", "RUN", "NOTIFY", "CHOOSER", "CHOOSE"}
+RUNNER_ACTIONS = ("update", "fix", "undo", "nook", "done", "remove", "import", "genre", "ask", "embed")
 ROUTES = {
-    "update": "RUN",
-    "fix": "RUN",
-    "trash": "RUN",
-    "undo": "RUN",
-    "import": "RUN",
+    **dict.fromkeys(RUNNER_ACTIONS, "RUN"),
     "classify": "PICKER",
+    "model": "CHOOSER",
     "reveal": "REVEAL",
-    "ask": "RUN",
-    "genre": "RUN",
+    "like": "LIKE",
+    "open": "OPEN",
 }
-MODIFIER_BITS = {"shift": 131072, "alt": 524288}
-MEANING = {"REVEAL": "reveal", "PICKER": "set genre"}
+MODIFIER_BITS = {"shift": 131072, "alt": 524288, "ctrl": 262144, "cmd": 1048576}
+MEANING = {"REVEAL": "reveal", "PICKER": "set the genre", "OPEN": "open", "LIKE": "like"}
 
 
 @pytest.fixture(scope="module")
@@ -46,9 +45,7 @@ def targets(workflow: dict, uid: str) -> dict[int, str]:
 
 def test_every_object_has_the_version_alfred_expects(workflow):
     for o in workflow["objects"]:
-        assert o.get("version") == OBJECT_VERSIONS[o["type"]], (
-            f"{o['uid']} should carry its object type's version, or Alfred calls the workflow incompatible"
-        )
+        assert o.get("version") == OBJECT_VERSIONS[o["type"]], f"{o['uid']} should carry its object type's version"
 
 
 def test_connections_point_at_existing_objects(workflow):
@@ -60,21 +57,21 @@ def test_connections_point_at_existing_objects(workflow):
 
 
 def test_every_object_is_placed_on_the_canvas(workflow):
-    assert set(workflow["uidata"]) == {o["uid"] for o in workflow["objects"]}, "every object, and only those, should have a canvas position"
+    assert set(workflow["uidata"]) == {o["uid"] for o in workflow["objects"]}, "every object, and only those, has a canvas position"
 
 
-def test_the_workflow_is_one_filter_two_pickers_and_their_actions(workflow):
-    assert {o["uid"] for o in workflow["objects"]} == OBJECTS, (
-        "kb, the genre picker, the dispatcher, open, reveal, runner, notification, the model chooser and its step"
-    )
+def test_the_workflow_is_two_keywords_two_pickers_and_their_actions(workflow):
+    assert {o["uid"] for o in workflow["objects"]} == OBJECTS, "kb, kbi, the genre picker, the dispatcher, its targets, the model chooser"
 
 
-def test_kb_is_the_only_keyword(workflow):
-    keywords = [o["config"]["keyword"] for o in workflow["objects"] if o["config"].get("keyword")]
-    assert keywords == ["kb"], "everything starts with kb; there are no kb:x keywords"
+def test_kb_and_kbi_are_the_keywords(workflow):
+    keywords = sorted(o["config"]["keyword"] for o in workflow["objects"] if o["config"].get("keyword"))
+    assert keywords == ["kb", "kbi"], "kb, and kbi as a shortcut for kb import"
 
 
-@pytest.mark.parametrize("uid, subcommand", [("KB", 'search "$1"'), ("PICKER", 'genres "$1"'), ("CHOOSER", 'chooser "$1"')])
+@pytest.mark.parametrize(
+    "uid, subcommand", [("KB", 'search "$1"'), ("KBI", 'search "import $1"'), ("PICKER", 'genres "$1"'), ("CHOOSER", 'chooser "$1"')]
+)
 def test_script_filters_call_their_subcommand(workflow, uid, subcommand):
     assert f"-m kobold {subcommand}" in obj(workflow, uid)["config"]["script"], f"{uid} should run kobold {subcommand}"
 
@@ -92,14 +89,17 @@ def route(workflow: dict, item: dict) -> str:
     return next(c["destinationuid"] for c in conns if "sourceoutputuid" not in c)
 
 
-def test_kb_keys_reach_dispatcher_reveal_and_picker(workflow):
-    assert targets(workflow, "KB") == {0: "DISPATCH", 524288: "REVEAL", 131072: "PICKER"}, "↩ dispatches, ⌥↩ reveals, ⇧↩ sets genre"
+@pytest.mark.parametrize("uid", ["KB", "KBI"])
+def test_every_key_on_a_keyword_goes_through_the_dispatcher(workflow, uid):
+    assert targets(workflow, uid) == {0: "DISPATCH", **dict.fromkeys(MODIFIER_BITS.values(), "DISPATCH")}, (
+        "↩ and the four fixed modifiers all carry an action; the dispatcher reads it"
+    )
 
 
 def test_kb_enter_goes_through_an_action_dispatcher(workflow):
     dispatcher, _ = dispatch(workflow)
     assert dispatcher["type"] == "alfred.workflow.utility.conditional", "↩ on a kb row should be routed by the item's action variable"
-    assert all(c["inputstring"] == "{var:action}" for c in dispatcher["config"]["conditions"]), "every branch should test the action"
+    assert all(c["inputstring"] == "{var:action}" for c in dispatcher["config"]["conditions"]), "every branch tests the action"
 
 
 @pytest.mark.parametrize("action, destination", ROUTES.items())
@@ -107,13 +107,13 @@ def test_dispatcher_routes_each_action(workflow, action, destination):
     dispatcher, conns = dispatch(workflow)
     branch = next(c for c in dispatcher["config"]["conditions"] if c["matchstring"] == action)
     assert [c["destinationuid"] for c in conns if c.get("sourceoutputuid") == branch["uid"]] == [destination], (
-        f"the {action} action should reach {destination}"
+        f"{action} should reach {destination}"
     )
 
 
-def test_dispatcher_else_opens_the_book(workflow):
+def test_dispatcher_else_opens_the_file(workflow):
     _, conns = dispatch(workflow)
-    assert [c["destinationuid"] for c in conns if "sourceoutputuid" not in c] == ["OPEN"], "anything that is not a command opens the book"
+    assert [c["destinationuid"] for c in conns if "sourceoutputuid" not in c] == ["OPEN"], "anything else opens the file in arg"
 
 
 def test_genre_picker_runs_the_genre_step_on_enter_and_shift(workflow):
@@ -124,9 +124,15 @@ def test_runner_notifies(workflow):
     assert targets(workflow, "RUN") == {0: "NOTIFY"}, "the runner's message should become a notification"
 
 
+def test_like_reopens_alfred_on_kb_like(workflow):
+    script = obj(workflow, "LIKE")["config"]["script"]
+    assert "com.runningwithcrayons.Alfred" in script and '"kb like " & item 1 of argv' in script, "⌃↩ searches kb like <fingerprint>"
+
+
 def test_model_chooser_runs_the_choose_step_in_the_foreground(workflow):
-    assert targets(workflow, "CHOOSER") == {0: "CHOOSE"}, "↩ on a role writes the configuration"
-    assert targets(workflow, "CHOOSE") == {0: "NOTIFY"}, "and the result becomes a notification"
+    assert targets(workflow, "CHOOSER") == {0: "CHOOSE"} and targets(workflow, "CHOOSE") == {0: "NOTIFY"}, (
+        "↩ on a role writes the configuration"
+    )
     script = obj(workflow, "CHOOSE")["config"]["script"]
     assert 'choose "$1" "$model"' in script and "nohup" not in script, "choose runs in the foreground with the role and the model"
 
@@ -141,81 +147,50 @@ def runner_branch(workflow: dict, action: str) -> str:
 @pytest.mark.parametrize("action", RUNNER_ACTIONS)
 def test_runner_runs_each_action_in_the_background(workflow, action):
     assert re.search(rf"run {action}\b", runner_branch(workflow, action)), f"the {action} branch should run kobold {action}"
-    assert 'nohup /usr/bin/python3 -m kobold "$@" --notify' in obj(workflow, "RUN")["config"]["script"], (
-        "every action should run detached and notify when done"
-    )
+    assert 'nohup /usr/bin/python3 -m kobold "$@" --notify' in obj(workflow, "RUN")["config"]["script"], "detached, then a notification"
 
 
 @pytest.mark.parametrize(
     "action, args",
-    [("fix", '"$1"'), ("trash", '"$1"'), ("import", '"$1"'), ("genre", '"$book" "$1"'), ("dismiss", '"$book"'), ("ask", '"" "$1"')],
+    [
+        ("fix", '"$1"'),
+        ("nook", '"$1"'),
+        ("done", '"$1"'),
+        ("remove", '"$1"'),
+        ("import", '"$1"'),
+        ("genre", '"$book" "$1"'),
+        ("ask", '"" "$1"'),
+    ],
 )
 def test_runner_passes_the_row_argument(workflow, action, args):
     assert runner_branch(workflow, action).startswith(f"run {action} {args}"), f"{action} should receive {args}"
 
 
-def test_sources_cannot_move_books(workflow):
-    assert not any("import --move" in o["config"].get("script", "") for o in workflow["objects"]), "no script should move a source book"
+def test_no_script_moves_a_library_book(workflow):
+    assert not any("import --move" in o["config"].get("script", "") for o in workflow["objects"]), "no script should move a library book"
 
 
 def test_workflow_metadata_is_release_ready(workflow):
     pyproject = (PLIST.parent.parent / "pyproject.toml").read_text()
     assert workflow["version"] == re.search(r'^version = "(.+)"', pyproject, re.M).group(1), (
-        "Alfred shows the plist version; it should match the package"
+        "Alfred shows the plist version; it matches the package"
     )
-    assert workflow["webaddress"].startswith("https://github.com/"), "the About panel should link to the repository"
-    for words in ("kb classify", "kb fix", "kb src", "kb update"):
+    assert workflow["bundleid"] == "com.anokhin.kobold" and workflow["webaddress"].startswith("https://github.com/"), (
+        "bundle id and repository"
+    )
+    for words in ("kb nook", "kb done", "kbi", "kb fix", "kb update"):
         assert words in workflow["readme"], f"the install readme should mention {words}"
-    assert ":" not in re.sub(r"https?://\S+", "", workflow["readme"]).replace(": ", " "), "the readme should not show kb:x keywords"
 
 
 @pytest.fixture
-def indexed(library: Path, tmp_path: Path, monkeypatch):
+def indexed(library: Path, tmp_path: Path, tmp_path_factory, monkeypatch):
     from kobold.cli import main
-
-    monkeypatch.setenv("KOBOLD_ROOT", str(library))
-    monkeypatch.setenv("alfred_workflow_data", str(tmp_path / "alfred-data"))
-    monkeypatch.delenv("KOBOLD_DATA", raising=False)
-    main(["update"])
-
-
-@pytest.mark.parametrize(
-    "query, destination, arg",
-    [
-        ("update", "RUN", ""),
-        ("fix", "RUN", ""),
-        ("trash", "RUN", "/"),
-        ("classify", "PICKER", ""),
-        ("inbox", "OPEN", "/"),
-        ("rnd", "OPEN", "/"),
-        ("deep", "OPEN", "/"),
-    ],
-)
-def test_enter_on_a_kb_row_reaches_its_action(workflow, indexed, query, destination, arg):
-    from kobold.commands import search_items
-
-    first = next(i for i in search_items(query) if i.get("valid", True))
-
-    assert route(workflow, first) == destination, f"↩ on the first kb {query} row should reach {destination}"
-    assert first["arg"].startswith(arg), f"kb {query} should hand {arg!r}… to {destination}"
-
-
-def test_enter_on_a_problem_row_reveals_it(workflow, indexed):
-    from kobold.commands import search_items
-
-    problem = next(i for i in search_items("fix") if i.get("uid", "").startswith("problem:"))
-
-    assert route(workflow, problem) == "REVEAL", "↩ on a problem with no automatic remedy should reveal the file"
-
-
-@pytest.fixture
-def indexed_with_sources(library: Path, tmp_path: Path, tmp_path_factory, monkeypatch):
-    from kobold.cli import main
-    from tests.test_sources import write_epub
+    from tests.conftest import write_epub
 
     elsewhere = tmp_path_factory.mktemp("elsewhere")
     write_epub(elsewhere / "Slow Productivity.epub", "Slow Productivity")
-    write_epub(elsewhere / "A World Without Email.epub", "A World Without Email")
+    (library / "Nook").mkdir()
+    write_epub(library / "Nook" / "Now.epub", "Now")
     monkeypatch.setenv("KOBOLD_ROOT", str(library))
     monkeypatch.setenv("KOBOLD_SOURCES", str(elsewhere))
     monkeypatch.setenv("alfred_workflow_data", str(tmp_path / "alfred-data"))
@@ -223,62 +198,59 @@ def indexed_with_sources(library: Path, tmp_path: Path, tmp_path_factory, monkey
     main(["update"])
 
 
-@pytest.mark.parametrize("query", ["", "src slow", "fix", "inbox", "classify", "trash inbox", "dups", "rnd"])
-def test_declared_modifiers_do_what_their_subtitle_says(workflow, indexed_with_sources, query):
+@pytest.mark.parametrize(
+    "query, destination",
+    [
+        ("deep", "RUN"),
+        ("slow", "RUN"),
+        ("now", "OPEN"),
+        ("nook", "OPEN"),
+        ("done", "RUN"),
+        ("lib", "RUN"),
+        ("fix", "RUN"),
+        ("classify", "PICKER"),
+        ("remove", "RUN"),
+        ("update", "RUN"),
+        ("catalogue", "OPEN"),
+    ],
+)
+def test_enter_on_the_first_row_lands_where_the_table_says(workflow, indexed, query, destination):
     from kobold.commands import search_items
 
-    keys = targets(workflow, "KB")
+    first = next(i for i in search_items(query) if i.get("valid", True))
+
+    assert route(workflow, first) == destination, f"↩ on the first kb {query} row should reach {destination}"
+
+
+@pytest.mark.parametrize("query", ["", "nook", "done", "lib", "fix", "classify", "remove", "rnd", "catalogue"])
+def test_declared_modifiers_do_what_their_subtitle_says(workflow, indexed, query):
+    from kobold.commands import search_items
+
     for item in search_items(query):
         for mod, spec in item.get("mods", {}).items():
-            target = keys.get(MODIFIER_BITS[mod])
-            assert target, f"kb {query}: {item['title']!r} declares {mod} but kb has no {mod} connection"
-            assert MEANING[target] in spec["subtitle"].lower(), f"kb {query}: {mod} says {spec['subtitle']!r} but reaches {target}"
+            assert mod in MODIFIER_BITS, f"kb {query}: {item['title']!r} declares an unknown modifier {mod}"
+            target = route(workflow, spec)
+            assert MEANING.get(target, target.lower()) in spec["subtitle"].lower(), (
+                f"kb {query}: {mod} says {spec['subtitle']!r} but reaches {target}"
+            )
 
 
-def test_accept_suggested_genres_head_row_reaches_the_runner_from_kb(workflow, indexed, tmp_path, mocker):
-    from kobold.commands import search_items
-    from kobold.suggestions import SuggestionStore
-
-    store = SuggestionStore(tmp_path / "alfred-data" / "oracle.tsv").load()
-    store.set(next(i for i in search_items("napkin") if "quicklookurl" in i)["variables"]["book"], "genre", {"genre": "reference"}, "h")
-    store.save()
-    accept = next(i for i in search_items("classify") if i["uid"] == "classify:accept")
-
-    assert route(workflow, accept) == "RUN", "↩ on Accept N suggested genres must run genre in the background, not open a book"
-
-
-def test_import_all_head_row_reaches_the_runner_from_kb(workflow, indexed_with_sources):
+def test_book_rows_carry_the_four_fixed_modifiers(workflow, indexed):
     from kobold.commands import search_items
 
-    head = next(i for i in search_items("src ") if i.get("valid", True))
-
-    assert head["uid"] == "src:import-all", "kb src should start with the import-all row"
-    assert route(workflow, head) == "RUN", "↩ on it must run the import in the background"
-
-
-ORACLE_VARIABLES = (
-    "KOBOLD_ORACLE_URL",
-    "KOBOLD_ORACLE_MODEL",
-    "KOBOLD_ORACLE_KEY",
-    "KOBOLD_EMBED_URL",
-    "KOBOLD_EMBED_MODEL",
-    "KOBOLD_EMBED_KEY",
-)
+    for item in (i for i in search_items("") if "quicklookurl" in i):
+        assert set(item["mods"]) == set(FIXED_MODIFIERS), f"{item['title']} should offer exactly ⇧ ⌥ ⌃ ⌘"
+        assert [route(workflow, item["mods"][m]) for m in ("shift", "alt", "ctrl", "cmd")] == ["OPEN", "REVEAL", "LIKE", "PICKER"], (
+            "⇧↩ opens, ⌥↩ reveals, ⌃↩ asks kb like, ⌘↩ sets the genre"
+        )
 
 
-@pytest.mark.parametrize("variable", ORACLE_VARIABLES)
-def test_the_oracle_is_configured_from_the_workflow_panel(workflow, variable):
-    assert workflow["variables"].get(variable) == "", f"{variable} should default to empty, which keeps the oracle off"
-    field = next(c for c in workflow["userconfigurationconfig"] if c["variable"] == variable)
-    assert field["config"]["required"] is False and field["type"] == "textfield", f"{variable} is an optional text field"
+def test_every_action_a_row_can_carry_has_a_branch(workflow, indexed):
+    from kobold.commands import search_items
 
-
-def test_the_readme_mentions_the_oracle_commands(workflow):
-    for words in ("kb like", "kb model"):
-        assert words in workflow["readme"], f"the install readme should mention {words}"
-
-
-def test_asking_and_embedding_on_update_is_an_optional_checkbox(workflow):
-    assert workflow["variables"].get("KOBOLD_MODEL_ON_UPDATE") == "0", "off by default: kb update stays as fast as it is"
-    field = next(c for c in workflow["userconfigurationconfig"] if c["variable"] == "KOBOLD_MODEL_ON_UPDATE")
-    assert field["type"] == "checkbox" and field["config"]["default"] is False, "a checkbox in the configuration panel"
+    dispatcher, _ = dispatch(workflow)
+    branches = {c["matchstring"] for c in dispatcher["config"]["conditions"]}
+    for query in ("", "nook", "done", "lib", "fix", "classify", "remove", "update", "catalogue", "stats"):
+        for item in search_items(query):
+            if action := item.get("variables", {}).get("action"):
+                assert action in branches, f"kb {query}: action {action!r} has no dispatcher branch"

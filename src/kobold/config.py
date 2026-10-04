@@ -3,8 +3,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from kobold.authors import AuthorStore
-from kobold.genres import GenreStore
+from kobold.catalogue import CatalogueStore, from_legacy
 from kobold.index import Index
 from kobold.suggestions import SuggestionStore
 from kobold.vectors import VectorStore
@@ -43,19 +42,20 @@ def adopt_predecessor_data(chosen: Path) -> None:
 
 
 def db_path() -> Path:
-    return data_dir() / "library.db"
+    books = data_dir() / "books.db"
+    adopt_split_indexes(books)
+    return books
 
 
-def sources_db_path() -> Path:
-    return data_dir() / "sources.db"
+def adopt_split_indexes(books: Path) -> None:
+    old = books.with_name("library.db")
+    if old.exists() and not books.exists():
+        old.rename(books)
+    books.with_name("sources.db").unlink(missing_ok=True)
 
 
 def library_index() -> Index:
     return Index(db_path(), library_root())
-
-
-def sources_index() -> Index:
-    return Index(sources_db_path(), library_root())
 
 
 def covers_dir() -> Path:
@@ -66,12 +66,26 @@ def journal_path() -> Path:
     return data_dir() / "journal.jsonl"
 
 
-def genre_store() -> GenreStore:
-    return GenreStore(data_dir() / "genres.tsv").load()
+def catalogue_path() -> Path:
+    explicit = os.environ.get("KOBOLD_CATALOGUE", "").strip()
+    if explicit:
+        return Path(explicit).expanduser()
+    root = library_root()
+    return (root if root.is_dir() else data_dir()) / "catalogue.tsv"
 
 
-def author_store() -> AuthorStore:
-    return AuthorStore(data_dir() / "authors.tsv").load()
+def catalogue_snapshot() -> Path:
+    return data_dir() / "catalogue.snapshot.tsv"
+
+
+def catalogue_store() -> CatalogueStore:
+    store = CatalogueStore(catalogue_path(), catalogue_snapshot())
+    legacy = data_dir() / "genres.tsv"
+    if legacy.exists() and not store.snapshot.exists():
+        store.entries = from_legacy(legacy.read_text(encoding="utf-8"))
+        store.save()
+        legacy.rename(legacy.with_suffix(".tsv.converted"))
+    return store.load()
 
 
 def oracle_url() -> str:
