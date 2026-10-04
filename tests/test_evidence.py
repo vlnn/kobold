@@ -5,7 +5,7 @@ import pytest
 
 from kobold.evidence import evidence_for, evidence_hash, palmdoc_decompress, text_sample
 from kobold.metadata import read_book
-from tests.test_alfred import row
+from tests.conftest import row
 
 
 def palm_database(records: list[bytes]) -> bytes:

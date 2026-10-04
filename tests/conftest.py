@@ -5,6 +5,36 @@ from pathlib import Path
 import pytest
 
 from kobold.cli import main
+from kobold.model import Row
+
+BASE_ROW = {
+    "title": "Deep Work",
+    "authors": "Cal Newport",
+    "series": "Focus",
+    "series_index": "2",
+    "folder": "02_NonFiction",
+    "rel_path": "02_NonFiction/x.epub",
+    "root": "/lib",
+    "place": "vault",
+    "format": "epub",
+    "partial": False,
+    "language": "en",
+    "year": "2016",
+    "cover": "/cache/abc.png",
+    "size": 1_500_000,
+    "mtime": 0.0,
+    "norm_title": "deep work",
+    "fingerprint": "f00",
+    "genre": "",
+    "subjects": "",
+    "description": "",
+    "guessed": False,
+}
+
+
+def row(**overrides) -> Row:
+    return Row(**{**BASE_ROW, **overrides})
+
 
 PNG_1X1 = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==")
 

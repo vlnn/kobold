@@ -1,11 +1,17 @@
 from __future__ import annotations
 
 import json
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 
-from kobold.model import Finding, Operation, Row
+from kobold.covers import framed
+from kobold.index import NOOK
+from kobold.model import Operation, Row
 
 SEPARATOR = " · "
+LINE = "\n"
+TERMINAL_ICON = {"type": "fileicon", "path": "/System/Applications/Utilities/Terminal.app"}
+PLACE_ACTIONS = {"library": "import", "vault": "nook", NOOK: "open"}
+FIXED_MODIFIERS = ("shift", "alt", "ctrl", "cmd")
 
 
 def counted(n: int, noun: str, plural: str = "") -> str:
@@ -34,37 +40,39 @@ def format_label(row: Row) -> str:
     return " ".join(p for p in (row.format.upper(), human_size(row.size)) if p)
 
 
-def subtitle(row: Row) -> str:
-    parts = [row.authors, series_label(row), row.year, format_label(row), row.rel_path]
+def place_label(row: Row) -> str:
+    return f"{row.place} +{row.copies}" if row.copies else row.place
+
+
+def subtitle(row: Row, lead: str = "") -> str:
+    parts = [lead, place_label(row), row.authors, series_label(row), row.year, format_label(row), row.rel_path]
     return SEPARATOR.join(p for p in parts if p)
 
 
 def icon(row: Row) -> dict:
-    if row.cover:
-        return {"path": row.cover}
-    return {"type": "fileicon", "path": row.path}
+    if not row.cover:
+        return {"type": "fileicon", "path": row.path}
+    return {"path": str(framed(Path(row.cover))) if row.place == NOOK else row.cover}
 
 
-LINE = "\n"
-TERMINAL_ICON = {"type": "fileicon", "path": "/System/Applications/Utilities/Terminal.app"}
-
-
-def reveal(path: str) -> dict:
-    return {"arg": path, "subtitle": "Reveal in Finder"}
+def acting(action: str, **variables: str) -> dict:
+    return {**variables, "action": action}
 
 
 def modifiers(row: Row) -> dict:
     return {
-        "alt": reveal(row.path),
-        "shift": {"arg": "", "subtitle": "Set genre", "variables": {"book": row.fingerprint}},
+        "shift": {"arg": row.path, "subtitle": "Open the book", "variables": acting("open")},
+        "alt": {"arg": row.path, "subtitle": "Reveal in Finder", "variables": acting("reveal")},
+        "ctrl": {"arg": row.fingerprint, "subtitle": "Books like this one", "variables": acting("like")},
+        "cmd": {"arg": "", "subtitle": "Set the genre", "variables": acting("classify", book=row.fingerprint)},
     }
 
 
-def book_item(row: Row) -> dict:
+def book_item(row: Row, action: str = "", lead: str = "") -> dict:
     return {
-        "uid": row.rel_path,
+        "uid": row.fingerprint or row.rel_path,
         "title": row.title,
-        "subtitle": subtitle(row),
+        "subtitle": subtitle(row, lead),
         "arg": row.path,
         "valid": True,
         "icon": icon(row),
@@ -72,42 +80,139 @@ def book_item(row: Row) -> dict:
         "autocomplete": row.title,
         "text": {"copy": row.rel_path, "largetype": f"{row.title}\n{row.authors}\n{row.rel_path}"},
         "mods": modifiers(row),
-        "variables": {"book": row.fingerprint},
+        "variables": acting(action or PLACE_ACTIONS[row.place], book=row.fingerprint),
     }
 
 
-def like_header(row: Row) -> dict:
-    return {**message_item(f"Like {row.title}", subtitle(row)), "icon": icon(row)}
-
-
 def like_item(row: Row, score: float) -> dict:
-    return {**book_item(row), "subtitle": f"{score:.0%}{SEPARATOR}{subtitle(row)}"}
-
-
-def copy_item(row: Row, copies: int) -> dict:
-    return {**book_item(row), "subtitle": f"×{copies}{SEPARATOR}{subtitle(row)}"}
-
-
-def trash_subtitle(row: Row) -> str:
-    return SEPARATOR.join(["unfinished download", subtitle(row)]) if row.partial else subtitle(row)
-
-
-def trash_item(row: Row) -> dict:
-    item = {**book_item(row), "subtitle": trash_subtitle(row)}
-    return {**item, "mods": {"alt": reveal(row.path)}} if row.partial else item
+    return book_item(row, lead=f"{score:.0%}")
 
 
 def classify_item(row: Row, suggested: str = "") -> dict:
-    return {**inbox_item(row), "arg": "", "mods": {}, "subtitle": inbox_subtitle(row, suggested) + " · ↩ pick a genre"}
+    marker = row.genre or (f"{suggested}?" if suggested else "genre ?")
+    return {**book_item(row, action="classify"), "arg": "", "subtitle": subtitle(row, marker) + f"{SEPARATOR}↩ pick a genre"}
 
 
-def genre_header(row: Row, genre: str) -> dict:
-    state = SEPARATOR.join((genre or "no genre", row.rel_path))
-    return {**message_item(row.title, state), "icon": icon(row)}
+def head_row(uid: str, title: str, subtitle: str, action: str, arg: str = "", variables: dict | None = None) -> dict:
+    return {
+        "uid": uid,
+        "title": title,
+        "subtitle": subtitle,
+        "arg": arg,
+        "valid": True,
+        "icon": TERMINAL_ICON,
+        "variables": acting(action, **(variables or {})),
+    }
+
+
+def paths_of(rows: list[Row]) -> str:
+    return LINE.join(r.path for r in rows)
+
+
+def import_all_item(rows: list[Row], nook: str) -> dict:
+    return head_row(
+        "import:all", f"Import all {counted(len(rows), 'book')}", f"↩ copies every book listed below into {nook}/", "import", paths_of(rows)
+    )
+
+
+def finish_all_item(rows: list[Row]) -> dict:
+    return head_row(
+        "done:all",
+        f"Finish all {counted(len(rows), 'book')}",
+        "↩ moves every book listed below to its home in the vault",
+        "done",
+        paths_of(rows),
+    )
+
+
+def remove_instead_item(rows: list[Row]) -> dict:
+    subtitle = "↩ moves every book listed below to _trash/ instead; a book the library does not hold stays"
+    return head_row("remove:all", f"Remove {counted(len(rows), 'book')} instead", subtitle, "remove", paths_of(rows))
+
+
+def remove_all_item(rows: list[Row]) -> dict:
+    return head_row(
+        "remove:all", f"Remove all {counted(len(rows), 'book')}", "↩ moves every book listed below to _trash/", "remove", paths_of(rows)
+    )
+
+
+def fix_all_item(ops: list[Operation], summary: str, paths: str) -> dict:
+    return head_row("fix:all", f"Fix all {len(ops)}", summary, "fix", paths)
+
+
+def undo_item(moves: int) -> dict:
+    return head_row(
+        "undo:last", f"Undo last batch ({counted(moves, 'move')})", "An undo is itself a batch: undoing twice re-applies", "undo"
+    )
+
+
+def classify_all_item(rows: list[Row]) -> dict:
+    books = LINE.join(r.fingerprint for r in rows)
+    return head_row(
+        "classify:all",
+        f"Set genre for all {len(rows)} books",
+        "↩ picks one genre for every book listed below",
+        "classify",
+        variables={"book": books},
+    )
+
+
+def accept_genres_item(pairs: list[tuple[str, str]]) -> dict:
+    books = LINE.join(f"{fingerprint}\t{genre}" for fingerprint, genre in pairs)
+    title = f"Accept {counted(len(pairs), 'suggested genre')}"
+    return head_row("classify:accept", title, "↩ files each book under its suggested genre", "genre", variables={"book": books})
+
+
+def ask_item(title: str, words: str = "") -> dict:
+    return {"uid": "oracle:ask", **action_item(title, "↩ runs in the background, then notifies", "ask", words)}
+
+
+def busy_item(title: str) -> dict:
+    return {"uid": "oracle:busy", **message_item(title, "one pass at a time; kb stats and kb classify show the result")}
+
+
+def unreachable_item(url: str) -> dict:
+    return {"uid": "oracle:unreachable", **message_item(f"Model not reachable at {url}", "start llama-server, or change KOBOLD_ORACLE_URL")}
+
+
+def count_item(uid: str, title: str, subtitle: str = "") -> dict:
+    return {"uid": uid, **message_item(title, subtitle)}
+
+
+def catalogue_item(path: str, note: str = "") -> dict:
+    columns = "genre · authors · title · year · path · fingerprint, one line per book"
+    subtitle = SEPARATOR.join(p for p in (columns, note, "↩ opens it") if p)
+    return {"uid": "catalogue", **action_item("Catalogue", subtitle, "open", path), "icon": {"type": "fileicon", "path": path}}
+
+
+def catalogue_problem_item(line: tuple[str, str], path: str) -> dict:
+    book, genre = line
+    return {
+        "uid": f"problem:catalogue:{book}",
+        **action_item(f"{book}: no such book in the catalogue line", f"catalogue · {genre} · ↩ opens the catalogue", "open", path),
+    }
+
+
+def plan_item(op: Operation, root: str) -> dict:
+    src = f"{root}/{op.src}"
+    skipped = op.kind == "skip"
+    name = PurePosixPath(op.dst).name
+    return {
+        "uid": f"problem:conflict:{op.src}" if skipped else f"fix:{op.src}",
+        "title": f"⚠︎ {name}" if skipped else name,
+        "subtitle": SEPARATOR.join([op.kind, op.reason, f"{op.src} → {PurePosixPath(op.dst).parent}/"]),
+        "arg": src,
+        "valid": True,
+        "icon": {"type": "fileicon", "path": src},
+        "quicklookurl": src,
+        "text": {"copy": f"{op.src}\t{op.dst}", "largetype": f"{op.src}\n→ {op.dst}"},
+        "mods": {"alt": {"arg": src, "subtitle": "Reveal in Finder", "variables": acting("reveal")}},
+        "variables": acting("reveal" if skipped else "fix"),
+    }
 
 
 def genre_variables(book: str) -> dict:
-    return {"book": book, "action": "genre"}
+    return acting("genre", book=book)
 
 
 def new_genre_mod(typed: str, book: str) -> dict:
@@ -138,110 +243,12 @@ def new_genre_item(typed: str, book: str) -> dict:
     }
 
 
-def source_item(row: Row) -> dict:
-    return {**book_item(row), "variables": {}, "mods": {"alt": reveal(row.path)}}
-
-
-def genre_marker(row: Row, suggested: str) -> str:
-    return row.genre or (f"{suggested}?" if suggested else "genre ?")
-
-
-def inbox_subtitle(row: Row, suggested: str = "") -> str:
-    parts = [row.authors or "author ?", series_label(row), genre_marker(row, suggested), format_label(row), row.rel_path]
-    return SEPARATOR.join(p for p in parts if p)
-
-
-def inbox_item(row: Row) -> dict:
-    return {**book_item(row), "subtitle": inbox_subtitle(row)}
-
-
-def problem_item(finding: Finding, root: str) -> dict:
-    first = finding.rel_paths[0]
-    path = f"{root}/{first}"
-    return {
-        "uid": f"problem:{finding.rule}:{first}",
-        "title": finding.detail,
-        "subtitle": SEPARATOR.join([finding.rule.replace("_", " "), counted(len(finding.rel_paths), "file"), first]),
-        "arg": path,
-        "icon": {"type": "fileicon", "path": path},
-        "quicklookurl": path,
-        "text": {"copy": LINE.join(finding.rel_paths), "largetype": LINE.join(finding.rel_paths)},
-        "mods": {"alt": reveal(path)},
-        "variables": {"action": "reveal"},
-    }
-
-
-def catalogue_item(path: str, note: str = "") -> dict:
-    columns = "genre · authors · title · year · path · fingerprint, one line per book"
-    subtitle = SEPARATOR.join(p for p in (columns, note, "↩ opens it") if p)
-    return {"uid": "catalogue", **action_item("Catalogue", subtitle, "open", path), "icon": {"type": "fileicon", "path": path}}
-
-
-def catalogue_problem_item(line: tuple[str, str], path: str) -> dict:
-    book, genre = line
-    return {
-        "uid": f"problem:catalogue:{book}",
-        **action_item(f"{book}: no such book in the catalogue line", f"catalogue · {genre} · ↩ opens the catalogue", "open", path),
-    }
-
-
-def conflict_item(op: Operation, root: str) -> dict:
-    return {**plan_item(op, root), "uid": f"problem:conflict:{op.src}", "valid": True, "variables": {"action": "reveal"}}
-
-
-def head_row(uid: str, title: str, subtitle: str, arg: str = "", variables: dict | None = None) -> dict:
-    payload = {"variables": variables} if variables else {}
-    return {"uid": uid, "title": title, "subtitle": subtitle, "arg": arg, "valid": True, "icon": TERMINAL_ICON, **payload}
-
-
-def import_all_item(rows: list[Row], nook: str) -> dict:
-    paths = LINE.join(r.path for r in rows)
-    return head_row("src:import-all", f"Import all {len(rows)} books", f"↩ copies every book listed below into {nook}/", paths)
-
-
-def classify_all_item(rows: list[Row]) -> dict:
-    books = LINE.join(r.fingerprint for r in rows)
-    title = f"Set genre for all {len(rows)} books"
-    return head_row("classify:all", title, "↩ picks one genre for every book listed below", variables={"book": books})
-
-
-def accept_genres_item(pairs: list[tuple[str, str]]) -> dict:
-    books = LINE.join(f"{fingerprint}\t{genre}" for fingerprint, genre in pairs)
-    title = f"Accept {counted(len(pairs), 'suggested genre')}"
-    return head_row("classify:accept", title, "↩ files each book under its suggested genre", variables={"book": books, "action": "genre"})
-
-
-def ask_item(title: str, words: str = "") -> dict:
-    return {"uid": "oracle:ask", **action_item(title, "↩ runs in the background, then notifies", "ask", words)}
+def genre_header(row: Row, genre: str) -> dict:
+    return {**message_item(row.title, SEPARATOR.join((genre or "no genre", row.rel_path))), "icon": icon(row)}
 
 
 def choose_item(model: str, role: str, title: str, subtitle: str) -> dict:
-    return {"uid": f"choose:{role}", **action_item(title, subtitle, "choose", role), "variables": {"model": model, "action": "choose"}}
-
-
-def busy_item(title: str) -> dict:
-    return {"uid": "oracle:busy", **message_item(title, "one pass at a time; kb stats and kb classify show the result")}
-
-
-def unreachable_item(url: str) -> dict:
-    return {"uid": "oracle:unreachable", **message_item(f"Model not reachable at {url}", "start llama-server, or change KOBOLD_ORACLE_URL")}
-
-
-def plan_item(op: Operation, root: str) -> dict:
-    src = f"{root}/{op.src}"
-    skipped = op.kind == "skip"
-    name = PurePosixPath(op.dst).name
-    return {
-        "uid": f"fix:{op.src}",
-        "title": f"⚠︎ {name}" if skipped else name,
-        "subtitle": SEPARATOR.join([op.kind, op.reason, f"{op.src} → {PurePosixPath(op.dst).parent}/"]),
-        "arg": src,
-        "valid": not skipped,
-        "icon": {"type": "fileicon", "path": src},
-        "quicklookurl": src,
-        "text": {"copy": f"{op.src}\t{op.dst}", "largetype": f"{op.src}\n→ {op.dst}"},
-        "mods": {"alt": reveal(src)},
-    }
+    return {"uid": f"choose:{role}", **action_item(title, subtitle, "choose", role), "variables": acting("choose", model=model)}
 
 
 def empty_item(query: str) -> dict:
@@ -257,7 +264,7 @@ def navigation_item(title: str, subtitle: str, completion: str) -> dict:
 
 
 def action_item(title: str, subtitle: str, action: str, arg: str = "") -> dict:
-    return {"title": title, "subtitle": subtitle, "arg": arg, "valid": True, "variables": {"action": action}}
+    return {"title": title, "subtitle": subtitle, "arg": arg, "valid": True, "variables": acting(action)}
 
 
 def suggestion_item(command: str, help: str) -> dict:

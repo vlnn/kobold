@@ -1,188 +1,118 @@
-import json
-
 import pytest
 
-from kobold.alfred import book_item, empty_item, render
-from kobold.model import Finding, Operation, Row
+from kobold import alfred
+from kobold.alfred import FIXED_MODIFIERS, book_item, counted, head_row, human_size, render
+from kobold.model import Operation
+from tests.conftest import row
 
-BASE_ROW = {
-    "title": "Deep Work",
-    "authors": "Cal Newport",
-    "series": "Focus",
-    "series_index": "2",
-    "folder": "02_NonFiction",
-    "rel_path": "02_NonFiction/x.epub",
-    "root": "/lib",
-    "place": "vault",
-    "format": "epub",
-    "partial": False,
-    "language": "en",
-    "year": "2016",
-    "cover": "/cache/abc.png",
-    "size": 1_500_000,
-    "mtime": 0.0,
-    "norm_title": "deep work",
-    "fingerprint": "f00",
-    "genre": "",
-    "subjects": "",
-    "description": "",
-    "guessed": False,
-}
+PATH = "/lib/02_NonFiction/x.epub"
 
 
-def row(**overrides) -> Row:
-    return Row(**{**BASE_ROW, **overrides})
-
-
-def test_item_shows_metadata_and_relative_path():
+def test_item_reads_place_then_metadata_then_path():
     item = book_item(row())
 
-    assert item["title"] == "Deep Work", "title should be the book title"
-    assert item["subtitle"] == "Cal Newport · Focus #2 · 2016 · EPUB 1.4 MB · 02_NonFiction/x.epub", (
-        "subtitle should show author, series, year, format, size and rel path"
+    assert item["title"] == "Deep Work", "the title is the title"
+    assert item["subtitle"] == "vault · Cal Newport · Focus #2 · 2016 · EPUB 1.4 MB · 02_NonFiction/x.epub", "place first, then the usual"
+    assert item["arg"] == PATH and item["quicklookurl"] == PATH, "arg and quick look are the file"
+    assert item["uid"] == "f00" and item["variables"]["book"] == "f00", "the row is known by its fingerprint"
+    assert item["text"] == {"copy": "02_NonFiction/x.epub", "largetype": "Deep Work\nCal Newport\n02_NonFiction/x.epub"}, (
+        "copy and large type"
     )
-    assert item["arg"] == "/lib/02_NonFiction/x.epub", "arg should be the absolute path to open"
-    assert item["icon"] == {"path": "/cache/abc.png"}, "cover should be used as the icon"
-    assert item["quicklookurl"] == "/lib/02_NonFiction/x.epub", "quicklook should preview the book"
-    assert item["text"]["copy"] == "02_NonFiction/x.epub", "copy should give the relative path"
-    assert item["mods"]["alt"]["arg"] == "/lib/02_NonFiction/x.epub", "alt should still carry the path"
 
 
-def test_item_without_cover_uses_file_icon():
-    item = book_item(row(cover=""))
-    assert item["icon"] == {"type": "fileicon", "path": "/lib/02_NonFiction/x.epub"}, "missing cover should fall back to file icon"
+def test_item_names_the_other_places_that_hold_the_book():
+    assert book_item(row(copies="library"))["subtitle"].startswith("vault +library · "), "a copy elsewhere is noted after the place"
 
 
-def test_book_item_offers_only_reveal_and_set_genre():
+@pytest.mark.parametrize("place, action", [("library", "import"), ("vault", "nook"), ("nook", "open")])
+def test_enter_follows_the_place_by_default(place, action):
+    assert book_item(row(place=place))["variables"]["action"] == action, f"↩ on a {place} book should {action}"
+
+
+def test_a_command_can_take_enter_for_itself():
+    assert book_item(row(), action="done")["variables"]["action"] == "done", "the command's action wins over the place's"
+
+
+def test_the_four_fixed_modifiers_are_on_every_row():
     mods = book_item(row())["mods"]
 
-    assert set(mods) == {"alt", "shift"}, "a book row should have ⌥↩ reveal and ⇧↩ set genre, nothing else"
-    assert mods["alt"] == {"arg": "/lib/02_NonFiction/x.epub", "subtitle": "Reveal in Finder"}, "⌥↩ should reveal the book"
-    assert mods["shift"]["variables"] == {"book": "f00"} and mods["shift"]["arg"] == "", "⇧↩ should open the genre picker for the book"
+    assert set(mods) == set(FIXED_MODIFIERS) == {"shift", "alt", "ctrl", "cmd"}, "⇧ ⌥ ⌃ ⌘ and nothing else"
+    assert mods["shift"] == {"arg": PATH, "subtitle": "Open the book", "variables": {"action": "open"}}, "⇧↩ opens"
+    assert mods["alt"] == {"arg": PATH, "subtitle": "Reveal in Finder", "variables": {"action": "reveal"}}, "⌥↩ reveals"
+    assert mods["ctrl"] == {"arg": "f00", "subtitle": "Books like this one", "variables": {"action": "like"}}, "⌃↩ asks kb like"
+    assert mods["cmd"] == {"arg": "", "subtitle": "Set the genre", "variables": {"book": "f00", "action": "classify"}}, (
+        "⌘↩ opens the picker"
+    )
 
 
-def test_source_item_offers_only_reveal():
-    from kobold.alfred import source_item
+def test_a_nook_book_wears_a_green_frame(mocker):
+    framed = mocker.patch("kobold.alfred.framed", return_value="/cache/abc.framed.png")
 
-    assert set(source_item(row())["mods"]) == {"alt"}, "a source book can only be revealed; it gets a genre after import"
-
-
-@pytest.mark.parametrize("partial, mods", [(True, {"alt"}), (False, {"alt", "shift"})])
-def test_trash_item_is_actionable_and_keeps_genre_only_for_complete_books(partial, mods):
-    from kobold.alfred import trash_item
-
-    item = trash_item(row(partial=partial))
-
-    assert item["valid"] is True and item["title"] == "Deep Work", "every trash row can be moved to _trash/"
-    assert set(item["mods"]) == mods, "an unfinished download cannot be given a genre"
+    assert book_item(row(place="nook"))["icon"] == {"path": "/cache/abc.framed.png"}, "the nook cover is framed"
+    assert book_item(row(place="vault"))["icon"] == {"path": "/cache/abc.png"}, "a vault cover is plain"
+    framed.assert_called_once()
 
 
-def test_head_row_carries_its_payload():
-    from kobold.alfred import head_row
-
-    item = head_row("trash:all", "Trash all 2 books", "↩ moves them", arg="/a\n/b", variables={"book": "x\ny"})
-
-    assert (item["uid"], item["title"], item["subtitle"]) == ("trash:all", "Trash all 2 books", "↩ moves them"), "the head row is labelled"
-    assert item["arg"] == "/a\n/b" and item["variables"] == {"book": "x\ny"}, "the head row carries what ↩ acts on"
-    assert item["valid"] is True and "mods" not in item, "↩ acts on the whole list; no modifier does"
-
-
-def test_genre_item_creates_the_typed_text_on_shift():
-    from kobold.alfred import genre_item
-
-    item = genre_item("fiction/spy", "f00", typed="spy thriller")
-
-    assert item["arg"] == "fiction/spy", "↩ applies the listed genre"
-    assert item["mods"]["shift"]["arg"] == "spy thriller", "⇧↩ creates the typed text as a new genre"
-    assert item["mods"]["shift"]["variables"] == item["variables"] == {"book": "f00", "action": "genre"}, "both keys go to the genre step"
-    assert "new genre" in item["mods"]["shift"]["subtitle"], "the shift subtitle should say it creates a new genre"
-
-
-def test_genre_item_without_typed_text_has_no_shift():
-    from kobold.alfred import genre_item
-
-    assert "mods" not in genre_item("fiction/spy", "f00"), "with nothing typed there is nothing to create"
-
-
-def test_new_genre_item_creates_only_on_shift():
-    from kobold.alfred import new_genre_item
-
-    item = new_genre_item("xyz", "f00")
-
-    assert item["title"] == "No genre ‘xyz’ — ⇧↩ creates it" and item["valid"] is False, "plain ↩ should do nothing"
-    assert (item["mods"]["shift"]["arg"], item["mods"]["shift"]["valid"]) == ("xyz", True), "⇧↩ should create it"
-    assert item["variables"] == {"book": "f00", "action": "genre"}, "the book travels on to the genre step"
+def test_item_without_cover_uses_the_file_icon():
+    assert book_item(row(cover=""))["icon"] == {"type": "fileicon", "path": PATH}, "no cover, the file's own icon"
 
 
 def test_item_omits_empty_parts():
-    item = book_item(row(authors="", series="", series_index="", year="", size=0))
-    assert item["subtitle"] == "EPUB · 02_NonFiction/x.epub", "empty metadata should not leave stray separators"
-
-
-def test_render_keeps_the_order_it_is_given():
-    output = json.loads(render([book_item(row())]))
-
-    assert output["skipknowledge"] is True, "Alfred must not reorder rows it has learned, so head rows and reminders stay on top"
-
-
-def test_render_and_empty():
-    output = json.loads(render([book_item(row())]))
-    assert len(output["items"]) == 1, "render should wrap items in Alfred JSON"
-    assert empty_item("zzz")["valid"] is False, "no-match item should not be actionable"
-    assert "subjects" in empty_item("zzz")["subtitle"], "the no-match row should list subjects among the searched fields"
-
-
-def test_problem_item_points_at_first_file_and_copies_all():
-    from kobold.alfred import problem_item
-
-    finding = Finding("exact_duplicate", "Glasswing ×2: identical files", ["00_Inbox/bought/a.epub", "00_Inbox/NOW/a.epub"])
-
-    item = problem_item(finding, "/lib")
-
-    assert item["title"] == "Glasswing ×2: identical files", "title should be the finding detail"
-    assert item["subtitle"] == "exact duplicate · 2 files · 00_Inbox/bought/a.epub", "subtitle should show rule, count and first path"
-    assert item["arg"] == "/lib/00_Inbox/bought/a.epub", "arg should be the absolute path of the first file"
-    assert item["text"]["copy"] == "00_Inbox/bought/a.epub\n00_Inbox/NOW/a.epub", "copy should give every path"
-    assert item["uid"] == "problem:exact_duplicate:00_Inbox/bought/a.epub", "uid should be stable per finding"
-    assert item["variables"] == {"action": "reveal"}, "↩ on a problem should reveal the file"
-
-
-def test_inbox_item_shows_what_is_missing():
-    from kobold.alfred import inbox_item
-
-    item = inbox_item(row(authors="", series="", rel_path="00_Inbox/x.epub"))
-
-    assert item["subtitle"] == "author ? · genre ? · EPUB 1.4 MB · 00_Inbox/x.epub", "unknown author and genre should be marked"
-
-
-def test_inbox_item_shows_known_genre():
-    from kobold.alfred import inbox_item
-
-    item = inbox_item(row(genre="fiction/sci-fi"))
-
-    assert item["subtitle"].startswith("Cal Newport · Focus #2 · fiction/sci-fi · "), "known author, series and genre should be shown"
-
-
-def test_plan_item_shows_source_and_destination():
-    from kobold.alfred import plan_item
-
-    op = Operation("move", "00_Inbox/a.epub", "01_Fiction/Teague, Rowan/Teague, Rowan - Ash (2011).epub", "relocate + rename")
-
-    item = plan_item(op, "/lib")
-
-    assert item["title"] == "Teague, Rowan - Ash (2011).epub", "title should be the destination file name"
-    assert item["subtitle"] == "move · relocate + rename · 00_Inbox/a.epub → 01_Fiction/Teague, Rowan/", (
-        "subtitle should show kind, reason, source and destination folder"
-    )
-    assert item["arg"] == "/lib/00_Inbox/a.epub", "arg should point at the current file"
-    assert item["text"]["copy"] == "00_Inbox/a.epub\t01_Fiction/Teague, Rowan/Teague, Rowan - Ash (2011).epub", (
-        "copy should give the plan line"
+    assert book_item(row(authors="", series="", series_index="", year="", size=0))["subtitle"] == "vault · EPUB · 02_NonFiction/x.epub", (
+        "empty metadata leaves no stray separators"
     )
 
 
-def test_skip_item_is_not_actionable():
-    from kobold.alfred import plan_item
+def test_head_row_carries_its_payload():
+    item = head_row("done:all", "Finish all 2 books", "↩ moves them home", "done", arg="/a\n/b", variables={"book": "x\ny"})
 
-    item = plan_item(Operation("skip", "a.epub", "b.epub", "destination taken by c.epub"), "/lib")
+    assert (item["uid"], item["title"], item["subtitle"]) == ("done:all", "Finish all 2 books", "↩ moves them home"), (
+        "the head row is labelled"
+    )
+    assert item["arg"] == "/a\n/b" and item["variables"] == {"book": "x\ny", "action": "done"}, "the head row carries what ↩ acts on"
+    assert item["valid"] is True and "mods" not in item, "↩ acts on the whole list; no modifier does"
 
-    assert item["valid"] is False and item["title"].startswith("⚠︎ "), "skipped operations should be visible but not actionable"
+
+def test_plan_item_describes_the_operation():
+    item = alfred.plan_item(Operation("move", "a/old.epub", "b/new.epub", "relocate + rename"), "/lib")
+
+    assert (item["title"], item["subtitle"]) == ("new.epub", "move · relocate + rename · a/old.epub → b/"), "what, why, where"
+    assert item["arg"] == "/lib/a/old.epub" and item["variables"]["action"] == "fix" and item["valid"] is True, "↩ applies that one"
+    assert set(item["mods"]) == {"alt"}, "an operation row can only be revealed"
+
+
+def test_conflict_item_reveals_instead():
+    item = alfred.plan_item(Operation("skip", "a/x.epub", "b/x.epub", "destination taken by b/x.epub"), "/lib")
+
+    assert item["title"] == "⚠︎ x.epub" and item["variables"]["action"] == "reveal", "a conflict is shown and reveals on ↩"
+    assert item["uid"] == "problem:conflict:a/x.epub", "it counts as a problem"
+
+
+def test_genre_item_creates_the_typed_text_on_shift():
+    item = alfred.genre_item("fiction/spy", "f00", typed="spy thriller")
+
+    assert item["arg"] == "fiction/spy" and item["variables"] == {"book": "f00", "action": "genre"}, "↩ applies the listed genre"
+    assert item["mods"]["shift"]["arg"] == "spy thriller" and "new genre" in item["mods"]["shift"]["subtitle"], "⇧↩ creates the typed one"
+    assert "mods" not in alfred.genre_item("fiction/spy", "f00"), "with nothing typed there is nothing to create"
+
+
+def test_new_genre_item_creates_only_on_shift():
+    item = alfred.new_genre_item("xyz", "f00")
+
+    assert item["title"] == "No genre ‘xyz’ — ⇧↩ creates it" and item["valid"] is False, "plain ↩ does nothing"
+    assert (item["mods"]["shift"]["arg"], item["mods"]["shift"]["valid"]) == ("xyz", True), "⇧↩ creates it"
+
+
+@pytest.mark.parametrize("size, label", [(0, ""), (512, "512 B"), (1_500_000, "1.4 MB"), (3 * 1024**3, "3.0 GB")])
+def test_human_size(size, label):
+    assert human_size(size) == label, f"{size} bytes should read {label!r}"
+
+
+def test_counted_pluralises():
+    assert (counted(1, "book"), counted(2, "book"), counted(2, "copy", "copies")) == ("1 book", "2 books", "2 copies"), (
+        "singular, plural, irregular"
+    )
+
+
+def test_render_tells_alfred_to_skip_knowledge():
+    assert render([]).startswith('{"skipknowledge": true'), "ordering is ours, not Alfred's"

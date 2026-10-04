@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from kobold.lint import Finding, exact_duplicates, lint, title_duplicates
-from tests.test_alfred import row
+from tests.conftest import row
 
 
 def named(name: str, folder: str = "00_Inbox", **overrides):

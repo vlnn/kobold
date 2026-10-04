@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from kobold.vectors import NEIGHBOURS, VectorStore, cosine
-from tests.test_alfred import row
+from tests.conftest import row
 
 
 @pytest.fixture

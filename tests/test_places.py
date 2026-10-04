@@ -50,7 +50,7 @@ def output(capsys) -> dict:
 
 
 def titles(capsys) -> list[str]:
-    return [i["title"] for i in output(capsys)["items"] if i.get("uid") != "src:import-all"]
+    return [i["title"] for i in output(capsys)["items"] if i.get("uid") != "import:all"]
 
 
 def device_row(rel_path: str):
@@ -224,24 +224,22 @@ def test_library_rows_are_never_moved(env, library: Path):
 
 
 def test_src_lists_library_books_the_device_lacks_newest_first(env, capsys):
-    main(["search", "src"])
+    main(["search", "lib"])
 
     assert sorted(titles(capsys)) == ["A World Without Email", "Slow Productivity"], "the device copy of Deep Work hides the Downloads one"
 
 
 def test_src_says_when_every_match_is_on_the_device(env, capsys):
-    main(["search", "src deep"])
+    main(["search", "lib deep"])
 
     assert titles(capsys) == ["1 book matches ‘deep’, already on the device"], "the source works, the device already holds it"
 
 
 def test_src_head_row_imports_into_the_nook(env, capsys):
-    main(["search", "src"])
+    main(["search", "lib"])
 
     head, *books = output(capsys)["items"]
-    assert head["uid"] == "src:import-all" and head["subtitle"] == "↩ copies every book listed below into Nook/", (
-        "the head row names the nook"
-    )
+    assert head["uid"] == "import:all" and head["subtitle"] == "↩ copies every book listed below into Nook/", "the head row names the nook"
     assert head["arg"] == "\n".join(b["arg"] for b in books), "its argument is the listed paths, one per line"
 
 

@@ -1,7 +1,7 @@
 import pytest
 
 from kobold.asking import Asked, Embedded, embed_summary, is_noisy, looks_opaque, name_is_a_guess, summary
-from tests.test_alfred import row
+from tests.conftest import row
 
 
 def named(name: str, folder: str = "00_Inbox", **overrides):

@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from kobold.catalogue import HEADER, CatalogueStore, Changes, Listing, from_legacy, genre_from_folder, merge, without_author
-from tests.test_alfred import row
+from tests.conftest import row
 
 
 @pytest.mark.parametrize(
