@@ -310,7 +310,7 @@ def cmd_ask(args) -> int:
 
 
 def embed_books(words: list[str], force: bool, should_notify: bool, quiet: bool = False) -> None:
-    rows, store = library_index().search(words, limit=EVERYTHING), vector_store()
+    rows, store = library_index().fold(words, limit=EVERYTHING), vector_store()
     wanted = rows if force else store.missing(embed_model(), rows)
     if wanted or not quiet:
         report(embed_summary(embed_all(wanted, embed_model(), store), not wanted), should_notify)

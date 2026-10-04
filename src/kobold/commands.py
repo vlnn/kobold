@@ -291,7 +291,7 @@ def all_stats_items(words: list[str]) -> list[dict]:
 
 def like_seed(index: Index, words: list[str]) -> Row | None:
     if words:
-        return next(iter(index.search(words, limit=1)), None)
+        return next(iter(index.fold(words, limit=1)), None)
     opened = last_opened(library_root())
     return (index.by_rel_path(opened) if opened else None) or next(iter(index.search([], limit=1)), None)
 
@@ -358,7 +358,7 @@ def embedded_count() -> int:
 
 
 def missing_embeddings() -> int:
-    return len(vector_store().missing(embed_model(), library_index().search([], limit=EVERYTHING))) if not index_problem() else 0
+    return len(vector_store().missing(embed_model(), library_index().fold([], limit=EVERYTHING))) if not index_problem() else 0
 
 
 def embeddings_item() -> dict:

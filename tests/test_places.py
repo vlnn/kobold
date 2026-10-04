@@ -279,3 +279,31 @@ def test_stats_counts_new_books_per_source(env, capsys):
     items = output(capsys)["items"]
     assert any(i["title"] == "2 new of 2 books in Calibre Library" for i in items), "each source reports its new and total books"
     assert any(i["title"] == "0 new of 1 book in Downloads" for i in items), "a source holding only device copies says so"
+
+
+def test_embedding_covers_library_books_once_per_fingerprint(env, tmp_path: Path, monkeypatch, mocker):
+    from kobold.vectors import VectorStore
+
+    monkeypatch.setenv("KOBOLD_ORACLE_URL", "http://127.0.0.1:8080")
+    monkeypatch.setenv("KOBOLD_EMBED_MODEL", "bge-m3")
+    mocker.patch("kobold.embedder.embed", return_value=[1.0, 0.0])
+
+    main(["embed"])
+
+    assert VectorStore(tmp_path / "alfred-data" / "vectors.db").count("bge-m3") == 5, "3 device books, 2 library-only books, no copies"
+
+
+def test_like_lists_library_books_as_neighbours(env, tmp_path: Path, monkeypatch, capsys):
+    from kobold.vectors import VectorStore
+
+    monkeypatch.setenv("KOBOLD_EMBED_MODEL", "bge-m3")
+    index, store = library_index(), VectorStore(tmp_path / "alfred-data" / "vectors.db")
+    (slow,) = [r for r in index.everything(places=("library",)) if r.title == "Slow Productivity"]
+    store.put("bge-m3", device_row(DEEP).fingerprint, [1.0, 0.0])
+    store.put("bge-m3", slow.fingerprint, [1.0, 0.1])
+
+    main(["search", "like deep"])
+
+    head, neighbour, *_ = output(capsys)["items"]
+    assert (head["title"], neighbour["title"]) == ("Like Deep Work", "Slow Productivity"), "a library book is a neighbour like any other"
+    assert neighbour["arg"] == slow.path, "↩ opens it where it is"
