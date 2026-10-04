@@ -966,3 +966,32 @@ def test_a_running_pass_replaces_the_embed_row(embeddings, library, tmp_path, ca
     (tmp_path / "alfred-data" / "oracle.lock").write_text("1")
 
     assert command_rows("like deep")[-1]["title"] == "Embedding… a notification follows", "kb like says a pass is running"
+
+
+def test_catalogue_command_opens_the_file(indexed, library):
+    (row,) = command_rows("catalogue")
+
+    assert row["arg"] == str(library / "catalogue.tsv") and row["variables"]["action"] == "open", "↩ opens the catalogue in its editor"
+    assert row["subtitle"].startswith("genre · authors · title · year · path"), "the subtitle says what a line holds"
+
+
+def test_catalogue_command_says_when_it_falls_back_to_the_data_folder(indexed, library, tmp_path, monkeypatch):
+    monkeypatch.setenv("KOBOLD_ROOT", str(tmp_path / "unmounted"))
+
+    (row,) = command_rows("catalogue")
+
+    assert row["arg"] == str(tmp_path / "alfred-data" / "catalogue.tsv"), "with the device away the copy in the data folder is opened"
+    assert "device is not mounted" in row["subtitle"], "and the row says so"
+
+
+def test_fix_lists_catalogue_lines_that_name_no_book(indexed, library):
+    (library / "catalogue.tsv").open("a", encoding="utf-8").write("games/go\t\t\t\tnowhere.epub\t\n")
+    from kobold.cli import main
+
+    main(["update"])
+
+    problems = [i for i in command_rows("fix") if i["uid"].startswith("problem:catalogue")]
+    assert [p["title"] for p in problems] == ["nowhere.epub: no such book in the catalogue line"], (
+        "an unmatched line is a chore to fix by hand"
+    )
+    assert problems[0]["variables"]["action"] == "open" and problems[0]["arg"].endswith("catalogue.tsv"), "↩ opens the catalogue to fix it"

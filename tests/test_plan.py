@@ -2,16 +2,16 @@ from pathlib import Path
 
 import pytest
 
-from kobold.genres import GenreStore
-from kobold.model import Finding, GenreEntry, Operation
+from kobold.catalogue import CatalogueStore, Listing
+from kobold.model import Finding, Operation
 from kobold.plan import plan, prefer
 from tests.test_lint import named
 
 
-def store_with(tmp_path: Path, **genres) -> GenreStore:
-    store = GenreStore(tmp_path / "t.tsv")
+def store_with(tmp_path: Path, **genres) -> CatalogueStore:
+    store = CatalogueStore(tmp_path / "t.tsv", tmp_path / "t.snapshot.tsv")
     for fingerprint, genre in genres.items():
-        store.set(fingerprint, GenreEntry(genre=genre))
+        store.set(fingerprint, Listing(genre=genre))
     return store
 
 

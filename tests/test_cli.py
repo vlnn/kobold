@@ -138,8 +138,39 @@ def test_genres_renders_the_picker_for_the_selected_book(indexed, capsys, monkey
     assert [i["title"] for i in items] == ["Napkin", "nonfiction"], "the picker shows the book, then genres matching the typed text"
 
 
-def test_index_writes_the_genre_store(indexed, tmp_path):
-    assert (tmp_path / "alfred-data" / "genres.tsv").exists(), "indexing should save genres to genres.tsv"
+def test_index_writes_the_catalogue(indexed, library, tmp_path):
+    assert (library / "catalogue.tsv").exists(), "indexing should write the catalogue at the device root"
+    assert (tmp_path / "alfred-data" / "catalogue.snapshot.tsv").exists(), "and keep a snapshot of what it wrote"
+
+
+def test_the_catalogue_is_not_junk(indexed, capsys):
+    main(["fix", "--dry-run"])
+    assert "catalogue.tsv" not in capsys.readouterr().out, "the catalogue lives at the root on purpose"
+
+
+def test_index_converts_genres_tsv_once(env, tmp_path, library, capsys):
+    data = tmp_path / "alfred-data"
+    data.mkdir()
+    (data / "genres.tsv").write_text("fingerprint\tgenre\trel_path\nf1\tfiction/spy\t04_Reference/gone.epub\n", encoding="utf-8")
+
+    main(["update"])
+
+    assert "fiction/spy\t\t\t\t04_Reference/gone.epub\tf1" in (library / "catalogue.tsv").read_text(encoding="utf-8"), (
+        "the old genre survives as a catalogue line"
+    )
+    assert not (data / "genres.tsv").exists(), "the old file is converted once and set aside"
+
+
+def test_a_genre_changed_in_the_catalogue_moves_the_book(indexed, library, capsys):
+    text = (library / "catalogue.tsv").read_text(encoding="utf-8")
+    (library / "catalogue.tsv").write_text(text.replace("nonfiction\t", "productivity\t"), encoding="utf-8")
+
+    main(["update"])
+
+    assert (library / "productivity" / "Newport, Cal" / "Newport, Cal - Deep Work (Focus 02) (2016).epub").exists(), (
+        "an edit to the genre column files the book under the new genre"
+    )
+    assert "Catalogue: 1 genre changed" in capsys.readouterr().out, "the batch is reported with the update"
 
 
 def test_classify_lists_unclassified_with_book_variable(indexed, library, capsys):
@@ -198,15 +229,15 @@ def test_single_book_moves_update_the_index_in_place(indexed, library, capsys, m
     assert "No books match" in run(["search", "nonfiction"], capsys)["items"][0]["title"], "the old path should be gone from the index"
 
 
-def test_single_book_move_updates_the_genre_store_path(indexed, library, tmp_path, capsys):
+def test_single_book_move_updates_the_catalogue_store_path(indexed, library, tmp_path, capsys):
     import csv
 
     main(["genre", str(library / "02_NonFiction" / "Newport, Cal - Deep Work (2016, GC) - libgen.li.epub"), "productivity"])
 
-    with (tmp_path / "alfred-data" / "genres.tsv").open(newline="", encoding="utf-8") as handle:
-        paths = {r["rel_path"] for r in csv.DictReader(handle, delimiter="\t")}
+    with (library / "catalogue.tsv").open(newline="", encoding="utf-8") as handle:
+        paths = {r["path"] for r in csv.DictReader(handle, delimiter="\t")}
     assert "productivity/Newport, Cal/Newport, Cal - Deep Work (Focus 02) (2016).epub" in paths, (
-        "genres.tsv should name the book's new path right away"
+        "the catalogue should name the book's new path right away"
     )
 
 
@@ -427,7 +458,7 @@ def test_ask_is_refused_without_a_model_server(indexed, monkeypatch, capsys):
     assert "KOBOLD_ORACLE_URL" in capsys.readouterr().out, "the message should name the setting"
 
 
-def test_ask_genre_stores_an_answer_per_inbox_book(oracle_env, tmp_path, capsys, mocker):
+def test_ask_catalogue_stores_an_answer_per_inbox_book(oracle_env, tmp_path, capsys, mocker):
     ask = mocker.patch("kobold.oracle.ask", side_effect=[{"genre": "nonfiction"}, {"genre": "none"}])
 
     assert main(["ask", "genre"]) == 0, "asking should succeed"
@@ -997,3 +1028,19 @@ def test_embed_dry_run_ranks_latin_neighbours_of_each_cyrillic_folder(delany_fol
 def test_embed_dry_run_needs_an_embedding_model(delany_folders, capsys):
     assert main(["ask", "authors", "--embed-dry-run"]) == 1, "without an embedding model there is nothing to probe with"
     assert "embedding model" in capsys.readouterr().out, "the reason is reported"
+
+
+def test_catalogue_prints_the_path(indexed, library, capsys):
+    assert main(["catalogue"]) == 0, "catalogue just says where the file is"
+    assert capsys.readouterr().out.strip() == str(library / "catalogue.tsv"), "one line, the path"
+
+
+def test_fix_adopts_catalogue_edits_before_planning(indexed, library, capsys):
+    text = (library / "catalogue.tsv").read_text(encoding="utf-8")
+    (library / "catalogue.tsv").write_text(text.replace("nonfiction\t", "productivity\t"), encoding="utf-8")
+
+    main(["fix"])
+
+    assert (library / "productivity" / "Newport, Cal" / "Newport, Cal - Deep Work (Focus 02) (2016).epub").exists(), (
+        "fix reads the catalogue first, so the reader's edit is the plan"
+    )

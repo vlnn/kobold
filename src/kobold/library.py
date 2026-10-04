@@ -10,12 +10,14 @@ from kobold import index as indexes
 from kobold.alfred import counted
 from kobold.apply import EXECUTABLE, Applied, Entry, apply, last_batch, read_journal, undo
 from kobold.authors import obvious_groups
+from kobold.catalogue import CatalogueStore, Changes, Listing, folder_slug, genre_from_folder, without_author
 from kobold.config import (
     author_store,
+    catalogue_path,
+    catalogue_store,
     covers_dir,
     data_dir,
     db_path,
-    genre_store,
     journal_path,
     library_index,
     library_root,
@@ -23,11 +25,10 @@ from kobold.config import (
     suggestion_store,
     vector_store,
 )
-from kobold.genres import GenreStore, folder_slug, genre_from_folder, without_author
 from kobold.index import DEVICE, EVERYTHING, Index, IndexBusy, build_index
 from kobold.lint import all_folders, author_folders, lint
 from kobold.metadata import is_sound, read_book
-from kobold.model import Finding, GenreEntry, Operation, Row
+from kobold.model import Finding, Operation, Row
 from kobold.naming import canonical_name, fat_safe, known_authors
 from kobold.paths import relative_path
 from kobold.plan import TRASH, aside, plan, relocations
@@ -42,12 +43,37 @@ def all_rows(index: Index) -> list[Row]:
     return index.everything()
 
 
-def bootstrap_genres() -> int:
-    store, index = genre_store(), library_index()
+def bootstrap_genres(index: Index, store: CatalogueStore) -> int:
     added = store.bootstrap(all_rows(index))
     store.save()
     index.write_genres({fingerprint: entry.genre for fingerprint, entry in store.entries.items()})
     return added
+
+
+def changes_note(changes: Changes) -> str:
+    parts = [
+        counted(len(changes.genres), "genre changed", "genres changed") if changes.genres else "",
+        counted(len(changes.removed), "line removed", "lines removed") if changes.removed else "",
+        counted(len(changes.added), "line added", "lines added") if changes.added else "",
+    ]
+    return f"Catalogue: {', '.join(p for p in parts if p)}"
+
+
+def catalogue_assignments(changes: Changes, index: Index) -> list[tuple[Row, str]]:
+    changed = [(row, genre) for fp, genre in changes.genres.items() if (row := index.by_fingerprint(fp, DEVICE))]
+    added = [(row, genre) for path, genre in changes.added.items() if (row := index.by_rel_path(path))]
+    return changed + added
+
+
+def adopt_catalogue(index: Index, store: CatalogueStore) -> str:
+    changes = store.changes
+    if not changes:
+        return ""
+    store.settle({path: row for path in changes.added if (row := index.by_rel_path(path))})
+    assignments = catalogue_assignments(changes, index)
+    index.write_genres({fp: (store.get(fp) or Listing()).genre for fp in changes.removed})
+    set_genres(assignments, index, store) if assignments else store.save()
+    return changes_note(changes)
 
 
 def prune_suggestions(index: Index) -> None:
@@ -76,9 +102,9 @@ def genre_text(raw: str) -> str:
 Outcome = tuple[bool, str]
 
 
-def set_genres(assignments: list[tuple[Row, str]], index: Index, store: GenreStore) -> list[Outcome]:
+def set_genres(assignments: list[tuple[Row, str]], index: Index, store: CatalogueStore) -> list[Outcome]:
     for row, genre in assignments:
-        store.set(row.fingerprint, GenreEntry(genre=genre, rel_path=row.rel_path))
+        store.set(row.fingerprint, Listing(genre, row.authors, row.title, row.year, row.rel_path))
     store.save()
     index.write_genres({row.fingerprint: genre for row, genre in assignments})
     forget_suggestions([row.fingerprint for row, _ in assignments], "genre")
@@ -93,7 +119,7 @@ def forget_suggestions(fingerprints: list[str], question: str) -> None:
         store.save()
 
 
-def known_genres(index: Index, store: GenreStore) -> list[str]:
+def known_genres(index: Index, store: CatalogueStore) -> list[str]:
     from_store = {e.genre for e in store.entries.values() if e.genre}
     from_folders = {g for f in index.folders() if (g := genre_from_folder(f))}
     return sorted(from_store | from_folders | set(index.genres()))
@@ -122,10 +148,11 @@ def run_index() -> tuple[int, str]:
     count = library_index().count() if total else 0
     if count == 0:
         return 1, f"No books found: {probe_root(root) or f'no ebook files under {root}'}"
-    index = library_index()
-    bootstrap_genres()
+    index, store = library_index(), catalogue_store()
+    bootstrap_genres(index, store)
     prune_suggestions(index)
-    return 0, f"Indexed {count} books from {root}{sources_note(found, missing, total - count)}"
+    adopted = adopt_catalogue(index, store)
+    return 0, f"Indexed {count} books from {root}{sources_note(found, missing, total - count)}{' · ' + adopted if adopted else ''}"
 
 
 def unclassified_rows(words: list[str]) -> list[Row]:
@@ -133,8 +160,8 @@ def unclassified_rows(words: list[str]) -> list[Row]:
 
 
 def diagnosis() -> tuple[list[Finding], list[Operation]]:
-    rows, store = all_rows(library_index()), genre_store()
-    found = lint(rows, library_root(), exclude=(data_dir(),))
+    rows, store = all_rows(library_index()), catalogue_store()
+    found = lint(rows, library_root(), exclude=(data_dir(), catalogue_path()))
     return found, plan(rows, found, store, author_store().aliases)
 
 
@@ -300,7 +327,7 @@ def operation_line(op: Operation) -> str:
 
 
 def refresh_index(result: Applied) -> None:
-    index, store = library_index(), genre_store()
+    index, store = library_index(), catalogue_store()
     for src, dst in result.moved.items():
         if (row := index.by_rel_path(src)) and (entry := store.get(row.fingerprint)):
             store.set(row.fingerprint, replace(entry, rel_path=dst))
@@ -332,7 +359,7 @@ def outcome(row: Row, ops: dict[str, Operation], result: Applied) -> Outcome:
     return False, f"not moved: {reason}"
 
 
-def rehome(rows: list[Row], index: Index, store: GenreStore) -> list[Outcome]:
+def rehome(rows: list[Row], index: Index, store: CatalogueStore) -> list[Outcome]:
     everything = all_rows(index)
     settled = {r.rel_path for r in everything} - {r.rel_path for r in rows}
     ops = {op.src: op for op in relocations(everything, store, settled, author_store().aliases)}

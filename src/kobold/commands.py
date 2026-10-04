@@ -11,11 +11,13 @@ from kobold import alfred, embedder, oracle
 from kobold.alfred import counted
 from kobold.apply import EXECUTABLE, last_batch, read_journal
 from kobold.asking import genre_rows, name_rows
+from kobold.catalogue import CatalogueStore
 from kobold.config import (
+    catalogue_path,
+    catalogue_store,
     db_path,
     embed_model,
     embed_url,
-    genre_store,
     journal_path,
     library_index,
     library_root,
@@ -24,7 +26,6 @@ from kobold.config import (
     suggestion_store,
     vector_store,
 )
-from kobold.genres import GenreStore
 from kobold.history import last_opened
 from kobold.index import EVERYTHING, LIBRARY, Index, index_busy, is_current
 from kobold.library import (
@@ -224,7 +225,7 @@ def genre_row(genre: str, book: str, typed: str, current: str) -> dict:
     return alfred.keep_genre_item(item) if genre == current else item
 
 
-def picker_header(rows: list[Row], store: GenreStore) -> dict:
+def picker_header(rows: list[Row], store: CatalogueStore) -> dict:
     if len(rows) > 1:
         return alfred.message_item(f"{len(rows)} books", "↩ on a genre sets it for all of them")
     return alfred.genre_header(rows[0], store.genre_of(rows[0]))
@@ -235,7 +236,7 @@ def suggestion_for(rows: list[Row]) -> str:
 
 
 def genre_picker_items(typed: str, books: list[str]) -> list[dict]:
-    index, store = library_index(), genre_store()
+    index, store = library_index(), catalogue_store()
     rows = [row for fingerprint in books if (row := index.by_fingerprint(fingerprint))]
     if not rows:
         return [alfred.message_item("No book selected", "Press ⇧↩ on a book in kb, or ↩ in kb classify")]
@@ -504,6 +505,19 @@ def merge_groups(ops: list[Operation], concerns: Callable[[str], bool]) -> dict[
     return {canonical: group for canonical, group in groups.items() if any(concerns(o.src) for o in group)}
 
 
+def catalogue_note() -> str:
+    return "the device is not mounted, so this is the copy in the data folder" if catalogue_path().parent != library_root() else ""
+
+
+def catalogue_items(words: list[str]) -> list[dict]:
+    return [alfred.catalogue_item(str(catalogue_path()), catalogue_note())]
+
+
+def catalogue_problems(index: Index, concerns: Callable[[str], bool]) -> list[dict]:
+    lines = catalogue_store().chores(lambda path: index.by_rel_path(path) is not None)
+    return [alfred.catalogue_problem_item(line, str(catalogue_path())) for line in lines if concerns(line[0])]
+
+
 def fix_items(words: list[str]) -> list[dict]:
     found, ops = diagnosis()
     index, store, concerns, root = library_index(), suggestion_store(), concerning(words), str(library_root())
@@ -524,6 +538,7 @@ def fix_items(words: list[str]) -> list[dict]:
         *(alfred.merge_item(canonical, group, root) for canonical, group in merges.items()),
         *(alfred.conflict_item(o, root) for o in conflicts),
         *(alfred.problem_item(f, root) for f in manual),
+        *catalogue_problems(index, concerns),
     ]
     return rows or [nothing_to_fix(words)]
 
@@ -538,6 +553,7 @@ COMMAND_LIST = [
     Command("trash", trash_items, "trash", "unfinished downloads; with words, any book · ↩ moves it to _trash/"),
     Command("src", sources_items, "import", "search the other sources · ↩ imports into the inbox", needs_index=False),
     Command("update", update_items, "update", "rebuild the library and sources index", needs_index=False),
+    Command("catalogue", catalogue_items, "open", "the catalogue: every book's genre in one file you can edit", needs_index=False),
     Command("like", like_items, "open", "books like one: the top match for the words, or the one KOReader opened last"),
     Command(
         "model",

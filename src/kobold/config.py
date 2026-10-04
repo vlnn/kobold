@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 from kobold.authors import AuthorStore
-from kobold.genres import GenreStore
+from kobold.catalogue import CatalogueStore, from_legacy
 from kobold.index import Index
 from kobold.suggestions import SuggestionStore
 from kobold.vectors import VectorStore
@@ -67,8 +67,26 @@ def journal_path() -> Path:
     return data_dir() / "journal.jsonl"
 
 
-def genre_store() -> GenreStore:
-    return GenreStore(data_dir() / "genres.tsv").load()
+def catalogue_path() -> Path:
+    explicit = os.environ.get("KOBOLD_CATALOGUE", "").strip()
+    if explicit:
+        return Path(explicit).expanduser()
+    root = library_root()
+    return (root if root.is_dir() else data_dir()) / "catalogue.tsv"
+
+
+def catalogue_snapshot() -> Path:
+    return data_dir() / "catalogue.snapshot.tsv"
+
+
+def catalogue_store() -> CatalogueStore:
+    store = CatalogueStore(catalogue_path(), catalogue_snapshot())
+    legacy = data_dir() / "genres.tsv"
+    if legacy.exists() and not store.snapshot.exists():
+        store.entries = from_legacy(legacy.read_text(encoding="utf-8"))
+        store.save()
+        legacy.rename(legacy.with_suffix(".tsv.converted"))
+    return store.load()
 
 
 def author_store() -> AuthorStore:

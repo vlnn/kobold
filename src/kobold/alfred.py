@@ -171,6 +171,20 @@ def problem_item(finding: Finding, root: str) -> dict:
     }
 
 
+def catalogue_item(path: str, note: str = "") -> dict:
+    columns = "genre · authors · title · year · path · fingerprint, one line per book"
+    subtitle = SEPARATOR.join(p for p in (columns, note, "↩ opens it") if p)
+    return {"uid": "catalogue", **action_item("Catalogue", subtitle, "open", path), "icon": {"type": "fileicon", "path": path}}
+
+
+def catalogue_problem_item(line: tuple[str, str], path: str) -> dict:
+    book, genre = line
+    return {
+        "uid": f"problem:catalogue:{book}",
+        **action_item(f"{book}: no such book in the catalogue line", f"catalogue · {genre} · ↩ opens the catalogue", "open", path),
+    }
+
+
 def conflict_item(op: Operation, root: str) -> dict:
     return {**plan_item(op, root), "uid": f"problem:conflict:{op.src}", "valid": True, "variables": {"action": "reveal"}}
 

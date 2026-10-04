@@ -32,10 +32,11 @@ from kobold.commands import (
     without_index_items,
 )
 from kobold.config import (
+    catalogue_path,
+    catalogue_store,
     covers_dir,
     db_path,
     embed_model,
-    genre_store,
     journal_path,
     library_index,
     library_root,
@@ -46,6 +47,7 @@ from kobold.config import (
 )
 from kobold.index import EVERYTHING, IndexBusy, add_book, fill_thumbnails, index_busy
 from kobold.library import (
+    adopt_catalogue,
     apply_fixes,
     apply_summary,
     dismiss_book,
@@ -172,6 +174,8 @@ def cmd_undo(args) -> int:
 def cmd_fix(args) -> int:
     if reason := not_writable():
         return refuse(reason, args.notify)
+    if not args.dry_run:
+        adopt_catalogue(library_index(), catalogue_store())
     targets = references(args.targets)
     ops = fix_operations(targets)
     if args.dry_run:
@@ -229,7 +233,7 @@ def assignment(line: str, genre: str) -> tuple[str, str]:
 def cmd_genre(args) -> int:
     if reason := not_writable():
         return refuse(reason, args.notify)
-    index, store = library_index(), genre_store()
+    index, store = library_index(), catalogue_store()
     wanted = dict(assignment(line, genre_text(args.genre)) for line in references(args.books))
     if not all(wanted.values()):
         return refuse("No genre given", args.notify)
@@ -281,7 +285,7 @@ def cmd_import(args) -> int:
 
 
 def questions(name: str) -> list[Question]:
-    index, store = library_index(), genre_store()
+    index, store = library_index(), catalogue_store()
     all_questions = {"name": name_question, "genre": lambda: genre_question(known_genres(index, store))}
     return [make() for key, make in all_questions.items() if name in ("", key)]
 
@@ -380,6 +384,11 @@ def cmd_models(args) -> int:
     return int(any(listed is None for listed in served.values()))
 
 
+def cmd_catalogue(args) -> int:
+    print(catalogue_path())
+    return 0
+
+
 def cmd_chooser(args) -> int:
     print(alfred.render(chooser_items(args.query.strip(), os.environ.get("model", ""))))
     return 0
@@ -434,6 +443,7 @@ def build_parser() -> argparse.ArgumentParser:
     embed_cmd.add_argument("words", nargs="*")
     embed_cmd.set_defaults(func=cmd_embed)
     sub.add_parser("chooser", parents=[query]).set_defaults(func=cmd_chooser)
+    sub.add_parser("catalogue").set_defaults(func=cmd_catalogue)
     return parser
 
 

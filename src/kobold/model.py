@@ -58,12 +58,6 @@ class Row:
 
 
 @dataclass
-class GenreEntry:
-    genre: str = ""
-    rel_path: str = ""
-
-
-@dataclass
 class Suggestion:
     answer: dict
     evidence_hash: str

@@ -10,8 +10,8 @@ from contextlib import contextmanager
 from dataclasses import astuple, fields, replace
 from pathlib import Path
 
+from kobold.catalogue import folder_slug
 from kobold.covers import THUMBNAIL_FORMATS, cover_key, ensure_cover
-from kobold.genres import folder_slug
 from kobold.languages import searchable_language
 from kobold.metadata import is_sound, read_book
 from kobold.model import Book, Row
