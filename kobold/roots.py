@@ -45,3 +45,7 @@ class library_of(NamedTuple):
 
     def __call__(self, ctx) -> list:
         return [os.path.expanduser(part.strip()) for part in ctx.setting(self.setting).split(":") if part.strip()]
+
+
+def parent_is_dir(root: str) -> bool:
+    return os.path.isdir(os.path.dirname(root))
