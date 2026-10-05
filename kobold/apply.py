@@ -12,6 +12,7 @@ from pathlib import Path, PurePosixPath
 from kobold.koreader import fix_paths
 from kobold.model import Operation
 from kobold.paths import is_empty_dir, nfc, sidecar_of
+from kobold.scan import is_book
 
 EXECUTABLE = {"move", "trash", "dups"}
 
@@ -173,13 +174,41 @@ def place(src: Path, dst: Path) -> None:
         os.replace(src, dst)
 
 
+def sidecar_at(book: Path) -> Path | None:
+    found = child_named(book.parent, sidecar_of(book).name)
+    return found if found is not None and found.is_dir() else None
+
+
+def shares_sidecar(book: Path) -> bool:
+    stem = nfc(book.stem).casefold()
+    return any(other.is_file() and nfc(other.stem).casefold() == stem for other in book.parent.iterdir() if is_book(other))
+
+
+def own_files(sidecar: Path, book: Path) -> list[Path]:
+    prefix = f"metadata{book.suffix.lower()}.lua"
+    return [p for p in sidecar.iterdir() if p.name.lower().startswith(prefix)]
+
+
+def hand_over(sidecar: Path, target: Path, book: Path) -> None:
+    target.mkdir(parents=True, exist_ok=True)
+    for path in own_files(sidecar, book):
+        if child_named(target, path.name) is None:
+            os.replace(path, target / path.name)
+    if is_empty_dir(sidecar):
+        sidecar.rmdir()
+
+
 def carry_sidecar(src: Path, dst: Path) -> None:
-    sidecar = sidecar_of(src)
-    if not sidecar.is_dir():
+    sidecar = sidecar_at(src)
+    if sidecar is None:
         return
     existing = child_named(dst.parent, sidecar_of(dst).name)
-    if existing is None or is_same_file(existing, sidecar):
-        place(sidecar, sidecar_of(dst))
+    taken = existing is not None and not is_same_file(existing, sidecar)
+    if taken or shares_sidecar(src):
+        if existing is None or taken:
+            hand_over(sidecar, existing or sidecar_of(dst), src)
+        return
+    place(sidecar, sidecar_of(dst))
 
 
 def relocate(src: Path, dst: Path, root: Path) -> None:
