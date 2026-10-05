@@ -254,6 +254,8 @@ uv run python -m hoard kobold doctor                Python, SQLite, folders, set
 | *No folder set for nook* | set **Device root** in the workflow configuration |
 | *Not reachable: …* | the folder is not there right now: mount the volume, or grant Alfred Removable Volumes access |
 | *Updating the index… · counting files* | the update is listing the files it will read; the count follows |
+| *Asking the model… · N of M asked* | the chat model is answering for every book it has not seen, one at a time; **Ask and embed on update** starts this after each update |
+| *Embedding… · N of M embedded* | new books are going to the embeddings model in batches |
 | *Finish: nothing to do* | the book has no genre or no author yet: ⌘↩ to give it a genre |
 | *Remove: nothing to do* | `kb remove` keeps the only copy of a book; import it into the library first, or delete by hand |
 | *Chat server not reachable* | start `llama-server`, or fix **Chat model server**; `kb model` shows whether it answers |
