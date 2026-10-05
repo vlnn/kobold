@@ -1,0 +1,17 @@
+kind = "kobold"
+name = "Kobold"
+bundleid = "com.anokhin.kobold2"
+description = "Search and tidy an ebook library: library, vault and nook"
+createdby = "Volodymyr Anokhin"
+
+[[configuration]]
+variable = "KOBOLD_ROOT"
+label = "Device root"
+type = "text"
+description = "The folder that is, or syncs with, your e-reader, e.g. ~/Books/kobo or /Volumes/Transcend/kobo"
+
+[[configuration]]
+variable = "KOBOLD_SOURCES"
+label = "Library folders"
+type = "text"
+description = "Where books arrive, separated by ':', e.g. ~/Calibre Library:~/Downloads"

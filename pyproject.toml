@@ -3,23 +3,20 @@ name = "kobold"
 version = "0.5.0"
 description = "Alfred workflow: search and tidy an ebook library by metadata, with covers and an optional local model"
 requires-python = ">=3.9"
-dependencies = []
-
-[project.scripts]
-kobold = "kobold.cli:main"
+dependencies = ["hoard"]
 
 [dependency-groups]
 dev = ["pytest>=8", "pytest-mock>=3.14", "ruff>=0.8"]
 
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+[tool.uv]
+package = false
 
-[tool.hatch.build.targets.wheel]
-packages = ["src/kobold"]
+[tool.uv.sources]
+hoard = { path = "../hoard", editable = true }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 
 [tool.ruff]
 target-version = "py39"
@@ -31,7 +28,6 @@ ignore = ["SIM112"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/test_filenames.py" = ["E501"]
-"scripts/make_plist.py" = ["E501"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["kobold", "tests"]

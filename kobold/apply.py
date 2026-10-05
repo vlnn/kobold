@@ -12,6 +12,7 @@ from pathlib import Path, PurePosixPath
 from kobold.koreader import fix_paths
 from kobold.model import Operation
 from kobold.paths import is_empty_dir, nfc, sidecar_of
+from kobold.scan import is_book
 
 EXECUTABLE = {"move", "trash", "dups"}
 
@@ -71,9 +72,11 @@ class Applied:
     skipped: list[str] = field(default_factory=list)
     moved: dict[str, str] = field(default_factory=dict)
     removed: list[str] = field(default_factory=list)
+    entries: list[Entry] = field(default_factory=list)
 
     def record(self, entry: Entry) -> None:
         self.done += 1
+        self.entries.append(entry)
         if entry.kind in MOVES:
             self.moved[entry.src] = entry.dst
         if entry.kind == Recorded.DELETE:
@@ -171,13 +174,41 @@ def place(src: Path, dst: Path) -> None:
         os.replace(src, dst)
 
 
+def sidecar_at(book: Path) -> Path | None:
+    found = child_named(book.parent, sidecar_of(book).name)
+    return found if found is not None and found.is_dir() else None
+
+
+def shares_sidecar(book: Path) -> bool:
+    stem = nfc(book.stem).casefold()
+    return any(other.is_file() and nfc(other.stem).casefold() == stem for other in book.parent.iterdir() if is_book(other))
+
+
+def own_files(sidecar: Path, book: Path) -> list[Path]:
+    prefix = f"metadata{book.suffix.lower()}.lua"
+    return [p for p in sidecar.iterdir() if p.name.lower().startswith(prefix)]
+
+
+def hand_over(sidecar: Path, target: Path, book: Path) -> None:
+    target.mkdir(parents=True, exist_ok=True)
+    for path in own_files(sidecar, book):
+        if child_named(target, path.name) is None:
+            os.replace(path, target / path.name)
+    if is_empty_dir(sidecar):
+        sidecar.rmdir()
+
+
 def carry_sidecar(src: Path, dst: Path) -> None:
-    sidecar = sidecar_of(src)
-    if not sidecar.is_dir():
+    sidecar = sidecar_at(src)
+    if sidecar is None:
         return
     existing = child_named(dst.parent, sidecar_of(dst).name)
-    if existing is None or is_same_file(existing, sidecar):
-        place(sidecar, sidecar_of(dst))
+    taken = existing is not None and not is_same_file(existing, sidecar)
+    if taken or shares_sidecar(src):
+        if existing is None or taken:
+            hand_over(sidecar, existing or sidecar_of(dst), src)
+        return
+    place(sidecar, sidecar_of(dst))
 
 
 def relocate(src: Path, dst: Path, root: Path) -> None:
@@ -186,7 +217,9 @@ def relocate(src: Path, dst: Path, root: Path) -> None:
     prune_empty_dirs(src.parent, root)
 
 
-def append(journal: Path, entries: list[Entry]) -> None:
+def append(journal: Path | None, entries: list[Entry]) -> None:
+    if journal is None:
+        return
     journal.parent.mkdir(parents=True, exist_ok=True)
     with journal.open("a", encoding="utf-8") as handle:
         for entry in entries:
@@ -249,7 +282,7 @@ def execute(step: Step, label: Recorded, root: Path) -> Outcome:
     return move(step, label, root)
 
 
-def run(label: Recorded, steps: list[Step], root: Path, journal: Path) -> Applied:
+def run(label: Recorded, steps: list[Step], root: Path, journal: Path | None) -> Applied:
     result, batch = Applied(), new_batch()
     for step in steps:
         outcome = execute(step, label, root)
@@ -280,6 +313,10 @@ def reverse(entry: Entry) -> Step:
     if entry.kind == Recorded.RESTORE:
         return Step(Action.DELETE, entry.src, entry.dst)
     return Step(Action.MOVE, entry.dst, entry.src)
+
+
+def undo_entries(entries: list[Entry], root: Path) -> Applied:
+    return run(Recorded.UNDO, [reverse(e) for e in reversed(entries)], root, None)
 
 
 def undo(root: Path, journal: Path) -> int:

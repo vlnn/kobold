@@ -2,12 +2,15 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, kobold2]
     tags: ["v*"]
   pull_request:
 
 permissions:
   contents: read
+
+env:
+  HOARD_REF: found-tags
 
 jobs:
   test:
@@ -17,27 +20,44 @@ jobs:
         python: ["3.9", "3.13"]
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
         with:
-          enable-cache: true
-      - run: uv run --frozen --python ${{ matrix.python }} ruff check
-      - run: uv run --frozen --python ${{ matrix.python }} ruff format --check
-      - run: uv run --frozen --python ${{ matrix.python }} pytest
+          path: kobold
+      - uses: actions/checkout@v4
+        with:
+          repository: vlnn/hoard
+          ref: ${{ env.HOARD_REF }}
+          path: hoard
+      - uses: astral-sh/setup-uv@v5
+      - working-directory: kobold
+        run: uv run --python ${{ matrix.python }} ruff check
+      - working-directory: kobold
+        run: uv run --python ${{ matrix.python }} ruff format --check
+      - working-directory: kobold
+        run: uv run --python ${{ matrix.python }} pytest
 
   build:
     needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: ./build.sh
+        with:
+          path: kobold
+      - uses: actions/checkout@v4
+        with:
+          repository: vlnn/hoard
+          ref: ${{ env.HOARD_REF }}
+          path: hoard
+      - uses: astral-sh/setup-uv@v5
+      - working-directory: kobold
+        run: uv run --python 3.13 python -m hoard.build --check && mv dist/kobold.alfredworkflow dist/Kobold.alfredworkflow
       - uses: actions/upload-artifact@v4
         with:
           name: Kobold.alfredworkflow
-          path: dist/Kobold.alfredworkflow
+          path: kobold/dist/Kobold.alfredworkflow
           if-no-files-found: error
 
   release:
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && github.ref != 'refs/heads/kobold2'
     needs: build
     runs-on: ubuntu-latest
     permissions:

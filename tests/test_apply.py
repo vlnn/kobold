@@ -317,3 +317,60 @@ def test_reverse_pairs_each_journal_kind_with_its_undo_step(journaled, action, s
     from kobold.apply import Action, Entry, Step, reverse
 
     assert reverse(Entry("1", journaled, "a", "b")) == Step(Action(action), src, dst), f"undoing a {journaled!r} entry is a {action!r} step"
+
+
+def tree(root: Path) -> dict:
+    return {str(p.relative_to(root)): p.read_bytes() for p in sorted(root.rglob("*")) if p.is_file()}
+
+
+def test_a_run_without_a_journal_hands_back_its_entries(library: Path, tmp_path: Path):
+    from kobold.apply import Action, Recorded, Step, run
+
+    result = run(Recorded.APPLY, [Step(Action.MOVE, "00_Inbox/a.epub", "01_Fiction/a.epub")], library, None)
+
+    assert [(e.kind, e.src, e.dst) for e in result.entries] == [("apply", "00_Inbox/a.epub", "01_Fiction/a.epub")], (
+        "a run should hand back the entry for every step it carried out"
+    )
+    assert not list(tmp_path.rglob("*.jsonl")), "a run without a journal should write none"
+
+
+def test_handed_back_entries_undo_to_the_byte(library: Path):
+    from kobold.apply import Action, Recorded, Step, run, undo_entries
+
+    before = tree(library)
+    steps = [
+        Step(Action.MOVE, "00_Inbox/a.epub", "01_Fiction/Teague, Rowan/Teague, Rowan - Ash.epub"),
+        Step(Action.MOVE, "00_Inbox/FSCK0000.000", "_trash/00_Inbox/FSCK0000.000"),
+    ]
+    entries = run(Recorded.APPLY, steps, library, None).entries
+    undo_entries(entries, library)
+
+    assert tree(library) == before, "undoing the handed-back entries should restore every file, sidecar included"
+
+
+@pytest.mark.parametrize("name", ["a.fb2", "A.fb2"])
+def test_a_shared_sidecar_stays_with_the_book_still_using_it(library: Path, name):
+    from kobold.apply import Action, Recorded, Step, run, undo_entries
+
+    (library / "00_Inbox" / name).write_bytes(b"fb2")
+    (library / "00_Inbox" / "a.sdr" / "metadata.fb2.lua").write_text("return { fb2 = true }")
+    before = tree(library)
+
+    entries = run(Recorded.APPLY, [Step(Action.MOVE, f"00_Inbox/{name}", f"_dups/00_Inbox/{name}")], library, None).entries
+
+    assert (library / "00_Inbox" / "a.sdr" / "metadata.epub.lua").is_file(), "the epub's progress should stay beside the epub"
+    moved = library / "_dups" / "00_Inbox" / f"{Path(name).stem}.sdr" / "metadata.fb2.lua"
+    assert moved.read_text() == "return { fb2 = true }", f"{name} should take only its own metadata with it"
+    undo_entries(entries, library)
+    assert tree(library) == before, "undo should put the fb2's metadata back into the shared sidecar"
+
+
+def test_an_unshared_sidecar_still_moves_whole(library: Path):
+    from kobold.apply import Action, Recorded, Step, run
+
+    (library / "00_Inbox" / "a.sdr" / "custom-cover.png").write_bytes(b"png")
+    run(Recorded.APPLY, [Step(Action.MOVE, "00_Inbox/a.epub", "01_Fiction/a.epub")], library, None)
+
+    assert sorted(p.name for p in (library / "01_Fiction" / "a.sdr").iterdir()) == ["custom-cover.png", "metadata.epub.lua"], (
+        "a sidecar only one book uses should move whole, whatever it holds"
+    )

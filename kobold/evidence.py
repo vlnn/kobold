@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import html
 import re
 import struct
@@ -10,7 +9,6 @@ from pathlib import Path
 from xml.etree import ElementTree as ET
 
 from kobold.identity import is_text_member, local_name
-from kobold.model import Row
 
 SAMPLE_CHARS = 2000
 TAG = re.compile(r"<[^>]*>")
@@ -88,40 +86,3 @@ def text_sample(path: Path, fmt: str) -> str:
         return sampler(path)[:SAMPLE_CHARS]
     except Exception:
         return ""
-
-
-def series_line(row: Row) -> str:
-    if not row.series:
-        return ""
-    return f"{row.series} #{row.series_index}" if row.series_index else row.series
-
-
-def language_code(row: Row) -> str:
-    return row.language.split()[0] if row.language else ""
-
-
-def described(row: Row) -> list[tuple[str, str]]:
-    return [
-        ("Title", row.title),
-        ("Authors", row.authors),
-        ("Series", series_line(row)),
-        ("Language", language_code(row)),
-        ("Year", row.year),
-        ("Format", row.format),
-        ("Path", row.rel_path),
-        ("Subjects", row.subjects),
-        ("Description", row.description),
-        ("Text", text_sample(Path(row.path), row.format)),
-    ]
-
-
-def evidence_for(row: Row, genres: list[str] = ()) -> str:
-    lines = [f"{label}: {value}" for label, value in described(row) if value]
-    if genres:
-        lines.append(f"Genres: {', '.join(genres)}")
-    return "\n".join(lines)
-
-
-def evidence_hash(evidence: str) -> str:
-    stable = [line for line in evidence.splitlines() if not line.startswith("Path: ")]
-    return hashlib.sha1("\n".join(stable).encode()).hexdigest()

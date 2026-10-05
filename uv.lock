@@ -28,6 +28,19 @@ wheels = [
 ]
 
 [[package]]
+name = "hoard"
+version = "1.2.0"
+source = { editable = "../hoard" }
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-mock" },
+]
+
+[[package]]
 name = "iniconfig"
 version = "2.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -54,7 +67,10 @@ wheels = [
 [[package]]
 name = "kobold"
 version = "0.5.0"
-source = { editable = "." }
+source = { virtual = "." }
+dependencies = [
+    { name = "hoard" },
+]
 
 [package.dev-dependencies]
 dev = [
@@ -66,6 +82,7 @@ dev = [
 ]
 
 [package.metadata]
+requires-dist = [{ name = "hoard", editable = "../hoard" }]
 
 [package.metadata.requires-dev]
 dev = [

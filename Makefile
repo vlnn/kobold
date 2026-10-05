@@ -1,0 +1,27 @@
+SYSTEM_PYTHON ?= /usr/bin/python3
+
+.PHONY: test test-system build check link doctor ci
+
+test:
+	uv run pytest
+
+test-system:
+	uv run --isolated --python $(SYSTEM_PYTHON) pytest
+
+build:
+	uv run python -m hoard.build
+
+check:
+	uv run python -m hoard.build --check
+
+link:
+	uv run python -m hoard.build --link
+
+doctor:
+	cd "$(uv run python -m hoard.build --link)" && $(SYSTEM_PYTHON) hoard.py doctor
+
+ci:
+	rm -rf .ci-clone
+	git clone --quiet . .ci-clone
+	cd .ci-clone && uv sync --quiet && uv run pytest -q && uv run python -m hoard.build --check
+	rm -rf .ci-clone
