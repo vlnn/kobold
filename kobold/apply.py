@@ -71,9 +71,11 @@ class Applied:
     skipped: list[str] = field(default_factory=list)
     moved: dict[str, str] = field(default_factory=dict)
     removed: list[str] = field(default_factory=list)
+    entries: list[Entry] = field(default_factory=list)
 
     def record(self, entry: Entry) -> None:
         self.done += 1
+        self.entries.append(entry)
         if entry.kind in MOVES:
             self.moved[entry.src] = entry.dst
         if entry.kind == Recorded.DELETE:
@@ -186,7 +188,9 @@ def relocate(src: Path, dst: Path, root: Path) -> None:
     prune_empty_dirs(src.parent, root)
 
 
-def append(journal: Path, entries: list[Entry]) -> None:
+def append(journal: Path | None, entries: list[Entry]) -> None:
+    if journal is None:
+        return
     journal.parent.mkdir(parents=True, exist_ok=True)
     with journal.open("a", encoding="utf-8") as handle:
         for entry in entries:
@@ -249,7 +253,7 @@ def execute(step: Step, label: Recorded, root: Path) -> Outcome:
     return move(step, label, root)
 
 
-def run(label: Recorded, steps: list[Step], root: Path, journal: Path) -> Applied:
+def run(label: Recorded, steps: list[Step], root: Path, journal: Path | None) -> Applied:
     result, batch = Applied(), new_batch()
     for step in steps:
         outcome = execute(step, label, root)
@@ -280,6 +284,10 @@ def reverse(entry: Entry) -> Step:
     if entry.kind == Recorded.RESTORE:
         return Step(Action.DELETE, entry.src, entry.dst)
     return Step(Action.MOVE, entry.dst, entry.src)
+
+
+def undo_entries(entries: list[Entry], root: Path) -> Applied:
+    return run(Recorded.UNDO, [reverse(e) for e in reversed(entries)], root, None)
 
 
 def undo(root: Path, journal: Path) -> int:

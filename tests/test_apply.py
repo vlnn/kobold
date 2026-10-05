@@ -317,3 +317,32 @@ def test_reverse_pairs_each_journal_kind_with_its_undo_step(journaled, action, s
     from kobold.apply import Action, Entry, Step, reverse
 
     assert reverse(Entry("1", journaled, "a", "b")) == Step(Action(action), src, dst), f"undoing a {journaled!r} entry is a {action!r} step"
+
+
+def tree(root: Path) -> dict:
+    return {str(p.relative_to(root)): p.read_bytes() for p in sorted(root.rglob("*")) if p.is_file()}
+
+
+def test_a_run_without_a_journal_hands_back_its_entries(library: Path, tmp_path: Path):
+    from kobold.apply import Action, Recorded, Step, run
+
+    result = run(Recorded.APPLY, [Step(Action.MOVE, "00_Inbox/a.epub", "01_Fiction/a.epub")], library, None)
+
+    assert [(e.kind, e.src, e.dst) for e in result.entries] == [("apply", "00_Inbox/a.epub", "01_Fiction/a.epub")], (
+        "a run should hand back the entry for every step it carried out"
+    )
+    assert not list(tmp_path.rglob("*.jsonl")), "a run without a journal should write none"
+
+
+def test_handed_back_entries_undo_to_the_byte(library: Path):
+    from kobold.apply import Action, Recorded, Step, run, undo_entries
+
+    before = tree(library)
+    steps = [
+        Step(Action.MOVE, "00_Inbox/a.epub", "01_Fiction/Teague, Rowan/Teague, Rowan - Ash.epub"),
+        Step(Action.MOVE, "00_Inbox/FSCK0000.000", "_trash/00_Inbox/FSCK0000.000"),
+    ]
+    entries = run(Recorded.APPLY, steps, library, None).entries
+    undo_entries(entries, library)
+
+    assert tree(library) == before, "undoing the handed-back entries should restore every file, sidecar included"
