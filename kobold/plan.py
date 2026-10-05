@@ -5,10 +5,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from kobold.catalogue import CatalogueStore, genre_from_folder
-from kobold.index import NOOK, series_key
 from kobold.lint import all_folders
 from kobold.model import Finding, Operation, Row
 from kobold.naming import Shelves, destination, shelves
+from kobold.shelf import NOOK, series_key
 
 FORMAT_RANK = ("epub", "fb2", "mobi", "azw3", "azw", "pdf", "djvu")
 TRASH = "_trash"

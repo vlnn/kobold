@@ -2,23 +2,18 @@ from __future__ import annotations
 
 import csv
 import io
-import re
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from kobold.filenames import STOPWORDS
+from kobold.folders import folder_slug
 from kobold.model import Row
 from kobold.store import TsvStore
 
 GENRE_DEPTH = 2
-ORDER_PREFIX = re.compile(r"^\d+_")
 UNCLASSIFIED_FOLDERS = {"nook", "inbox", "archives", "system_files", "_inbox", "_dups", "_trash", "_broken"}
 HEADER = ("genre", "authors", "title", "year", "path", "fingerprint")
-
-
-def folder_slug(name: str) -> str:
-    return ORDER_PREFIX.sub("", name).lower()
 
 
 def looks_like_person(name: str) -> bool:

@@ -4,8 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from kobold.cli import main
 from kobold.model import Row
+
+pytest_plugins = ["hoard.testing"]
 
 BASE_ROW = {
     "title": "Deep Work",
@@ -135,17 +136,3 @@ def library(tmp_path: Path, epub_file: Path, fb2_file: Path) -> Path:
     (tmp_path / "00_Inbox" / "Delany, Samuel R - Nova - 2014.epub.part").write_bytes(b"")
     (tmp_path / "00_Inbox" / "Napkin.pdf").write_bytes(b"%PDF-1.4")
     return tmp_path
-
-
-@pytest.fixture
-def env(library: Path, tmp_path: Path, monkeypatch):
-    monkeypatch.setenv("KOBOLD_ROOT", str(library))
-    monkeypatch.setenv("alfred_workflow_data", str(tmp_path / "alfred-data"))
-    monkeypatch.delenv("KOBOLD_DATA", raising=False)
-    monkeypatch.setenv("book", "x")
-
-
-@pytest.fixture
-def indexed(env, capsys):
-    main(["update"])
-    capsys.readouterr()
