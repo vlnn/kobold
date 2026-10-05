@@ -2,6 +2,29 @@
 
 *kobo + alfred.* A small creature that hoards ebooks in your directories in properly arranged gleamy stacks.
 
+## This branch: kobold on hoard
+
+`kobold2` rebuilds kobold as a kind on [hoard](https://github.com/vlnn/hoard): hoard owns the index,
+search, Alfred rows, journal and undo, the background worker, the model questions, `like` and the
+bundle; kobold keeps reading books, naming them and moving them. Until it replaces `main` it installs
+next to it as `com.anokhin.kobold2`, with the same `kb` keyword and settings.
+
+Works: search across nook, vault and library (one row per book at its nearest place); ↩ by place;
+`kb nook`, `kb done`/`finish`, `kb lib`/`import`, `kb remove`/`trash`, `kb tidy` (homes, `_dups`,
+identical copies) with sidecars and KOReader paths carried along; `kb fix` for junk; genres as hoard
+tags (`kb tag`, ⌘↩, model guesses); `kb name`, `kb like`, `kb model`, `kb rnd`, `kb stats`, undo.
+
+Not yet: `catalogue.tsv`, so genres in it are not carried over; a hand or model genre moves the book
+on the next `kb tidy`, not at once; the green nook frame and pdf thumbnails; the second keyword
+`kbi`; searching by folder, path, subject or language; vault books already in genre folders are
+listed by `kb tag` until tagged; books loose at the device root are not indexed.
+
+Development needs hoard checked out next to this repository (`../hoard`):
+
+    uv run pytest
+    uv run --python 3.13 python -m hoard.build --check   → dist/kobold.alfredworkflow
+    make link                                             → a workflow symlinked to both checkouts
+
 ## The problem
 
 Imagine you have a big library of ebooks, which in the real world means a folder with unstructured subfolders like `New folder` and `To read 2027`. Lots of `epubs`, `fb2`, `pdfs` inside. Every time you want to read a book you have to find it first, and you don't want to waste time, so you go and download it again, optionally pushing it into the same heap. Sometimes you decide to make it neat and structured, move files around for a couple of hours, understand how hard it is to categorize real stuff, and then leave it as is until next time. No problem, I was there.
