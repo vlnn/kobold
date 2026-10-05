@@ -72,9 +72,9 @@ class Shape:
     series_counts: Counter
 
 
-def shape_of(rows: list[Row]) -> Shape:
+def shape_of(rows: list[Row], folders: frozenset[str] = frozenset()) -> Shape:
     counts = Counter(series_key(r.series) for r in rows if r.series and not r.partial)
-    return Shape(shelves(all_folders(r for r in rows if r.place != NOOK)), counts)
+    return Shape(shelves(all_folders(r for r in rows if r.place != NOOK) | folders), counts)
 
 
 def in_vault(row: Row) -> bool:
@@ -89,8 +89,8 @@ def home_of(row: Row, store: CatalogueStore, shape: Shape) -> str:
     return destination(row, store.genre_of(row), shape.layout, shape.series_counts[series_key(row.series)])
 
 
-def desired(rows: list[Row], store: CatalogueStore) -> dict[str, str]:
-    shape = shape_of(rows)
+def desired(rows: list[Row], store: CatalogueStore, folders: frozenset[str] = frozenset()) -> dict[str, str]:
+    shape = shape_of(rows, folders)
     return {r.rel_path: home_of(r, store, shape) for r in rows if wants_home(r, store)}
 
 
@@ -111,8 +111,10 @@ def relocation(row: Row, rows: list[Row], store: CatalogueStore) -> Operation | 
     return Operation("move", row.rel_path, dst, move_reason(row.rel_path, dst))
 
 
-def relocations(rows: list[Row], store: CatalogueStore, settled: set[str], leaving_nook: bool = False) -> list[Operation]:
-    wanted = {src: dst for src, dst in desired(rows, store).items() if src not in settled}
+def relocations(
+    rows: list[Row], store: CatalogueStore, settled: set[str], leaving_nook: bool = False, folders: frozenset[str] = frozenset()
+) -> list[Operation]:
+    wanted = {src: dst for src, dst in desired(rows, store, folders).items() if src not in settled}
     if leaving_nook:
         wanted.update(homecoming(rows, store, settled))
     moving = {src for src, dst in wanted.items() if src != dst}
@@ -128,8 +130,8 @@ def relocations(rows: list[Row], store: CatalogueStore, settled: set[str], leavi
     return ops
 
 
-def plan(rows: list[Row], findings: list[Finding], store: CatalogueStore) -> list[Operation]:
+def plan(rows: list[Row], findings: list[Finding], store: CatalogueStore, folders: frozenset[str] = frozenset()) -> list[Operation]:
     by_path = {r.rel_path: r for r in rows}
     ops = trash_junk(findings) + set_aside_duplicates(findings, by_path)
     settled = {o.src for o in ops}
-    return ops + relocations(rows, store, settled)
+    return ops + relocations(rows, store, settled, folders=folders)

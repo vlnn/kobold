@@ -2,17 +2,22 @@ from __future__ import annotations
 
 import os
 import shutil
-from pathlib import Path
+from dataclasses import replace
+from pathlib import Path, PurePosixPath
 
-from hoard.contract import Change
+from hoard.contract import Change, Plan
+from hoard.contract import Step as PlanStep
 
-from kobold.apply import Action, Entry, Recorded, Step, prune_empty_dirs, run, undo_entries
-from kobold.model import Row
+from kobold.apply import EXECUTABLE, Action, Entry, Recorded, Step, prune_empty_dirs, run, undo_entries
+from kobold.catalogue import genre_from_folder
+from kobold.lint import exact_duplicates, title_duplicates
+from kobold.model import Operation, Row
 from kobold.naming import canonical_name, destination, known_authors, shelves
 from kobold.paths import SIDECAR_SUFFIX, nfc
 from kobold.places import DEVICE, LIBRARY, NOOK, VAULT, is_unfinished, on_device
-from kobold.plan import TRASH
-from kobold.scan import PARTIAL_SUFFIX, book_format
+from kobold.plan import TRASH, plan
+from kobold.scan import PARTIAL_SUFFIX, book_format, iter_junk
+from kobold.shelf import normalize_title
 
 COPY = "copy"
 
@@ -168,3 +173,54 @@ def undo(changes, ctx) -> None:
             uncopy(change, root)
         else:
             undo_entries([entry_of(change)], root)
+
+
+def placed_row(found, locator: str, place: str, root: Path) -> Row:
+    rel = relative(locator, root)
+    return replace(
+        row_of(found, locator),
+        rel_path=rel,
+        folder=PurePosixPath(rel).parent.as_posix(),
+        place=place,
+        size=os.stat(locator).st_size,
+        norm_title=normalize_title(found.entity.title),
+    )
+
+
+def device_sightings(found):
+    return [s for s in found.sightings if s.storage in DEVICE and s.reachable and s.locator]
+
+
+def device_rows(founds, root: Path) -> list[Row]:
+    return [placed_row(found, s.locator, s.storage, root) for found in founds for s in device_sightings(found)]
+
+
+class Genres:
+    def __init__(self, founds):
+        self.tags = {found.entity.id: found.tags[0] for found in founds if found.tags}
+
+    def genre_of(self, row: Row) -> str:
+        return self.tags.get(row.fingerprint) or genre_from_folder(row.folder)
+
+
+def tidy_plan(founds, ctx, root: Path) -> list[Operation]:
+    rows = device_rows(founds, root)
+    findings = [*exact_duplicates(rows), *title_duplicates(rows)]
+    operations = plan(rows, findings, Genres(founds), frozenset(vault_folders(ctx, root)))
+    return [op for op in operations if op.kind in EXECUTABLE]
+
+
+def tidy(founds, ctx) -> list[Change]:
+    root = device_root(ctx)
+    ids = {row.rel_path: row.fingerprint for row in device_rows(founds, root)}
+    return [change for op in tidy_plan(founds, ctx, root) for change in moved(ids[op.src], Step(Action.MOVE, op.src, op.dst), root)]
+
+
+def junk_step(path: Path, root: Path) -> PlanStep:
+    return PlanStep("trash", "", str(path), None, f"{path.name}: not a book")
+
+
+def lint(founds, ctx) -> Plan:
+    root = device_root(ctx)
+    nook = Path(ctx.roots_of(NOOK)[0])
+    return Plan(tuple(junk_step(path, root) for path in iter_junk(root, (nook,))))

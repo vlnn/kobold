@@ -1,6 +1,6 @@
 from hoard.contract import Command, Kind, Storage, Verb, lazy
 
-from kobold.places import DEVICE, NOOK, default_verb, removable
+from kobold.places import DEVICE, NOOK, default_verb, on_device, removable
 from kobold.roots import library_of, nook_of, parent_is_dir, vault_of
 
 ROOT_SETTING = "KOBOLD_ROOT"
@@ -31,7 +31,9 @@ KIND = Kind(
         "to_nook": Verb("To the nook", lazy("kobold.verbs", "to_nook"), UNDO),
         "done": Verb("Finish", lazy("kobold.verbs", "done"), UNDO),
         "remove": Verb("Remove", lazy("kobold.verbs", "remove"), UNDO),
+        "tidy": Verb("Tidy", lazy("kobold.verbs", "tidy"), UNDO),
     },
+    lint=lazy("kobold.verbs", "lint"),
     commands={
         "nook": Command("Open", "open", on=(NOOK,)),
         "done": FINISH,
@@ -40,5 +42,6 @@ KIND = Kind(
         "import": IMPORT,
         "remove": REMOVE,
         "trash": REMOVE,
+        "tidy": Command("Tidy", "tidy", keep=on_device),
     },
 )
