@@ -1,9 +1,9 @@
 [project]
 name = "kobold"
-version = "0.5.0"
-description = "Alfred workflow: search and tidy an ebook library by metadata, with covers and an optional local model"
+version = "0.6.0"
+description = "Alfred workflow on hoard: search and tidy an ebook library across library, vault and nook"
 requires-python = ">=3.9"
-dependencies = ["hoard"]
+dependencies = ["hoard>=1.3.0"]
 
 [dependency-groups]
 dev = ["pytest>=8", "pytest-mock>=3.14", "ruff>=0.8"]
@@ -12,7 +12,7 @@ dev = ["pytest>=8", "pytest-mock>=3.14", "ruff>=0.8"]
 package = false
 
 [tool.uv.sources]
-hoard = { path = "../hoard", editable = true }
+hoard = { git = "https://github.com/vlnn/hoard", tag = "v1.3.0" }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

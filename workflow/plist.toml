@@ -1,6 +1,6 @@
 kind = "kobold"
 name = "Kobold"
-bundleid = "com.anokhin.kobold2"
+bundleid = "com.anokhin.kobold"
 description = "Search and tidy an ebook library: library, vault and nook"
 createdby = "Volodymyr Anokhin"
 
