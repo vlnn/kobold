@@ -139,3 +139,20 @@ def test_each_command_lists_its_books(ctx, command, titles):
 @pytest.mark.parametrize("command, head", [("lib", "Import all 1"), ("done", "Finish all 2"), ("remove", "Remove all 1")])
 def test_each_command_offers_its_batch_row(ctx, command, head):
     assert text.render(api.filter(KIND, command, ctx))[0].startswith(f"» {head}"), f"kb {command} should offer {head}"
+
+
+def test_like_starts_from_the_book_koreader_opened_last(ctx):
+    from kobold.history import last_opened_id
+
+    assert last_opened_id(ctx) == books(ctx)["Dhalgren"].id, "the newest entry in KOReader's history should be the seed"
+
+
+def test_without_a_koreader_history_like_has_no_remembered_seed(ctx, device):
+    from kobold.history import last_opened_id
+
+    (device / ".adds" / "koreader" / "settings" / "history.lua").unlink()
+    assert last_opened_id(ctx) is None, "no history should leave hoard to start from the newest book"
+
+
+def test_the_kind_hands_its_koreader_seed_to_hoard(ctx):
+    assert KIND.last_opened(ctx) == books(ctx)["Dhalgren"].id, "kb like with no words should start from KOReader's last book"

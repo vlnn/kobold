@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from kobold.identity import fingerprint
 from kobold.koreader import settings_dir
 from kobold.paths import nfc
 
@@ -44,3 +45,14 @@ def last_opened(root: Path) -> str | None:
         return None
     file = latest_file(history.read_text(encoding="utf-8"))
     return in_library(file, root) if file else None
+
+
+def device_root(ctx) -> Path | None:
+    nooks = ctx.roots_of("nook")
+    return Path(nooks[0]).parent if nooks else None
+
+
+def last_opened_id(ctx) -> str | None:
+    root = device_root(ctx)
+    rel = last_opened(root) if root is not None and root.is_dir() else None
+    return fingerprint(root / rel) if rel else None
