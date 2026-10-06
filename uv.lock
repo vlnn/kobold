@@ -29,8 +29,8 @@ wheels = [
 
 [[package]]
 name = "hoard"
-version = "1.4.0"
-source = { git = "https://github.com/vlnn/hoard?tag=v1.4.0#32e714b18560b564cf9ae7eb356c50dd213c5efd" }
+version = "1.5.0"
+source = { git = "https://github.com/vlnn/hoard?tag=v1.5.0#b0e5e9566d569d59c65ae8c500862d371eafec5a" }
 
 [[package]]
 name = "iniconfig"
@@ -58,7 +58,7 @@ wheels = [
 
 [[package]]
 name = "kobold"
-version = "0.6.0"
+version = "0.7.0"
 source = { virtual = "." }
 dependencies = [
     { name = "hoard" },
@@ -74,7 +74,7 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "hoard", git = "https://github.com/vlnn/hoard?tag=v1.4.0" }]
+requires-dist = [{ name = "hoard", git = "https://github.com/vlnn/hoard?tag=v1.5.0" }]
 
 [package.metadata.requires-dev]
 dev = [
