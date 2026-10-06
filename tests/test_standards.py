@@ -187,3 +187,35 @@ def test_between_two_genre_folders_the_fuller_one_wins(tmp_path):
     (tmp_path / "01_Fiction/02_SciFi/c.epub").write_bytes(b"")
     found = genres(spelled(("fiction/scifi", 0), ("fiction/sci-fi", 0)), ctx)
     assert found == [Standard("fiction/sci-fi", ("fiction/scifi",), True)], "the folder holding more books should win"
+
+
+def test_an_editor_mark_never_becomes_the_standard():
+    found = authors(spelled(("Dozois, Gardner (ed.)", 9), ("Dozois, Gardner", 1)), NO_DEVICE)
+    assert found == [Standard("Dozois, Gardner", ("Dozois, Gardner (ed.)",), True)], "the plain name should win over the anthologies"
+
+
+@pytest.mark.parametrize(
+    "spellings, expected",
+    [
+        ([("Henry James", 1), ("James Henry", 1)], [Standard("Henry James", ("James Henry",))]),
+        ([("Шевчук Валерій", 1), ("Валерій Шевчук", 2)], [Standard("Валерій Шевчук", ("Шевчук Валерій",), True)]),
+    ],
+)
+def test_reordered_names_apply_only_when_the_surname_is_certain(spellings, expected):
+    assert authors(spelled(*spellings), NO_DEVICE) == expected, "two people with swapped names should not merge silently"
+
+
+@pytest.mark.parametrize(
+    "spellings",
+    [
+        [("-", 1), ("_", 1), ("&", 1), ("and", 1)],
+        [("Fiction/-", 1), ("-", 1), ("Fiction/&", 1)],
+    ],
+)
+def test_genres_without_a_word_stay_apart(spellings):
+    assert genres(spelled(*spellings), NO_DEVICE) == [], "placeholder genres should not be merged into anything"
+
+
+def test_plural_genres_merge_under_the_more_common_spelling():
+    found = genres(spelled(("Comics", 3), ("comic", 1)), NO_DEVICE)
+    assert found == [Standard("Comics", ("comic",), True)], "the spelling with more books should win"

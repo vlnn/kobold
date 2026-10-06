@@ -39,6 +39,10 @@ class Name(NamedTuple):
     def exact(self) -> tuple:
         return (self.script, tuple(sorted(self.tokens)))
 
+    def same_as(self, other: Name) -> bool:
+        surname_certain = self.surname == other.surname or "," in self.spelling + other.spelling
+        return self.exact == other.exact and surname_certain
+
 
 def script_of(text: str) -> str:
     return CYRILLIC if CYRILLIC_LETTER.search(text) else LATIN
@@ -185,6 +189,7 @@ def author_rank(name: Name, folders: frozenset) -> tuple:
         -full,
         -len(name.tokens),
         not well_cased(name.spelling),
+        bool(EDITOR.search(name.spelling)),
         not (name.script == LATIN and marked(name.spelling)),
         author_folder(name.spelling) not in folders,
         "," not in name.spelling,
@@ -194,8 +199,8 @@ def author_rank(name: Name, folders: frozenset) -> tuple:
 
 
 def proposals_for(group: list, standard) -> list:
-    trivial = tuple(member.spelling for member in group if member is not standard and member.exact == standard.exact)
-    other = tuple(member.spelling for member in group if member.exact != standard.exact)
+    trivial = tuple(member.spelling for member in group if member is not standard and member.same_as(standard))
+    other = tuple(member.spelling for member in group if not member.same_as(standard))
     proposals = [Standard(standard.spelling, trivial, True)] if trivial else []
     return proposals + ([Standard(standard.spelling, other)] if other else [])
 
@@ -228,6 +233,9 @@ class Genre(NamedTuple):
     exact: tuple
     loose: tuple
 
+    def same_as(self, other: Genre) -> bool:
+        return self.exact == other.exact
+
 
 def singular(word: str) -> str:
     return word[:-1] if len(word) > 4 and word.endswith("s") and not word.endswith(SINGULAR_ENDINGS) else word
@@ -246,8 +254,10 @@ def loosened(key: tuple) -> tuple:
     return tuple(SYNONYMS.get(segment, segment) for segment in key)
 
 
-def genre_of(spelling: Spelling, weights: Counter) -> Genre:
+def genre_of(spelling: Spelling, weights: Counter) -> Genre | None:
     exact = genre_key(spelling.value)
+    if not all(exact):
+        return None
     return Genre(spelling.value, spelling.count + weights[spelling.value], exact, loosened(exact))
 
 
@@ -284,7 +294,7 @@ def genre_groups(genres: list) -> list:
 
 def genres(spellings: Sequence[Spelling], ctx: Context) -> list:
     weights, folders = folder_books(ctx), frozenset(known_genres(ctx))
-    found = [genre_of(spelling, weights) for spelling in spellings if spelling.value.strip()]
+    found = [genre for genre in (genre_of(spelling, weights) for spelling in spellings) if genre is not None]
     proposals = []
     for group in genre_groups(found):
         standard = min(group, key=lambda genre: genre_rank(genre, folders))
