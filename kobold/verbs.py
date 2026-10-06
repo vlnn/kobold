@@ -5,7 +5,7 @@ import shutil
 from dataclasses import replace
 from pathlib import Path, PurePosixPath
 
-from hoard.contract import Change, Plan
+from hoard.contract import TAGS, Change, Plan
 from hoard.contract import Step as PlanStep
 
 from kobold.apply import EXECUTABLE, Action, Entry, Recorded, Step, prune_empty_dirs, run, undo_entries
@@ -196,17 +196,19 @@ def device_rows(founds, root: Path) -> list[Row]:
 
 
 class Genres:
-    def __init__(self, founds):
+    def __init__(self, founds, ctx):
         self.tags = {found.entity.id: found.tags[0] for found in founds if found.tags}
+        self.ctx = ctx
 
     def genre_of(self, row: Row) -> str:
-        return self.tags.get(row.fingerprint) or genre_from_folder(row.folder)
+        genre = self.tags.get(row.fingerprint) or genre_from_folder(row.folder)
+        return self.ctx.standard(TAGS, genre) if genre else ""
 
 
 def tidy_plan(founds, ctx, root: Path) -> list[Operation]:
     rows = device_rows(founds, root)
     findings = [*exact_duplicates(rows), *title_duplicates(rows)]
-    operations = plan(rows, findings, Genres(founds), frozenset(vault_folders(ctx, root)))
+    operations = plan(rows, findings, Genres(founds, ctx), frozenset(vault_folders(ctx, root)))
     return [op for op in operations if op.kind in EXECUTABLE]
 
 

@@ -25,6 +25,7 @@ kb nook            →  the books you are reading · ↩ opens one
 kb done            →  Finish all 3 · ↩ on one files it into the vault under its genre and author
 kb tidy            →  Tidy all N · every vault book to its genre/author home, weaker formats to _dups
 kb tag             →  books without a genre · ⌘↩ on any book opens the genre picker
+kb std             →  Delany, Samuel R. ← S. R. Delany · one spelling per writer and per genre
 ```
 
 ## Install (three minutes)
@@ -80,6 +81,7 @@ A first word that names a command replaces the search with its list. Words after
 | `kb fix` | junk files on the device | to the trash | Apply N |
 | `kb tag [words]` | books without a genre | the genre picker | Tag all N · Accept N suggested |
 | `kb name [words]` | the model's unsure titles and authors | accept it | Accept N |
+| `kb std [words]` | author and genre spellings that look like one | make it the standard | Accept N |
 | `kb like [words]` | neighbours of the first match, or of the book KOReader opened last | by place, as `kb` | — |
 | `kb rnd` | ten random books | by place, as `kb` | — |
 | `kb stats` | counts per place and when each was last read | — | — |
@@ -131,6 +133,26 @@ Only genres you set are searchable; a folder genre is not, so `kb sci-fi` finds 
 
 A genre you set wins over the folder. The book moves to the new genre's folder on the next `kb tidy`, or on `kb done` when it leaves the nook.
 
+## Walkthrough 4: one name per writer, one name per genre
+
+Libraries spell the same writer several ways: `Samuel R. Delany` in one epub, `Delany, Samuel R.` in another, `S. R. Delany` in a third. Without a fix each of these gets its own author folder, its own file names and its own search results. Genres drift the same way: `02_SciFi` next to `03_Sci-Fi`, a hand tag `sci-fi` next to the folder genre `fiction/sci-fi`. Every `kb update` looks for such spellings and proposes a standard for each group. No model is needed.
+
+```
+kb update                  Delany, Samuel R.  ←  Samuel R. Delany        applied: only order, case or marks differ
+kb std                     Accept 2
+                           Delany, Samuel R.    authors · S. R. Delany · 3 books
+                           fiction/sci-fi       tags · sci-fi · 1 book
+   ↩ on one                Standard: Delany, Samuel R.
+   ⌘↩ on one               pick another spelling as the standard, or Keep apart
+```
+
+- **Applied on update, no question asked:** spellings that differ only in word order, case, punctuation, accents (`Stanislaw` / `Stanisław`), `ё`/`е` or apostrophes. For genres: separators, case, `and`, and plurals (`sci-fi_fantasy` / `Sci-Fi and Fantasy`, `thriller` / `Thrillers`). Each update's fixes are one undoable batch. Undoing it means *no*: those spellings are kept apart from then on.
+- **Waiting in `kb std`:** initials (`S. R. Delany`), a missing middle name or patronymic (`Ursula Le Guin`, `Іванов, Іван`), a bare surname, a genre without its parent (`sci-fi` → `fiction/sci-fi`) and synonyms (`sf`, `science fiction` → `scifi`). **Accept N** takes them all as one undoable batch.
+- **Which spelling becomes the standard:** for writers, the fullest name first, then proper capitalisation, then accents, then an existing author folder, then the `Surname, Given` form, then the most books. For genres, an existing vault folder wins, then the deeper path (`fiction/sci-fi` over `sci-fi`), then the folder or tag with more books.
+- **Never merged:** different people (`Samuel` / `Sarah Delany`), and spellings in different scripts. `Zelazny, Roger` and `Желязни, Роджер` stay two spellings, so each book keeps the name in its own language. An ambiguous short form such as `A. Smith`, when both `Adam Smith` and `Alice Smith` exist, is left alone.
+
+A standard sticks. Books that arrive later with a known variant are indexed under the standard, `kb tidy` and `kb done` file them into the standard author folder under the standard file name, and a copy into the nook is named the same way. Genre variants disappear from the picker and from the model's choices, books tagged with a variant are retagged, and the next `kb tidy` moves books from a variant genre folder into the standard one. Files themselves change only when they are filed or copied, as everywhere else in kobold.
+
 ## Books like this
 
 `kb like` needs no model. On every update kobold works out, for each new book, how it reads: its authors, series, genre, decade and title words, plus its subjects, description and opening text taken as short letter runs, so *корабель* and *корабля* still count as the same word. Books that share more of that come out closer.
@@ -145,7 +167,7 @@ kb like              starts from the book KOReader opened last, else the newest 
 
 It is a likeness of words, not of meaning: same author, same series, same genre and shared vocabulary rank high, while two novels with the same mood in different words do not find each other. A book whose file is not reachable during the update is placed by its title, authors, series, year and genre alone. A genre set later does not move a book until its vector is made again.
 
-## Walkthrough 4: let a local model do the reading
+## Walkthrough 5: let a local model do the reading
 
 Everything above works with no model. If you run [llama.cpp](https://github.com/ggml-org/llama.cpp)'s `llama-server` on the Mac, the workflow can propose answers to the two chores that still need a human per book — a genre for a new book, and a real title and author for a file named `7_815203.epub`. The model never moves a file.
 
@@ -220,7 +242,7 @@ Format support: epub and fb2 are read for metadata and cover; mobi, azw, azw3, p
 
 ## Where things are
 
-Alfred's workflow data folder, `~/Library/Application Support/Alfred/Workflow Data/com.anokhin.kobold`, holds `kobold.sqlite`: the index, your genres, the model's answers and the last 300 exchanges with it, the vectors and the undo journal. It survives workflow updates and cache clears. The cache folder, `~/Library/Caches/com.runningwithcrayons.Alfred/Workflow Data/com.anokhin.kobold`, holds the covers and `worker.log`, where background updates and model passes write what went wrong.
+Alfred's workflow data folder, `~/Library/Application Support/Alfred/Workflow Data/com.anokhin.kobold`, holds `kobold.sqlite`: the index, your genres, the standard spellings, the model's answers and the last 300 exchanges with it, the vectors and the undo journal. It survives workflow updates and cache clears. The cache folder, `~/Library/Caches/com.runningwithcrayons.Alfred/Workflow Data/com.anokhin.kobold`, holds the covers and `worker.log`, where background updates and model passes write what went wrong.
 
 **Upgrading from 0.5:** 0.6 is kobold rebuilt on hoard. **Device root** and **Library folders** carry over; the first `kb update` builds the new index. Not carried over: genres from `catalogue.tsv` (vault books get theirs from their folders again, nook books need one set), the model's answers and vectors, and the model settings, which are now **Chat model server**, **Embeddings server** and their keys. `books.db`, `oracle.tsv`, `oracle.log`, `vectors.db`, `journal.jsonl` and `covers/` in the data folder are no longer read; delete them when you like. Gone for now: `kb catalogue`, `kb classify` (use `kb tag`), the `kbi` keyword (use `kb lib`), searching by folder, path, subject or language, the green nook frame and pdf thumbnails.
 

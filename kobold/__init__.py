@@ -1,4 +1,4 @@
-from hoard.contract import Command, Kind, LocalVectors, Storage, Verb, lazy
+from hoard.contract import TAGS, Command, Kind, LocalVectors, Standardize, Storage, Verb, lazy
 
 from kobold.places import DEVICE, NOOK, default_verb, on_device, removable
 from kobold.roots import library_of, nook_of, parent_is_dir, vault_of
@@ -38,6 +38,10 @@ KIND = Kind(
     last_opened=lazy("kobold.history", "last_opened_id"),
     like=LocalVectors(LIKENESS, lazy("kobold.likeness", "vector")),
     pictured_first=True,
+    standards={
+        "authors": Standardize(lazy("kobold.standards", "authors"), "; "),
+        TAGS: Standardize(lazy("kobold.standards", "genres")),
+    },
     commands={
         "nook": Command("Open", "open", on=(NOOK,)),
         "done": FINISH,
