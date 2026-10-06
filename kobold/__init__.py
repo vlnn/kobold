@@ -35,6 +35,7 @@ KIND = Kind(
     },
     lint=lazy("kobold.verbs", "lint"),
     last_opened=lazy("kobold.history", "last_opened_id"),
+    pictured_first=True,
     commands={
         "nook": Command("Open", "open", on=(NOOK,)),
         "done": FINISH,

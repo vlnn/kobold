@@ -1,3 +1,4 @@
+import os
 import shutil
 
 import pytest
@@ -69,3 +70,27 @@ def test_every_book_is_listed_once(ctx):
 def test_a_search_matches_authors_and_years(ctx):
     assert sorted(line.split(" | ")[0] for line in lines(ctx, "delany")) == ["Dhalgren", "Nova"], "authors are searchable"
     assert [line.split(" | ")[0] for line in lines(ctx, "1969")] == ["Ubik"], "years are searchable"
+
+
+JPEG = b"\xff\xd8\xff\xe0" + b"\x00" * 64
+
+
+@pytest.fixture
+def covers(tmp_path, context_with):
+    device, library = tmp_path / "kobo", tmp_path / "Calibre Library"
+    uncovered = make_epub(device / "Nook" / "Nova.epub", title="Nova", authors=("Samuel R. Delany",), date="1968", chapters=("Nova text.",))
+    covered = make_epub(
+        device / "Nook" / "Ubik.epub", title="Ubik", authors=("Philip K. Dick",), date="1969", chapters=("Ubik text.",), cover=JPEG
+    )
+    os.utime(covered, (1000, 1000))
+    os.utime(uncovered, (2000, 2000))
+    library.mkdir()
+    ctx = api.context(KIND, context_with(KOBOLD_ROOT=str(device), KOBOLD_SOURCES=str(library)))
+    api.update(KIND, ctx)
+    return ctx
+
+
+def test_a_book_with_a_cover_is_listed_before_a_newer_one_without(covers):
+    assert [line.split(" | ")[0] for line in lines(covers)] == ["Ubik", "Nova"], (
+        "kb should list books with a cover first, even above a newer book without one"
+    )
