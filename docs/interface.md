@@ -31,7 +31,7 @@ Every book row reads `title` over `place · authors · series #n · year · FORM
 | `kb nook` | the nook | open | how many books the nook holds (a nudge above 7) |
 | `kb done` / `finish` | the nook | move to its home in the vault | Finish all N · Remove instead (to `_trash/`, only books the library still holds) |
 | `kb lib` / `import`, `kbi` | library books the device lacks | copy into the nook | Import all N |
-| `kb like [words]` | neighbours of the first match (or the book KOReader opened last) | by place, as `kb` | Embed N new books |
+| `kb like [words]` | neighbours of the first match (or the book KOReader opened last) | by place, as `kb` | — |
 | `kb fix` / `tidy` | the plan: moves, junk, duplicates; conflicts; catalogue lines naming no book | apply that one | Fix all N · Undo last batch · Ask the model · reminders |
 | `kb classify [words]` | books without a genre (or any matching the words) | the genre picker | Set genre for all N · Accept N suggested genres · Ask the model |
 | `kb remove` / `trash [words]` | unfinished downloads; with words, matching device books | to `_trash/` | Remove all N |

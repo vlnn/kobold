@@ -1,4 +1,4 @@
-from hoard.contract import Command, Kind, Storage, Verb, lazy
+from hoard.contract import Command, Kind, LocalVectors, Storage, Verb, lazy
 
 from kobold.places import DEVICE, NOOK, default_verb, on_device, removable
 from kobold.roots import library_of, nook_of, parent_is_dir, vault_of
@@ -8,6 +8,7 @@ SOURCES_SETTING = "KOBOLD_SOURCES"
 
 DEVICE_BOOK = lazy("kobold.reading", "read_device_book")
 UNDO = lazy("kobold.verbs", "undo")
+LIKENESS = "kobold-hashed-v1"
 
 IMPORT = Command("Import", "to_nook", off=DEVICE)
 FINISH = Command("Finish", "done", on=(NOOK,))
@@ -35,6 +36,7 @@ KIND = Kind(
     },
     lint=lazy("kobold.verbs", "lint"),
     last_opened=lazy("kobold.history", "last_opened_id"),
+    like=LocalVectors(LIKENESS, lazy("kobold.likeness", "vector")),
     pictured_first=True,
     commands={
         "nook": Command("Open", "open", on=(NOOK,)),

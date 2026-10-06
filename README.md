@@ -58,7 +58,7 @@ These keys mean the same thing on every book row:
 | ⇧↩ | open the book |
 | ⌥↩ | reveal it in Finder |
 | ⌘↩ | set its genre (opens the genre picker) |
-| ⌃↩ | books like it (`kb like`), once an embeddings server is set |
+| ⌃↩ | books like it (`kb like`) |
 | ⌘Y | Quick Look |
 | ⌘C | copy its path |
 | ⌘L | large type |
@@ -80,7 +80,7 @@ A first word that names a command replaces the search with its list. Words after
 | `kb fix` | junk files on the device | to the trash | Apply N |
 | `kb tag [words]` | books without a genre | the genre picker | Tag all N · Accept N suggested |
 | `kb name [words]` | the model's unsure titles and authors | accept it | Accept N |
-| `kb like [words]` | neighbours of the first match, or of the book KOReader opened last | by place, as `kb` | Embed N new |
+| `kb like [words]` | neighbours of the first match, or of the book KOReader opened last | by place, as `kb` | — |
 | `kb rnd` | ten random books | by place, as `kb` | — |
 | `kb stats` | counts per place and when each was last read | — | — |
 | `kb undo` | the last batch | undo it | — |
@@ -131,9 +131,23 @@ Only genres you set are searchable; a folder genre is not, so `kb sci-fi` finds 
 
 A genre you set wins over the folder. The book moves to the new genre's folder on the next `kb tidy`, or on `kb done` when it leaves the nook.
 
+## Books like this
+
+`kb like` needs no model. On every update kobold works out, for each new book, how it reads: its authors, series, genre, decade and title words, plus its subjects, description and opening text taken as short letter runs, so *корабель* and *корабля* still count as the same word. Books that share more of that come out closer.
+
+```
+kb like dhalgren     Like Dhalgren
+                     Nova        91% · library · Samuel R. Delany · 1968 · EPUB 400 KB   ↩ copies it in
+                     Babel-17    88% · vault · …                                          ↩ to the nook
+kb like              starts from the book KOReader opened last, else the newest book
+⌃↩ on any row        the same list for that book
+```
+
+It is a likeness of words, not of meaning: same author, same series, same genre and shared vocabulary rank high, while two novels with the same mood in different words do not find each other. A book whose file is not reachable during the update is placed by its title, authors, series, year and genre alone. A genre set later does not move a book until its vector is made again.
+
 ## Walkthrough 4: let a local model do the reading
 
-Everything above works with no model. If you run [llama.cpp](https://github.com/ggml-org/llama.cpp)'s `llama-server` on the Mac, the workflow can propose answers to the two chores that still need a human per book — a genre for a new book, and a real title and author for a file named `7_815203.epub` — plus one view, *what else do I have like this*. The model never moves a file.
+Everything above works with no model. If you run [llama.cpp](https://github.com/ggml-org/llama.cpp)'s `llama-server` on the Mac, the workflow can propose answers to the two chores that still need a human per book — a genre for a new book, and a real title and author for a file named `7_815203.epub`. The model never moves a file.
 
 Set **Chat model server** in the workflow configuration to the server's URL (`http://127.0.0.1:8080`), then:
 
@@ -148,26 +162,9 @@ A confident answer to the name question (80% or more) corrects the book's title 
 
 What the model sees is the book's title, authors, series and year, its `dc:subject`/`dc:description` (fb2: `genre`/`annotation`) and the first two thousand characters of its text; `ask --dry-run` from a terminal (see *From a terminal*) prints exactly that. Every answer is constrained by a JSON schema and kept until that evidence changes. Setting a genre by hand forgets the model's guess.
 
-Embeddings need a model made for them, served with `--embeddings`; the chat model cannot do it. The usual setup is a second server on its own port, set as **Embeddings server**:
+If the server wants a key — `--api-key`, or `LLAMA_API_KEY` exported in the shell that started it — put it in **Chat server API key**.
 
-```sh
-llama-server --hf-repo Geofront/BGE-M3-GGUF --hf-file BGE-M3-Q8_0.gguf \
-  --embeddings --alias bge-m3 -c 2048 -b 2048 -ub 2048 -ngl 99 --port 8081
-```
-
-Any multilingual embedding model with a GGUF does; the batch sizes matter because an embedding model takes each input in one micro-batch, and the workflow sends up to 1 500 characters. If a server wants a key — `--api-key`, or `LLAMA_API_KEY` exported in the shell that started it — put it in **Chat server API key** or **Embeddings server API key**.
-
-Choose an embeddings model in `kb model`, then ↩ on *Embed N new* in `kb like` embeds every book in the background, and:
-
-```
-kb like dhalgren     Like Dhalgren
-                     Nova        91% · library · Samuel R. Delany · 1968 · EPUB 400 KB   ↩ copies it in
-                     Babel-17    88% · vault · …                                          ↩ to the nook
-kb like              starts from the book KOReader opened last, else the newest book
-⌃↩ on any row        the same list for that book
-```
-
-Turn on **Ask and embed on update** and `kb update` does all of this by itself after reading the places: the name and genre questions for books without an answer, and vectors for books without one. Off by default, so updating stays as fast as it is.
+Turn on **Ask and embed on update** and `kb update` asks the name and genre questions by itself after reading the places, for books without an answer. Off by default, so updating stays as fast as it is. The **Embeddings server** setting is not used: `kb like` makes its own vectors.
 
 Nothing in the UI mentions a model until its server is set; a server that does not answer shows as *Chat server not reachable* in `kb model`.
 
@@ -200,7 +197,6 @@ Choices that matter for this workflow:
 - **An instruct model, not a thinking one.** A thinking model spends its time inside `<think>` and often misses the 60 s limit.
 - **`--jinja`.** Without it the chat template is approximated and the JSON-schema grammar fights the model more than it should.
 - **Context of 8 k or so.** A question carries the book's metadata, subjects, blurb and two thousand characters of text: 3–4 k tokens with Cyrillic text.
-- **Keep the embeddings server separate**, as above: **Chat model server** on one port, **Embeddings server** on the other. Pointing the chat setting at the embeddings server makes every question time out, because that server never produces a chat completion.
 - **Start it as a service** (`brew services start llama.cpp` with the preset in its arguments, or a launchd agent) rather than from a shell, so it is there when Alfred asks and survives a logout. A manually started copy loses the port to a service that is already listening and exits at once — check `lsof -nP -iTCP:8080 -sTCP:LISTEN` when a restart seems to change nothing.
 
 `kb model` reads `/v1/models` of both servers, so it knows what each one *can* serve; whether a model is loaded right now is `curl localhost:8080/health` (router mode: the per-model entry in `/models`), and `ask --dry-run` from a terminal shows what a question would send.
@@ -255,7 +251,7 @@ uv run python -m hoard kobold doctor                Python, SQLite, folders, set
 | *Not reachable: …* | the folder is not there right now: mount the volume, or grant Alfred Removable Volumes access |
 | *Updating the index… · counting files* | the update is listing the files it will read; the count follows |
 | *Asking the model… · N of M asked* | the chat model is answering for every book it has not seen, one at a time; **Ask and embed on update** starts this after each update |
-| *Embedding… · N of M embedded* | new books are going to the embeddings model in batches |
+| *Embedding… · N of M embedded* | an update is working out `kb like` for new books; usually well under a minute |
 | *Finish: nothing to do* | the book has no genre or no author yet: ⌘↩ to give it a genre |
 | *Remove: nothing to do* | `kb remove` keeps the only copy of a book; import it into the library first, or delete by hand |
 | *Chat server not reachable* | start `llama-server`, or fix **Chat model server**; `kb model` shows whether it answers |

@@ -94,3 +94,10 @@ def test_a_book_with_a_cover_is_listed_before_a_newer_one_without(covers):
     assert [line.split(" | ")[0] for line in lines(covers)] == ["Ubik", "Nova"], (
         "kb should list books with a cover first, even above a newer book without one"
     )
+
+
+def test_like_works_without_an_embeddings_server(ctx):
+    rows = [line.split(" | ")[0] for line in lines(ctx, "like dhalgren")]
+    assert rows[0] == "» Like Dhalgren" and rows[1] == "Nova", (
+        "kb like should rank the other Delany first, from vectors kobold computes itself on update"
+    )
