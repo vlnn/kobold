@@ -46,7 +46,7 @@ kb dhalgren              one book
 kb delany                everything by Delany
 kb delany epub           …only the epubs
 kb delany 1975           author + year
-kb                       newest books first
+kb                       newest books first, books without a cover after
 ```
 
 A book that exists in several places is one row, shown at its nearest place: nook, then vault, then library. The subtitle says where it is and where else it is: `vault +library · Samuel R. Delany · 1975 · EPUB 1.2 MB`. The icon is the cover embedded in an epub or fb2. Lists show the first 40 matches, so add a word if what you want isn't there.
@@ -71,7 +71,7 @@ A first word that names a command replaces the search with its list. Words after
 
 | Typed | Lists | ↩ on a book | Head row |
 | --- | --- | --- | --- |
-| `kb <words>` | every place, newest first | by place: to the nook, or open | — |
+| `kb <words>` | every place, books with a cover first, newest first | by place: to the nook, or open | — |
 | `kb nook` | the nook | open | — |
 | `kb done` / `finish` | the nook | file it into the vault | Finish all N |
 | `kb lib` / `import` | library books the device lacks | copy into the nook | Import all N |
