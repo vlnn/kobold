@@ -15,3 +15,9 @@ variable = "KOBOLD_SOURCES"
 label = "Library folders"
 type = "text"
 description = "Where books arrive, separated by ':', e.g. ~/Calibre Library:~/Downloads"
+
+[[configuration]]
+variable = "KOBOLD_GENRES"
+label = "Genres"
+type = "lines"
+description = "One genre per line, as a folder path: fiction/sci-fi, nonfiction/computers. Genre folders already in the vault are added to this list."

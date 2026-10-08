@@ -126,6 +126,8 @@ Every batch, from `kb tidy`, `kb done`, an import, `kb remove` or a genre, is on
 
 Genres are how the vault is laid out: the first two folder levels with their order prefixes stripped (`01_Fiction/02_Sci-Fi_Fantasy/…` → `fiction/sci-fi_fantasy`). A vault book has the genre of its folder until you give it one.
 
+The picker offers the genres found in the vault and the ones listed under **Genres** in the workflow configuration, one per line in the same `fiction/sci-fi` form. A new device has no genre folders yet, so list the genres you want there and `kb tag` and the picker have them from the first book; folders appear as books are filed.
+
 - ⌘↩ on any book row opens the picker: the vault's genres, the model's guess first if there is one. Type to narrow them, or to create a new genre.
 - `kb tag` lists books without a genre you set; **Tag all N** picks one genre for the whole list.
 
