@@ -18,6 +18,10 @@ def is_unfinished(found) -> bool:
     return found.entity.fields[-1].endswith(UNFINISHED)
 
 
+def has_home(found) -> bool:
+    return found.on(NOOK) and bool(found.tags) and bool(found.entity.fields[0])
+
+
 def removable(found) -> bool:
     return on_device(found) and (found.on(LIBRARY) or is_unfinished(found))
 

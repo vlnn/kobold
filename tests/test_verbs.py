@@ -122,11 +122,19 @@ def test_removing_sets_aside_only_books_the_library_still_holds(ctx, device):
     assert (device / "Nook" / "ubik.epub").is_file(), "the only copy of a book stays on the device"
 
 
+def test_finish_lists_and_counts_only_books_with_a_home(ctx):
+    assert text.render(api.filter(KIND, "done", ctx))[0].startswith("» Nothing to finish"), "untagged nook books have no home yet"
+    tag(ctx, "Ubik", "fiction/sci-fi")
+    assert sorted(books(ctx, "done")) == ["Ubik"], "kb done should list only the books it can file"
+    assert text.render(api.filter(KIND, "done", ctx))[0].startswith("» Finish all 1"), "the head row should count what Finish all will move"
+    assert api.act(KIND, "done", ["batch:done"], ctx) == "Finish: Ubik", "Finish all should do what its count promised"
+
+
 @pytest.mark.parametrize(
     "command, titles",
     [
         ("nook", ["Nameless", "Ubik"]),
-        ("done", ["Nameless", "Ubik"]),
+        ("done", []),
         ("lib", ["Nova"]),
         ("import", ["Nova"]),
         ("remove", ["Dhalgren"]),
@@ -136,7 +144,7 @@ def test_each_command_lists_its_books(ctx, command, titles):
     assert sorted(books(ctx, command)) == titles, f"kb {command} should list {titles}"
 
 
-@pytest.mark.parametrize("command, head", [("lib", "Import all 1"), ("done", "Finish all 2"), ("remove", "Remove all 1")])
+@pytest.mark.parametrize("command, head", [("lib", "Import all 1"), ("remove", "Remove all 1")])
 def test_each_command_offers_its_batch_row(ctx, command, head):
     assert text.render(api.filter(KIND, command, ctx))[0].startswith(f"» {head}"), f"kb {command} should offer {head}"
 

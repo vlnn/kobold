@@ -22,7 +22,7 @@ Everything else is search. Type `kb` in Alfred, see the newest books across all 
 kb delany epub     →  Dhalgren   vault · Samuel R. Delany · 1975 · EPUB 1.2 MB   ↩ to the nook
 kb lib heinlein    →  every Heinlein the library has that the device lacks · Import all N copies them
 kb nook            →  the books you are reading · ↩ opens one
-kb done            →  Finish all 3 · ↩ on one files it into the vault under its genre and author
+kb done            →  the nook books with a genre and an author · Finish all 3 · ↩ on one files it into the vault
 kb tidy            →  Tidy all N · every vault book to its genre/author home, weaker formats to _dups
 kb tag             →  books without a genre · ⌘↩ on any book opens the genre picker
 kb std             →  Delany, Samuel R. ← S. R. Delany · one spelling per writer and per genre
@@ -74,7 +74,7 @@ A first word that names a command replaces the search with its list. Words after
 | --- | --- | --- | --- |
 | `kb <words>` | every place, books with a cover first, newest first | by place: to the nook, or open | — |
 | `kb nook` | the nook | open | — |
-| `kb done` / `finish` | the nook | file it into the vault | Finish all N |
+| `kb done` / `finish` | nook books with a genre and an author | file it into the vault | Finish all N |
 | `kb lib` / `import` | library books the device lacks | copy into the nook | Import all N |
 | `kb remove` / `trash` | device books the library still holds, and unfinished downloads | to `_trash/` | Remove all N |
 | `kb tidy` | the device's books | file it home, set duplicates aside | Tidy all N |
@@ -107,7 +107,7 @@ kb done
    ↩ on Dhalgren         Finish: Dhalgren
 ```
 
-and it is in `01_Fiction/02_Sci-Fi/Delany, Samuel R./`. A book without a genre or an author has no home yet, so `kb done` says *Finish: nothing to do* and leaves it in the nook: give it a genre with ⌘↩ first.
+and it is in `01_Fiction/02_Sci-Fi/Delany, Samuel R./`. A book without a genre or an author has no home yet, so `kb done` does not list it and **Finish all N** counts only the books it will move: find it in `kb nook` or `kb tag` and give it a genre with ⌘↩ first.
 
 ## Walkthrough 2: tidy the vault
 
@@ -279,7 +279,7 @@ uv run python -m hoard kobold doctor                Python, SQLite, folders, set
 | *Updating the index… · counting files* | the update is listing the files it will read; the count follows |
 | *Asking the model… · N of M asked* | the chat model is answering for every book it has not seen, one at a time; **Ask and embed on update** starts this after each update |
 | *Embedding… · N of M embedded* | an update is working out `kb like` for new books; usually well under a minute |
-| *Finish: nothing to do* | the book has no genre or no author yet: ⌘↩ to give it a genre |
+| *Nothing to finish*, yet `kb nook` is full | those books have no genre or no author yet: ⌘↩ on them in `kb nook` or `kb tag` to give them a genre |
 | *Remove: nothing to do* | `kb remove` keeps the only copy of a book; import it into the library first, or delete by hand |
 | *Chat server not reachable* | start `llama-server`, or fix **Chat model server**; `kb model` shows whether it answers |
 | an update or a model pass seems to do nothing | read `worker.log` in the cache folder |

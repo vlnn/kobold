@@ -1,6 +1,6 @@
 from hoard.contract import TAGS, Command, Kind, LocalVectors, Standardize, Storage, Verb, lazy
 
-from kobold.places import DEVICE, NOOK, default_verb, on_device, removable, stampable
+from kobold.places import DEVICE, NOOK, default_verb, has_home, on_device, removable, stampable
 from kobold.roots import library_of, nook_of, parent_is_dir, vault_of
 
 ROOT_SETTING = "KOBOLD_ROOT"
@@ -11,7 +11,7 @@ UNDO = lazy("kobold.verbs", "undo")
 LIKENESS = "kobold-hashed-v1"
 
 IMPORT = Command("Import", "to_nook", off=DEVICE)
-FINISH = Command("Finish", "done", on=(NOOK,))
+FINISH = Command("Finish", "done", keep=has_home)
 REMOVE = Command("Remove", "remove", keep=removable)
 
 KIND = Kind(
