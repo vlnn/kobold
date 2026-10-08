@@ -79,6 +79,7 @@ A first word that names a command replaces the search with its list. Words after
 | `kb remove` / `trash` | device books the library still holds, and unfinished downloads | to `_trash/` | Remove all N |
 | `kb tidy` | the device's books | file it home, set duplicates aside | Tidy all N |
 | `kb fix` | junk files on the device | to the trash | Apply N |
+| `kb stamp [words]` | tagged books on the device | write its genre into the file | Stamp all N |
 | `kb tag [words]` | books without a genre | the genre picker | Tag all N · Accept N suggested |
 | `kb name [words]` | the model's unsure titles and authors | accept it | Accept N |
 | `kb std [words]` | author and genre spellings that look like one | make it the standard | Accept N |
@@ -132,6 +133,8 @@ The picker offers the genres found in the vault and the ones listed under **Genr
 - `kb tag` lists books without a genre you set; **Tag all N** picks one genre for the whole list.
 
 Only genres you set are searchable; a folder genre is not, so `kb sci-fi` finds the books you tagged `fiction/sci-fi`.
+
+KOReader's genre menu reads the metadata inside each book, not kobold's tags. `kb stamp` writes the genre you set into the file: `dc:subject` in an epub, `<genre>` in an fb2, replacing whatever the publisher put there. The book's text is untouched, so it stays the same book to kobold, and the batch is undoable. Other formats cannot be written and are left as they are; the library is never written.
 
 A genre you set wins over the folder. The book moves to the new genre's folder on the next `kb tidy`, or on `kb done` when it leaves the nook.
 
