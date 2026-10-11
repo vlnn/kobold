@@ -25,6 +25,7 @@ kb nook            →  the books you are reading · ↩ opens one
 kb done            →  the nook books with a genre and an author · Finish all 3 · ↩ on one files it into the vault
 kb tidy            →  Tidy all N · every vault book to its genre/author home, weaker formats to _dups
 kb tag             →  books without a genre · ⌘↩ on any book opens the genre picker
+kb retag pohl      →  every Pohl with its genre · Retag all N picks one genre for them all
 kb std             →  Delany, Samuel R. ← S. R. Delany · one spelling per writer and per genre
 ```
 
@@ -81,6 +82,7 @@ A first word that names a command replaces the search with its list. Words after
 | `kb fix` | junk files on the device | to the trash | Apply N |
 | `kb stamp [words]` | tagged books on the device | write its genre into the file | Stamp all N |
 | `kb tag [words]` | books without a genre | the genre picker | Tag all N · Accept N suggested |
+| `kb retag <words>` | every matching book, with its genre | the genre picker | Retag all N |
 | `kb name [words]` | the model's unsure titles and authors | accept it | Accept N |
 | `kb std [words]` | author and genre spellings that look like one | make it the standard | Accept N |
 | `kb like [words]` | neighbours of the first match, or of the book KOReader opened last | by place, as `kb` | — |
@@ -131,6 +133,7 @@ The picker offers the genres found in the vault and the ones listed under **Genr
 
 - ⌘↩ on any book row opens the picker: the vault's genres, the model's guess first if there is one. Type to narrow them, or to create a new genre.
 - `kb tag` lists books without a genre you set; **Tag all N** picks one genre for the whole list.
+- `kb retag <words>` lists every book the words match, tagged or not, with its current genre first in the subtitle; **Retag all N** gives them all one genre in a single undoable batch. Tagged the wrong genre to every Pohl? `kb retag pohl`, ↩ on the head row, pick the right one.
 
 Only genres you set are searchable; a folder genre is not, so `kb sci-fi` finds the books you tagged `fiction/sci-fi`.
 
