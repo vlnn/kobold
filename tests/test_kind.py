@@ -44,7 +44,8 @@ def lines(ctx, typed=""):
 
 
 def place_of(line: str) -> str:
-    return line.split(" | ")[1].split(" · ")[0]
+    parts = line.split(" | ")[1].split(" · ")
+    return next(part for part in parts if part.split()[0] in ("nook", "vault", "library"))
 
 
 @pytest.mark.parametrize(

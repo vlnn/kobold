@@ -164,3 +164,22 @@ def test_without_a_koreader_history_like_has_no_remembered_seed(ctx, device):
 
 def test_the_kind_hands_its_koreader_seed_to_hoard(ctx):
     assert KIND.last_opened(ctx) == books(ctx)["Dhalgren"].id, "kb like with no words should start from KOReader's last book"
+
+
+@pytest.mark.parametrize(
+    "title, subtitle",
+    [
+        ("Dhalgren", "fiction/sci-fi · vault +library · Samuel R. Delany · 1975 · "),
+        ("Ubik", "nook · Philip K Dick · 1969 · "),
+        ("Nova", "library · Samuel R. Delany · 1968 · "),
+    ],
+)
+def test_a_row_leads_with_its_genre_then_its_places(ctx, title, subtitle):
+    assert books(ctx)[title].subtitle.startswith(subtitle), "a vault book should show its folder genre first, others none"
+
+
+def test_a_genre_set_by_hand_wins_over_the_folder(ctx):
+    choice = api.filter(KIND, f"tag #{books(ctx)['Dhalgren'].id} fiction/fantasy", ctx).rows[1]
+    api.act(KIND, "set_tag", [choice.id], ctx)
+    assert books(ctx)["Dhalgren"].subtitle.startswith("fiction/fantasy · vault +library · "), "the set genre should lead"
+    assert books(ctx)["Ubik"].subtitle.startswith("nook · "), "an untagged nook book still has no genre to show"

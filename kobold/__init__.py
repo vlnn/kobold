@@ -39,6 +39,7 @@ KIND = Kind(
     last_opened=lazy("kobold.history", "last_opened_id"),
     like=LocalVectors(LIKENESS, lazy("kobold.likeness", "vector")),
     pictured_first=True,
+    subtitle=lazy("kobold.subtitle", "subtitle"),
     standards={
         "authors": Standardize(lazy("kobold.standards", "authors"), "; "),
         TAGS: Standardize(lazy("kobold.standards", "genres")),

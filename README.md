@@ -51,7 +51,7 @@ kb delany 1975           author + year
 kb                       newest books first, books without a cover after
 ```
 
-A book that exists in several places is one row, shown at its nearest place: nook, then vault, then library. The subtitle says where it is and where else it is: `vault +library · Samuel R. Delany · 1975 · EPUB 1.2 MB`. The icon is the cover embedded in an epub or fb2. Lists show the first 40 matches, so add a word if what you want isn't there.
+A book that exists in several places is one row, shown at its nearest place: nook, then vault, then library. The subtitle starts with the book's genre, the one you set or else the one its vault folder gives it, then says where it is and where else it is: `fiction/sci-fi · vault +library · Samuel R. Delany · 1975 · EPUB 1.2 MB`. The icon is the cover embedded in an epub or fb2. Lists show the first 40 matches, so add a word if what you want isn't there.
 
 These keys mean the same thing on every book row:
 
@@ -133,7 +133,7 @@ The picker offers the genres found in the vault and the ones listed under **Genr
 
 - ⌘↩ on any book row opens the picker: the vault's genres, the model's guess first if there is one. Type to narrow them, or to create a new genre.
 - `kb tag` lists books without a genre you set; **Tag all N** picks one genre for the whole list.
-- `kb retag <words>` lists every book the words match, tagged or not, with its current genre first in the subtitle; **Retag all N** gives them all one genre in a single undoable batch. Tagged the wrong genre to every Pohl? `kb retag pohl`, ↩ on the head row, pick the right one.
+- `kb retag <words>` lists every book the words match, tagged or not, **Retag all N** gives them all one genre in a single undoable batch. Tagged the wrong genre to every Pohl? `kb retag pohl`, ↩ on the head row, pick the right one.
 
 Only genres you set are searchable; a folder genre is not, so `kb sci-fi` finds the books you tagged `fiction/sci-fi`.
 
