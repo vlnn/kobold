@@ -192,3 +192,26 @@ def test_what_can_be_stamped(fields, storages, tags, expected, why):
 
     found = Found(Entity("x", "X", fields), tuple(Sighting("x", s, f"/dev/{s}/x", 0.0, 1) for s in storages), tags)
     assert stampable(found) is expected, why
+
+
+UBIK_HOME = "sci-fi/Dick, Philip K/Dick, Philip K - Ubik (1969).epub"
+
+
+def finish(ctx, title) -> str:
+    return api.act(KIND, "done", [books(ctx)[title].id], ctx)
+
+
+def test_finishing_a_book_stamps_its_genre_where_it_is_filed(ctx, device):
+    tag(ctx, "Ubik", "sci-fi")
+    assert finish(ctx, "Ubik") == "Finish: Ubik", "finishing still reads as one action"
+    assert subjects_of(device / UBIK_HOME) == ["sci-fi"], "the filed book should carry its genre inside"
+    assert api.act(KIND, "undo", [], ctx) == "Undid Finish", "one undo takes back the whole batch"
+    assert subjects_of(device / "Nook" / "ubik.epub") == [], "undo should put the book back unstamped"
+
+
+def test_stamping_on_finish_can_be_turned_off(context_with, device):
+    ctx = api.context(KIND, context_with(KOBOLD_ROOT=str(device), KOBOLD_GENRES="sci-fi", KOBOLD_STAMP_ON_DONE="0"))
+    api.update(KIND, ctx)
+    tag(ctx, "Ubik", "sci-fi")
+    finish(ctx, "Ubik")
+    assert subjects_of(device / UBIK_HOME) == [], "with the setting off, finishing only moves the book"

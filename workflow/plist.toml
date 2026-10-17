@@ -21,3 +21,10 @@ variable = "KOBOLD_GENRES"
 label = "Genres"
 type = "lines"
 description = "One genre per line, as a folder path: fiction/sci-fi, nonfiction/computers. Genre folders already in the vault are added to this list."
+
+[[configuration]]
+variable = "KOBOLD_STAMP_ON_DONE"
+label = "Stamp the genre on finish"
+type = "checkbox"
+default = true
+description = "When kb done files a book, write its genre into the epub or fb2 so KOReader's genre menu sees it. Undo takes it out again."

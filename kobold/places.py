@@ -14,6 +14,10 @@ def on_device(found) -> bool:
     return any(found.on(place) for place in DEVICE)
 
 
+def device_sightings(found) -> list:
+    return [s for s in found.sightings if s.storage in DEVICE and s.reachable and s.locator]
+
+
 def is_unfinished(found) -> bool:
     return found.entity.fields[-1].endswith(UNFINISHED)
 

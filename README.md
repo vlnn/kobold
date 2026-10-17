@@ -80,7 +80,7 @@ A first word that names a command replaces the search with its list. Words after
 | `kb remove` / `trash` | device books the library still holds, and unfinished downloads | to `_trash/` | Remove all N |
 | `kb tidy` | the device's books | file it home, set duplicates aside | Tidy all N |
 | `kb fix` | junk files on the device | to the trash | Apply N |
-| `kb stamp [words]` | tagged books on the device | write its genre into the file | Stamp all N |
+| `kb stamp [words]` | tagged books on the device whose file lacks their genre | write its genre into the file | Stamp all N |
 | `kb tag [words]` | books without a genre | the genre picker | Tag all N · Accept N suggested |
 | `kb retag <words>` | every matching book, with its genre | the genre picker | Retag all N |
 | `kb name [words]` | the model's unsure titles and authors | accept it | Accept N |
@@ -137,7 +137,7 @@ The picker offers the genres found in the vault and the ones listed under **Genr
 
 Only genres you set are searchable; a folder genre is not, so `kb sci-fi` finds the books you tagged `fiction/sci-fi`.
 
-KOReader's genre menu reads the metadata inside each book, not kobold's tags. `kb stamp` writes the genre you set into the file: `dc:subject` in an epub, `<genre>` in an fb2, replacing whatever the publisher put there. The book's text is untouched, so it stays the same book to kobold, and the batch is undoable. Other formats cannot be written and are left as they are; the library is never written.
+KOReader's genre menu reads the metadata inside each book, not kobold's tags, so `kb done` writes the genre into the file as it files the book: `dc:subject` in an epub, `<genre>` in an fb2, replacing whatever the publisher put there. **Stamp the genre on finish** in the workflow configuration turns this off. `kb stamp` does the same for books already on the device. The book's text is untouched, so it stays the same book to kobold, and the batch is undoable. Other formats cannot be written and are left as they are; the library is never written.
 
 A genre you set wins over the folder. The book moves to the new genre's folder on the next `kb tidy`, or on `kb done` when it leaves the nook.
 

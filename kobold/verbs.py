@@ -6,7 +6,7 @@ from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path, PurePosixPath
 
-from hoard.contract import Change, Plan
+from hoard.contract import TAGS, Change, Plan
 from hoard.contract import Step as PlanStep
 
 from kobold.apply import EXECUTABLE, Action, Entry, Recorded, Step, prune_empty_dirs, run, undo_entries
@@ -14,18 +14,15 @@ from kobold.genres import genre_of
 from kobold.lint import exact_duplicates, title_duplicates
 from kobold.model import Operation, Row
 from kobold.naming import canonical_name, destination, known_authors, shelves
-from kobold.paths import SIDECAR_SUFFIX, nfc
-from kobold.places import DEVICE, LIBRARY, NOOK, VAULT, is_unfinished, on_device
+from kobold.paths import SIDECAR_SUFFIX, nfc, relative_path
+from kobold.places import DEVICE, LIBRARY, NOOK, VAULT, device_sightings, is_unfinished, on_device, stampable
 from kobold.plan import TRASH, plan
 from kobold.roots import device_root
 from kobold.scan import PARTIAL_SUFFIX, book_format, iter_junk
 from kobold.shelf import normalize_title
+from kobold.stamp import SUBJECTS, stamp_one, unstamp, wanted_on_done
 
 COPY = "copy"
-
-
-def relative(path: str, root: Path) -> str:
-    return nfc(Path(path).relative_to(root).as_posix())
 
 
 def reachable(found, place: str) -> str | None:
@@ -65,7 +62,7 @@ def vault_walk(ctx):
 
 
 def vault_folders(ctx, root: Path) -> set[str]:
-    return {relative(folder, root) for folder, _ in vault_walk(ctx)}
+    return {relative_path(Path(folder), root) for folder, _ in vault_walk(ctx)}
 
 
 def vault_names(ctx) -> list[str]:
@@ -92,7 +89,7 @@ def copied(entity_id: str, source: str, target: str, root: Path) -> list[Change]
 
 
 def nook_target(found, locator: str, ctx, root: Path, authors: frozenset) -> str:
-    return f"{relative(ctx.roots_of(NOOK)[0], root)}/{canonical_name(row_of(found, locator), authors)}"
+    return f"{relative_path(Path(ctx.roots_of(NOOK)[0]), root)}/{canonical_name(row_of(found, locator), authors)}"
 
 
 def bring(found, ctx, root: Path, authors: frozenset) -> list[Change]:
@@ -100,7 +97,7 @@ def bring(found, ctx, root: Path, authors: frozenset) -> list[Change]:
         return []
     if vault := reachable(found, VAULT):
         target = nook_target(found, vault, ctx, root, authors)
-        return moved(found.entity.id, Step(Action.MOVE, relative(vault, root), target), root)
+        return moved(found.entity.id, Step(Action.MOVE, relative_path(Path(vault), root), target), root)
     if library := reachable(found, LIBRARY):
         return copied(found.entity.id, library, nook_target(found, library, ctx, root, authors), root)
     return []
@@ -120,10 +117,19 @@ def home_of(found, nook: str, layout, names: list[str]) -> str:
     return destination(row, genre, layout, series_count(row, names))
 
 
+def filed(found, home: str, ctx, root: Path) -> list[Change]:
+    if not (wanted_on_done(ctx) and stampable(found)):
+        return []
+    return stamp_one(found, str(root / home), ctx.standard(TAGS, found.tags[0]), root)
+
+
 def finish(found, ctx, root: Path, layout, names: list[str]) -> list[Change]:
     nook = reachable(found, NOOK)
     home = home_of(found, nook, layout, names) if nook else ""
-    return moved(found.entity.id, Step(Action.MOVE, relative(nook, root), home), root) if home else []
+    if not home:
+        return []
+    changes = moved(found.entity.id, Step(Action.MOVE, relative_path(Path(nook), root), home), root)
+    return changes + filed(found, home, ctx, root) if changes else changes
 
 
 def done(founds, ctx) -> list[Change]:
@@ -136,7 +142,7 @@ def set_aside(found, root: Path) -> list[Change]:
     if not (found.on(LIBRARY) or is_unfinished(found)):
         return []
     copies = [locator for place in DEVICE if (locator := reachable(found, place))]
-    steps = [Step(Action.MOVE, relative(locator, root), f"{TRASH}/{relative(locator, root)}") for locator in copies]
+    steps = [Step(Action.MOVE, relative_path(Path(locator), root), f"{TRASH}/{relative_path(Path(locator), root)}") for locator in copies]
     return [change for step in steps for change in moved(found.entity.id, step, root)]
 
 
@@ -161,12 +167,14 @@ def undo(changes, ctx) -> None:
     for change in reversed(list(changes)):
         if change.kind_of_change == COPY:
             uncopy(change, root)
+        elif change.kind_of_change == SUBJECTS:
+            unstamp(change, root)
         else:
             undo_entries([entry_of(change)], root)
 
 
 def placed_row(found, locator: str, place: str, root: Path) -> Row:
-    rel = relative(locator, root)
+    rel = relative_path(Path(locator), root)
     return replace(
         row_of(found, locator),
         rel_path=rel,
@@ -175,10 +183,6 @@ def placed_row(found, locator: str, place: str, root: Path) -> Row:
         size=os.stat(locator).st_size,
         norm_title=normalize_title(found.entity.title),
     )
-
-
-def device_sightings(found):
-    return [s for s in found.sightings if s.storage in DEVICE and s.reachable and s.locator]
 
 
 def device_rows(founds, root: Path) -> list[Row]:

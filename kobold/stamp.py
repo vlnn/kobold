@@ -11,10 +11,10 @@ from xml.sax.saxutils import escape
 from hoard.contract import TAGS, Change
 
 from kobold.metadata import NS, opf_path, read_book
-from kobold.places import stampable
+from kobold.paths import relative_path
+from kobold.places import device_sightings, stampable
 from kobold.roots import device_root
 from kobold.scan import book_format
-from kobold.verbs import device_sightings, relative
 
 SUBJECTS = "subjects"
 DECLARED_ENCODING = re.compile(rb"""^<\?xml[^>]*encoding=["']([\w.-]+)["']""", re.I)
@@ -135,11 +135,19 @@ def write_subjects(path: Path, subjects: Sequence[str]) -> list[str]:
     return before
 
 
+STAMP_ON_DONE = "KOBOLD_STAMP_ON_DONE"
+ON = {"1", "true", "yes", "on"}
+
+
+def wanted_on_done(ctx) -> bool:
+    return ctx.setting(STAMP_ON_DONE, "1").strip().lower() in ON
+
+
 def stamp_one(found, locator: str, genre: str, root: Path) -> list[Change]:
     before = write_subjects(Path(locator), [genre])
     if before == [genre]:
         return []
-    return [Change(found.entity.id, SUBJECTS, [relative(locator, root), before], [relative(locator, root), [genre]])]
+    return [Change(found.entity.id, SUBJECTS, [relative_path(Path(locator), root), before], [relative_path(Path(locator), root), [genre]])]
 
 
 def stamp(founds, ctx) -> list[Change]:
@@ -153,9 +161,13 @@ def stamp(founds, ctx) -> list[Change]:
     ]
 
 
+def unstamp(change: Change, root: Path) -> None:
+    rel_path, before = change.before
+    if (path := root / rel_path).is_file():
+        write_subjects(path, list(before))
+
+
 def undo(changes, ctx) -> None:
     root = Path(device_root(ctx))
     for change in reversed(list(changes)):
-        rel_path, before = change.before
-        if (path := root / rel_path).is_file():
-            write_subjects(path, list(before))
+        unstamp(change, root)
