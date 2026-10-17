@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import os
 
+from hoard.contract import TAGS
+
 from kobold.folders import genre_from_folder, is_author_folder
 
 GENRES_SETTING = "KOBOLD_GENRES"
@@ -31,3 +33,8 @@ def folder_genres(ctx) -> list:
 
 def known_genres(ctx) -> list:
     return sorted({*configured_genres(ctx), *folder_genres(ctx)})
+
+
+def genre_of(ctx, tag: str, folder: str) -> str:
+    genre = tag or genre_from_folder(folder)
+    return ctx.standard(TAGS, genre) if genre else ""

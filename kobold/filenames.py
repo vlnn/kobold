@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+from kobold.folders import STOPWORDS
+
 NOISE = [
     re.compile(r"\s*-\s*libgen(?:[._]li)?(?:_\d+)?$", re.I),
     re.compile(r"\s+libgen(?:[._]li)?$", re.I),
@@ -29,7 +31,6 @@ ANNA_YEAR = re.compile(r"\b(?P<year>\d{4})\b")
 PAREN_SERIES_TAIL = re.compile(r"\s*\((?P<series>[^()#]+?),?\s*#(?P<index>\d+(?:-\d+)?)\)\s*$")
 INITIAL = re.compile(r"^[A-ZА-ЯІЇЄҐ]\.?$")
 YEAR_SUFFIX = re.compile(r"\s-\s(?P<year>\d{4})$")
-STOPWORDS = {"of", "the", "a", "an", "and", "in", "on", "to", "for", "it", "is", "at", "with", "from"}
 WORD_BREAK = re.compile(r"[\s_\-]+")
 
 

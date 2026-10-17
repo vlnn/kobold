@@ -3,7 +3,7 @@ import os
 import pytest
 from hoard.contract import Context
 
-from kobold.roots import device_of, library_of, nook_of, vault_of
+from kobold.roots import device_of, device_root, library_of, nook_of, vault_of
 
 
 def context(**config) -> Context:
@@ -71,3 +71,12 @@ def test_the_device_root_expands_the_home_folder():
 @pytest.mark.parametrize("roots", [nook_of("KOBOLD_ROOT"), vault_of("KOBOLD_ROOT"), library_of("KOBOLD_SOURCES")])
 def test_every_storage_names_its_setting_for_hoards_setup_rows(roots):
     assert roots.setting in ("KOBOLD_ROOT", "KOBOLD_SOURCES"), "hoard reads .setting to say what to configure"
+
+
+def test_the_device_root_is_the_folder_holding_the_nook(device):
+    with_nook = context()._replace(roots={"nook": (str(device / "00_Nook"),)})
+    assert device_root(with_nook) == str(device), "the device is whatever folder the kernel found the nook in"
+
+
+def test_without_a_nook_root_there_is_no_device():
+    assert device_root(context()) == "", "no nook root means no device"

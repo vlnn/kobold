@@ -3,14 +3,21 @@ from __future__ import annotations
 import os
 from typing import NamedTuple
 
-from kobold.folders import is_nook, is_vault_folder
+from kobold.folders import NOOK, is_nook, is_vault_folder
 
+ROOT_SETTING = "KOBOLD_ROOT"
+SOURCES_SETTING = "KOBOLD_SOURCES"
 NEW_NOOK = "Nook"
 
 
 def device_of(ctx, setting: str) -> str:
     value = ctx.setting(setting).strip()
     return os.path.expanduser(value) if value else ""
+
+
+def device_root(ctx) -> str:
+    nooks = ctx.roots_of(NOOK)
+    return os.path.dirname(nooks[0]) if nooks else ""
 
 
 def top_folders(device: str) -> list:

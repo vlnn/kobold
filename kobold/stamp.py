@@ -12,8 +12,9 @@ from hoard.contract import TAGS, Change
 
 from kobold.metadata import NS, opf_path, read_book
 from kobold.places import stampable
+from kobold.roots import device_root
 from kobold.scan import book_format
-from kobold.verbs import device_root, device_sightings, relative
+from kobold.verbs import device_sightings, relative
 
 SUBJECTS = "subjects"
 DECLARED_ENCODING = re.compile(rb"""^<\?xml[^>]*encoding=["']([\w.-]+)["']""", re.I)
@@ -142,7 +143,7 @@ def stamp_one(found, locator: str, genre: str, root: Path) -> list[Change]:
 
 
 def stamp(founds, ctx) -> list[Change]:
-    root = device_root(ctx)
+    root = Path(device_root(ctx))
     return [
         change
         for found in founds
@@ -153,7 +154,7 @@ def stamp(founds, ctx) -> list[Change]:
 
 
 def undo(changes, ctx) -> None:
-    root = device_root(ctx)
+    root = Path(device_root(ctx))
     for change in reversed(list(changes)):
         rel_path, before = change.before
         if (path := root / rel_path).is_file():

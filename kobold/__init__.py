@@ -1,10 +1,7 @@
 from hoard.contract import TAGS, Command, Kind, LocalVectors, Standardize, Storage, Verb, lazy
 
 from kobold.places import DEVICE, NOOK, default_verb, has_home, on_device, removable, stampable
-from kobold.roots import library_of, nook_of, parent_is_dir, vault_of
-
-ROOT_SETTING = "KOBOLD_ROOT"
-SOURCES_SETTING = "KOBOLD_SOURCES"
+from kobold.roots import ROOT_SETTING, SOURCES_SETTING, library_of, nook_of, parent_is_dir, vault_of
 
 DEVICE_BOOK = lazy("kobold.reading", "read_device_book")
 UNDO = lazy("kobold.verbs", "undo")

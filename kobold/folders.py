@@ -1,15 +1,13 @@
 from __future__ import annotations
 
 import re
-from pathlib import Path
-
-from kobold.filenames import STOPWORDS
 
 ORDER_PREFIX = re.compile(r"^\d+_")
 NOOK = "nook"
 SET_ASIDE = {"_trash", "_dups"}
 GENRE_DEPTH = 2
 UNCLASSIFIED_FOLDERS = {NOOK, "inbox", "archives", "system_files", "_inbox", "_dups", "_trash", "_broken"}
+STOPWORDS = {"of", "the", "a", "an", "and", "in", "on", "to", "for", "it", "is", "at", "with", "from"}
 
 
 def folder_slug(name: str) -> str:
@@ -43,7 +41,7 @@ def genre_segments(parts: list[str]) -> list[str]:
 
 
 def genre_from_folder(folder: str) -> str:
-    parts = [p for p in Path(folder).parts if p not in (".", "")]
+    parts = [p for p in folder.split("/") if p not in (".", "")]
     if not parts or folder_slug(parts[0]) in UNCLASSIFIED_FOLDERS:
         return ""
     return "/".join(genre_segments(parts))

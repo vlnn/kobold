@@ -6,25 +6,22 @@ from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path, PurePosixPath
 
-from hoard.contract import TAGS, Change, Plan
+from hoard.contract import Change, Plan
 from hoard.contract import Step as PlanStep
 
 from kobold.apply import EXECUTABLE, Action, Entry, Recorded, Step, prune_empty_dirs, run, undo_entries
-from kobold.folders import genre_from_folder
+from kobold.genres import genre_of
 from kobold.lint import exact_duplicates, title_duplicates
 from kobold.model import Operation, Row
 from kobold.naming import canonical_name, destination, known_authors, shelves
 from kobold.paths import SIDECAR_SUFFIX, nfc
 from kobold.places import DEVICE, LIBRARY, NOOK, VAULT, is_unfinished, on_device
 from kobold.plan import TRASH, plan
+from kobold.roots import device_root
 from kobold.scan import PARTIAL_SUFFIX, book_format, iter_junk
 from kobold.shelf import normalize_title
 
 COPY = "copy"
-
-
-def device_root(ctx) -> Path:
-    return Path(ctx.roots_of(NOOK)[0]).parent
 
 
 def relative(path: str, root: Path) -> str:
@@ -110,7 +107,7 @@ def bring(found, ctx, root: Path, authors: frozenset) -> list[Change]:
 
 
 def to_nook(founds, ctx) -> list[Change]:
-    root = device_root(ctx)
+    root = Path(device_root(ctx))
     authors = frozenset(known_authors(vault_folders(ctx, root)))
     return [change for found in founds for change in bring(found, ctx, root, authors)]
 
@@ -130,7 +127,7 @@ def finish(found, ctx, root: Path, layout, names: list[str]) -> list[Change]:
 
 
 def done(founds, ctx) -> list[Change]:
-    root = device_root(ctx)
+    root = Path(device_root(ctx))
     layout, names = shelves(vault_folders(ctx, root)), vault_names(ctx)
     return [change for found in founds for change in finish(found, ctx, root, layout, names)]
 
@@ -144,7 +141,7 @@ def set_aside(found, root: Path) -> list[Change]:
 
 
 def remove(founds, ctx) -> list[Change]:
-    root = device_root(ctx)
+    root = Path(device_root(ctx))
     return [change for found in founds if on_device(found) for change in set_aside(found, root)]
 
 
@@ -160,7 +157,7 @@ def entry_of(change: Change) -> Entry:
 
 
 def undo(changes, ctx) -> None:
-    root = device_root(ctx)
+    root = Path(device_root(ctx))
     for change in reversed(list(changes)):
         if change.kind_of_change == COPY:
             uncopy(change, root)
@@ -190,12 +187,7 @@ def device_rows(founds, root: Path) -> list[Row]:
 
 def genre_reader(founds, ctx) -> Callable[[Row], str]:
     tags = {found.entity.id: found.tags[0] for found in founds if found.tags}
-
-    def genre_of(row: Row) -> str:
-        genre = tags.get(row.fingerprint) or genre_from_folder(row.folder)
-        return ctx.standard(TAGS, genre) if genre else ""
-
-    return genre_of
+    return lambda row: genre_of(ctx, tags.get(row.fingerprint, ""), row.folder)
 
 
 def tidy_plan(founds, ctx, root: Path) -> list[Operation]:
@@ -206,7 +198,7 @@ def tidy_plan(founds, ctx, root: Path) -> list[Operation]:
 
 
 def tidy(founds, ctx) -> list[Change]:
-    root = device_root(ctx)
+    root = Path(device_root(ctx))
     ids = {row.rel_path: row.fingerprint for row in device_rows(founds, root)}
     return [change for op in tidy_plan(founds, ctx, root) for change in moved(ids[op.src], Step(Action.MOVE, op.src, op.dst), root)]
 
@@ -216,6 +208,6 @@ def junk_step(path: Path, root: Path) -> PlanStep:
 
 
 def lint(founds, ctx) -> Plan:
-    root = device_root(ctx)
+    root = Path(device_root(ctx))
     nook = Path(ctx.roots_of(NOOK)[0])
     return Plan(tuple(junk_step(path, root) for path in iter_junk(root, (nook,))))

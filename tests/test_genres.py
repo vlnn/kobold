@@ -1,7 +1,7 @@
 import pytest
 from hoard.contract import Context
 
-from kobold.genres import known_genres
+from kobold.genres import genre_of, known_genres
 from kobold.roots import vault_of
 
 
@@ -59,3 +59,24 @@ def test_configured_genres_survive_an_unplugged_device(tmp_path):
     assert known_genres(context_with(tmp_path / "unplugged", "poetry")) == ["poetry"], (
         "the configured list should be there whether or not the device is"
     )
+
+
+@pytest.mark.parametrize(
+    "tag, folder, standards, expected, why",
+    [
+        ("fiction/sci-fi", "02_NonFiction", {}, "fiction/sci-fi", "a genre you set wins over the folder"),
+        ("", "01_Fiction/02_Sci-Fi/Delany, Samuel R.", {}, "fiction/sci-fi", "without a tag the folder gives the genre"),
+        ("", "00_Nook", {}, "", "a nook book has no folder genre"),
+        ("sci-fi", "00_Nook", {"sci-fi": "fiction/sci-fi"}, "fiction/sci-fi", "a tag is spelled the standard way"),
+        (
+            "",
+            "01_Fiction/02_SciFi",
+            {"fiction/scifi": "fiction/sci-fi"},
+            "fiction/sci-fi",
+            "a folder genre is spelled the standard way too",
+        ),
+    ],
+)
+def test_genre_of_prefers_the_tag_then_the_folder_then_standardizes(tag, folder, standards, expected, why):
+    ctx = Context(data="", cache="", standards={"tags": standards})
+    assert genre_of(ctx, tag, folder) == expected, why
