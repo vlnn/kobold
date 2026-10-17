@@ -118,7 +118,9 @@ def test_a_book_without_a_genre_or_an_author_stays_in_the_nook(ctx, device, titl
 
 def test_removing_sets_aside_only_books_the_library_still_holds(ctx, device):
     assert act(ctx, "remove", "Dhalgren", "Ubik") == "Remove: Dhalgren", "only the book with a library copy should go"
-    assert (device / "_trash" / "01_Fiction" / "02_Sci-Fi" / "dhalgren.epub").is_file(), "it goes to _trash, mirroring its path"
+    assert (device / ".hoard-trash" / "01_Fiction" / "02_Sci-Fi" / "dhalgren.epub").is_file(), (
+        "it goes to the hidden trash, mirroring its path"
+    )
     assert (device / "Nook" / "ubik.epub").is_file(), "the only copy of a book stays on the device"
 
 

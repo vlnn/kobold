@@ -13,7 +13,6 @@ from kobold.places import NOOK
 from kobold.shelf import series_key
 
 FORMAT_RANK = ("epub", "fb2", "mobi", "azw3", "azw", "pdf", "djvu")
-TRASH = "_trash"
 DUPS = "_dups"
 EXECUTABLE = {"move", "trash", "dups"}
 GenreOf = Callable[[Row], str]
@@ -40,8 +39,8 @@ def prefer(rows: list[Row]) -> Row:
     return min(enumerate(rows), key=preference)[1]
 
 
-def aside(kind: str, folder: str, row: Row, reason: str) -> Operation:
-    return Operation(kind, row.rel_path, f"{folder}/{row.rel_path}", reason)
+def aside(kind: str, row: Row, reason: str) -> Operation:
+    return Operation(kind, row.rel_path, "", reason)
 
 
 def losers(finding: Finding, by_path: dict[str, Row]) -> list[Row]:
@@ -54,9 +53,9 @@ def set_aside_duplicates(findings: list[Finding], by_path: dict[str, Row]) -> li
     ops = []
     for finding in findings:
         if finding.rule == "exact_duplicate":
-            ops += [aside("trash", TRASH, r, "identical copy") for r in losers(finding, by_path)]
+            ops += [aside("trash", r, "identical copy") for r in losers(finding, by_path)]
         if finding.rule == "title_duplicate":
-            ops += [aside("dups", DUPS, r, finding.detail) for r in losers(finding, by_path)]
+            ops += [aside("dups", r, finding.detail) for r in losers(finding, by_path)]
     return ops
 
 

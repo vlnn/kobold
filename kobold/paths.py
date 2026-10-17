@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import unicodedata
 from pathlib import Path
 
@@ -11,7 +12,7 @@ def nfc(text: str) -> str:
 
 
 def relative_path(path: Path, root: Path) -> str:
-    return nfc(path.relative_to(root).as_posix())
+    return nfc(os.path.relpath(path, root).replace(os.sep, "/"))
 
 
 def is_empty_dir(path: Path) -> bool:
@@ -20,7 +21,3 @@ def is_empty_dir(path: Path) -> bool:
 
 def sidecar_of(book: Path) -> Path:
     return book.with_name(book.stem + SIDECAR_SUFFIX)
-
-
-def in_sidecar(path: Path, root: Path) -> bool:
-    return any(part.endswith(SIDECAR_SUFFIX) for part in path.relative_to(root).parts)

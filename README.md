@@ -23,7 +23,7 @@ kb delany epub     →  Dhalgren   vault · Samuel R. Delany · 1975 · EPUB 1.2
 kb lib heinlein    →  every Heinlein the library has that the device lacks · Import all N copies them
 kb nook            →  the books you are reading · ↩ opens one
 kb done            →  the nook books with a genre and an author · Finish all 3 · ↩ on one files it into the vault
-kb tidy            →  Tidy all N · every vault book to its genre/author home, weaker formats to _dups
+kb fix             →  Apply N · every vault book to its genre/author home, weaker formats and junk to the trash
 kb tag             →  books without a genre · ⌘↩ on any book opens the genre picker
 kb retag pohl      →  every Pohl with its genre · Retag all N picks one genre for them all
 kb std             →  Delany, Samuel R. ← S. R. Delany · one spelling per writer and per genre
@@ -77,9 +77,8 @@ A first word that names a command replaces the search with its list. Words after
 | `kb nook` | the nook | open | — |
 | `kb done` / `finish` | nook books with a genre and an author | file it into the vault | Finish all N |
 | `kb lib` / `import` | library books the device lacks | copy into the nook | Import all N |
-| `kb remove` / `trash` | device books the library still holds, and unfinished downloads | to `_trash/` | Remove all N |
-| `kb tidy` | the device's books | file it home, set duplicates aside | Tidy all N |
-| `kb fix` | junk files on the device | to the trash | Apply N |
+| `kb remove` / `trash` | device books the library still holds, and unfinished downloads | to the trash | Remove all N |
+| `kb fix [words]` | what tidying the device would do, one step per row | that step alone | Apply N · Empty the trash |
 | `kb stamp [words]` | tagged books on the device whose file lacks their genre | write its genre into the file | Stamp all N |
 | `kb tag [words]` | books without a genre | the genre picker | Tag all N · Accept N suggested |
 | `kb retag <words>` | every matching book, with its genre | the genre picker | Retag all N |
@@ -92,7 +91,7 @@ A first word that names a command replaces the search with its list. Words after
 | `kb update` | — | read every place again, in the background | — |
 | `kb model` | what each model server serves | use that model | — |
 
-`kb remove` only sets aside books the library still holds, and unfinished downloads; the only copy of a book stays on the device. Nothing is ever deleted: `_trash/` is a folder you empty yourself.
+`kb remove` only sets aside books the library still holds, and unfinished downloads; the only copy of a book stays on the device. Nothing is deleted until you say so: the trash is a hidden `.hoard-trash/` folder at the device root, which the Kobo and KOReader never list, and **Empty the trash** under `kb fix` is the one action that cannot be undone.
 
 ## Walkthrough 1: read a book
 
@@ -113,17 +112,17 @@ and it is in `01_Fiction/02_Sci-Fi/Delany, Samuel R./`. A book without a genre o
 
 ## Walkthrough 2: tidy the vault
 
-`kb tidy` lists the books on the device under **Tidy all N**. ↩ on that row:
+`kb fix` lists what tidying the device would do, one row per step with its reason — `Delany, Samuel R - Dhalgren (1975).epub · relocate + rename · from dhalgren.epub` — under **Apply N**. ↩ on that row runs them all; ↩ on one row runs that step alone; words after `fix` narrow the list to matching books. The steps:
 
-- moves every vault book with a genre and an author to its home, `genre / Author / Series / canonical name`. The nook is never touched: books there are being read;
-- keeps the best copy of a title (the nook copy, then complete, in a genre folder, epub > fb2 > mobi > azw3 > azw > pdf > djvu, newest, largest) and moves the rest to `_dups/`, mirroring their path;
-- moves identical copies to `_trash/`.
+- every vault book with a genre and an author moves to its home, `genre / Author / Series / canonical name`. The nook is never touched: books there are being read;
+- of several copies of a title the best stays (the nook copy, then complete, in a genre folder, epub > fb2 > mobi > azw3 > azw > pdf > djvu, newest, largest) and the rest go to `_dups/` inside the trash, mirroring their path;
+- identical copies and files that are not books (`FSCK*`, `.zip`, `.txt`, empty folders) go to the trash, mirroring their path.
 
-↩ on one book does the same for that book alone. `kb fix` is the other half: files that are not books (`FSCK*`, `.zip`, `.txt`, empty folders) go to a hidden `.hoard-trash/` inside their top-level folder.
+The trash is `.hoard-trash/` at the device root: hidden, so the Kobo and KOReader stop listing what went there at once, and still on the card, so `kb undo` brings it back. When nothing is left to fix, `kb fix` shows **Empty the trash** with what it holds; that is the only step that cannot be undone. In Finder, ⌘⇧. shows hidden folders if you would rather look first. `uv run python -m hoard kobold plan` prints the steps from a terminal without moving anything.
 
 "Identical" and "already on the device" mean the same text: for epubs the fingerprint is a hash of the book's text files only, so two copies with different covers or metadata still count as one book. Other formats are hashed whole.
 
-Every batch, from `kb tidy`, `kb done`, an import, `kb remove` or a genre, is one entry in the journal, and `kb undo` reverses the most recent one; undoing an import deletes the copy, the library still has the book. When a move finds a byte-identical file already at the destination, the redundant source is removed instead of moved; undo restores it from the kept copy. Folders left empty are pruned, and case-only and accent-only renames happen in place.
+Every batch, from `kb fix`, `kb done`, an import, `kb remove` or a genre, is one entry in the journal, and `kb undo` reverses the most recent one; undoing an import deletes the copy, the library still has the book. When a move finds a byte-identical file already at the destination, the redundant source is removed instead of moved; undo restores it from the kept copy. Folders left empty are pruned, and case-only and accent-only renames happen in place.
 
 ## Walkthrough 3: genres
 
@@ -139,7 +138,7 @@ Only genres you set are searchable; a folder genre is not, so `kb sci-fi` finds 
 
 KOReader's genre menu reads the metadata inside each book, not kobold's tags, so `kb done` writes the genre into the file as it files the book: `dc:subject` in an epub, `<genre>` in an fb2, replacing whatever the publisher put there. **Stamp the genre on finish** in the workflow configuration turns this off. `kb stamp` does the same for books already on the device. The book's text is untouched, so it stays the same book to kobold, and the batch is undoable. Other formats cannot be written and are left as they are; the library is never written.
 
-A genre you set wins over the folder. The book moves to the new genre's folder on the next `kb tidy`, or on `kb done` when it leaves the nook.
+A genre you set wins over the folder. The book moves to the new genre's folder on the next `kb fix`, or on `kb done` when it leaves the nook.
 
 ## Walkthrough 4: one name per writer, one name per genre
 
@@ -159,7 +158,7 @@ kb std                     Accept 2
 - **Which spelling becomes the standard:** for writers, the fullest name first, then proper capitalisation, then a name without `(ed.)`, then accents, then an existing author folder, then the `Surname, Given` form, then the most books. For genres, an existing vault folder wins, then the deeper path (`fiction/sci-fi` over `sci-fi`), then the folder or tag with more books.
 - **Never merged:** different people (`Samuel` / `Sarah Delany`), and spellings in different scripts. `Zelazny, Roger` and `Желязни, Роджер` stay two spellings, so each book keeps the name in its own language. An ambiguous short form such as `A. Smith`, when both `Adam Smith` and `Alice Smith` exist, is left alone.
 
-A standard sticks. Books that arrive later with a known variant are indexed under the standard, `kb tidy` and `kb done` file them into the standard author folder under the standard file name, and a copy into the nook is named the same way. Genre variants disappear from the picker and from the model's choices, books tagged with a variant are retagged, and the next `kb tidy` moves books from a variant genre folder into the standard one. Files themselves change only when they are filed or copied, as everywhere else in kobold.
+A standard sticks. Books that arrive later with a known variant are indexed under the standard, `kb fix` and `kb done` file them into the standard author folder under the standard file name, and a copy into the nook is named the same way. Genre variants disappear from the picker and from the model's choices, books tagged with a variant are retagged, and the next `kb tidy` moves books from a variant genre folder into the standard one. Files themselves change only when they are filed or copied, as everywhere else in kobold.
 
 ## Books like this
 
@@ -241,7 +240,7 @@ Moves and renames also carry each book's `.sdr` sidecar along and rewrite the pa
 
 The vault tree is what the e-reader shows, so the tool keeps it meaning exactly one thing: **genre → author → series**.
 
-- The vault is every top-level folder of the device root except the nook, `_trash`, `_dups` and hidden ones. Books loose at the top of the device root are not read.
+- The vault is every top-level folder of the device root except the nook, hidden ones, and `_trash` and `_dups` left by kobold 0.7 (a move into the trash cleans them up). Books loose at the top of the device root are not read.
 - Genre is the first two folder levels with their order prefixes stripped: `01_Fiction/02_Sci-Fi_Fantasy/…` → `fiction/sci-fi_fantasy`. A folder that looks like an author (`Surname, Given` or `Given Surname`) ends the genre early, so `programming/Dietrich, Erik/…` is genre `programming` with the author straight under it. Books under `inbox`, `archives`, `_inbox` or `_broken` have no genre from their folder.
 - The nook is the top-level folder whose name is `nook` after the order prefix (`00_Nook`, `Nook`); when there is none, `Nook/` is created on the first import.
 - Author folders are `Surname, Given`. An epub's `file-as` sort name and an fb2's name tags are taken as they are; a plain `Given Surname` string is split by rule, and for Cyrillic names the rule knows a few hundred given names, patronymics and surname endings, so `Роджер Желязни` and `Шевчук Валерій` both file under the surname. Existing folders win: if you already have `Le Guin, Ursula K.`, that spelling is reused.

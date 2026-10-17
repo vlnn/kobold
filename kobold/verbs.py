@@ -6,7 +6,7 @@ from dataclasses import replace
 from pathlib import Path, PurePosixPath
 
 from hoard import api
-from hoard.contract import TAGS, Change, Plan, Step
+from hoard.contract import TAGS, TRASH, Change, Plan, Step
 
 from kobold import KIND
 from kobold.genres import genre_of
@@ -15,7 +15,7 @@ from kobold.model import Operation, Row
 from kobold.naming import canonical_name, destination, known_authors, shelves
 from kobold.paths import SIDECAR_SUFFIX, nfc, relative_path
 from kobold.places import DEVICE, LIBRARY, NOOK, VAULT, device_sightings, is_unfinished, on_device, stampable
-from kobold.plan import EXECUTABLE, TRASH, plan
+from kobold.plan import DUPS, EXECUTABLE, plan
 from kobold.roots import device_root
 from kobold.scan import PARTIAL_SUFFIX, book_format, iter_junk
 from kobold.shelf import normalize_title
@@ -124,16 +124,15 @@ def done(founds, ctx) -> list[Change]:
     return [change for found in founds for change in finish(found, ctx, root, layout, names)]
 
 
-def set_aside(found, root: Path) -> list[Step]:
+def set_aside(found) -> list[Step]:
     if not (found.on(LIBRARY) or is_unfinished(found)):
         return []
     copies = [locator for place in DEVICE if (locator := reachable(found, place))]
-    return [Step("move", found.entity.id, locator, str(root / TRASH / relative_path(Path(locator), root)), "removed") for locator in copies]
+    return [Step("trash", found.entity.id, locator, None, "removed") for locator in copies]
 
 
 def remove(founds, ctx) -> list[Change]:
-    root = Path(device_root(ctx))
-    return carried_out([step for found in founds if on_device(found) for step in set_aside(found, root)], ctx)
+    return carried_out([step for found in founds if on_device(found) for step in set_aside(found)], ctx)
 
 
 def undo(changes, ctx) -> None:
@@ -165,28 +164,31 @@ def genre_reader(founds, ctx) -> Callable[[Row], str]:
     return lambda row: genre_of(ctx, tags.get(row.fingerprint, ""), row.folder)
 
 
-def tidy_plan(founds, ctx, root: Path) -> list[Operation]:
-    rows = device_rows(founds, root)
+def tidy_plan(founds, ctx, rows: list[Row], root: Path) -> list[Operation]:
     findings = [*exact_duplicates(rows), *title_duplicates(rows)]
     operations = plan(rows, findings, genre_reader(founds, ctx), frozenset(vault_folders(ctx, root)))
     return [op for op in operations if op.kind in EXECUTABLE]
 
 
 def tidy_step(op: Operation, ids: dict[str, str], root: Path) -> Step:
+    if op.kind == "trash":
+        return Step("trash", ids[op.src], str(root / op.src), None, op.reason)
+    if op.kind == "dups":
+        return Step("move", ids[op.src], str(root / op.src), str(root / TRASH / DUPS / op.src), op.reason)
     return Step("move", ids[op.src], str(root / op.src), str(root / op.dst), op.reason)
 
 
-def tidy(founds, ctx) -> list[Change]:
-    root = Path(device_root(ctx))
-    ids = {row.rel_path: row.fingerprint for row in device_rows(founds, root)}
-    return carried_out([tidy_step(op, ids, root) for op in tidy_plan(founds, ctx, root)], ctx)
+def tidy_steps(founds, ctx, root: Path) -> list[Step]:
+    rows = device_rows(founds, root)
+    ids = {row.rel_path: row.fingerprint for row in rows}
+    return [tidy_step(op, ids, root) for op in tidy_plan(founds, ctx, rows, root)]
 
 
-def junk_step(path: Path, root: Path) -> Step:
+def junk_step(path: Path) -> Step:
     return Step("trash", "", str(path), None, f"{path.name}: not a book")
 
 
 def lint(founds, ctx) -> Plan:
     root = Path(device_root(ctx))
     nook = Path(ctx.roots_of(NOOK)[0])
-    return Plan(tuple(junk_step(path, root) for path in iter_junk(root, (nook,))))
+    return Plan((*tidy_steps(founds, ctx, root), *(junk_step(path) for path in iter_junk(root, (nook,)))))

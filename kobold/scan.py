@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import os
 from collections.abc import Iterator
 from pathlib import Path
 
-from kobold.paths import in_sidecar, is_empty_dir, nfc
+from kobold.paths import SIDECAR_SUFFIX, nfc
 
 BOOK_SUFFIXES = {".epub", ".fb2", ".mobi", ".azw", ".azw3", ".pdf", ".djvu"}
 PARTIAL_SUFFIX = ".part"
@@ -29,21 +30,18 @@ def is_book(path: Path) -> bool:
     return f".{book_format(path)}" in BOOK_SUFFIXES
 
 
-def is_skipped(path: Path, root: Path, exclude: tuple[Path, ...]) -> bool:
-    parts = path.relative_to(root).parts
-    return bool(SKIP_FOLDERS & set(parts)) or in_sidecar(path, root) or any(path == e or e in path.parents for e in exclude)
-
-
-def is_hidden(path: Path, root: Path) -> bool:
-    return any(part.startswith(".") for part in path.relative_to(root).parts)
+def is_pruned(folder: Path, exclude: tuple[Path, ...]) -> bool:
+    name = folder.name
+    return name.startswith(".") or name in SKIP_FOLDERS or name.endswith(SIDECAR_SUFFIX) or folder in exclude
 
 
 def iter_junk(root: Path, exclude: tuple[Path, ...] = ()) -> Iterator[Path]:
-    for path in sorted(root.rglob("*")):
-        if is_hidden(path, root) or is_skipped(path, root, exclude):
-            continue
-        if is_empty_dir(path) or (path.is_file() and not is_book(path)):
-            yield path
+    for here, folders, files in os.walk(root):
+        folder = Path(here)
+        folders[:] = sorted(name for name in folders if not is_pruned(folder / name, exclude))
+        if folder != root and not folders and not files:
+            yield folder
+        yield from (folder / name for name in sorted(files) if not name.startswith(".") and not is_book(folder / name))
 
 
 def display_stem(path: Path) -> str:

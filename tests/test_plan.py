@@ -41,9 +41,7 @@ def test_exact_duplicates_keep_one_trash_the_rest():
 
     result = [o for o in plan(rows, findings, genres()) if o.kind == "trash"]
 
-    assert ops(result) == [("trash", "00_Inbox/NOW/hlaskvyl.epub", "_trash/00_Inbox/NOW/hlaskvyl.epub")], (
-        "identical copies are trash, the first path survives"
-    )
+    assert ops(result) == [("trash", "00_Inbox/NOW/hlaskvyl.epub", "")], "identical copies are trash, the first path survives"
 
 
 def test_title_duplicates_move_losers_to_dups():
@@ -55,9 +53,7 @@ def test_title_duplicates_move_losers_to_dups():
 
     result = [o for o in plan(rows, findings, genres()) if o.kind == "dups"]
 
-    assert ops(result) == [("dups", "00_Inbox/Verdigris.fb2", "_dups/00_Inbox/Verdigris.fb2")], (
-        "the less preferred format goes to _dups for review"
-    )
+    assert ops(result) == [("dups", "00_Inbox/Verdigris.fb2", "")], "the less preferred format is set aside for review"
 
 
 def test_classified_books_move_to_their_destination():

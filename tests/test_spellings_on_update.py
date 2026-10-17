@@ -69,6 +69,6 @@ def test_each_script_keeps_its_own_spelling(ctx, title, author):
 
 def test_genre_folders_spelled_two_ways_become_one_genre(ctx, device):
     assert "fiction/scifi" not in lines(ctx, f"tag #{book(ctx, 'Ubik').id}"), "the picker should not offer the variant genre"
-    api.act(KIND, "tidy", ["batch:tidy"], ctx)
+    api.act(KIND, "apply", ["plan:"], ctx)
     assert list((device / SCI_FI).rglob("*Ubik*.epub")), "tidy should file the book under the standard genre folder"
     assert not (device / "01_Fiction" / "05_SciFi").exists(), "the variant folder should be left empty and pruned"
