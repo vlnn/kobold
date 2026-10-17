@@ -5,7 +5,8 @@ from pathlib import Path
 from hoard.contract import Context, Found
 
 from kobold.genres import genre_of
-from kobold.places import VAULT
+from kobold.places import NOOK, VAULT
+from kobold.progress import label, progress_of
 from kobold.roots import device_root
 
 
@@ -20,6 +21,11 @@ def first_tag(found: Found) -> str:
     return found.tags[0] if found.tags else ""
 
 
+def reading(found: Found) -> str:
+    locator = found.locator_in(NOOK)
+    return label(progress_of(Path(locator))) if locator else ""
+
+
 def subtitle(found: Found, ctx: Context) -> str:
-    parts = (genre_of(ctx, first_tag(found), vault_folder(found, ctx)), found.places, *found.entity.fields)
+    parts = (genre_of(ctx, first_tag(found), vault_folder(found, ctx)), found.places, reading(found), *found.entity.fields)
     return " · ".join(part for part in parts if part)

@@ -51,7 +51,7 @@ kb delany 1975           author + year
 kb                       newest books first, books without a cover after
 ```
 
-A book that exists in several places is one row, shown at its nearest place: nook, then vault, then library. The subtitle starts with the book's genre, the one you set or else the one its vault folder gives it, then says where it is and where else it is: `fiction/sci-fi · vault +library · Samuel R. Delany · 1975 · EPUB 1.2 MB`. The icon is the cover embedded in an epub or fb2. Lists show the first 40 matches, so add a word if what you want isn't there.
+A book that exists in several places is one row, shown at its nearest place: nook, then vault, then library. The subtitle starts with the book's genre, the one you set or else the one its vault folder gives it, then says where it is and where else it is: `fiction/sci-fi · vault +library · Samuel R. Delany · 1975 · EPUB 1.2 MB`. A nook book also says how far KOReader got, `nook · 73%`, or `finished` or `abandoned` once you closed it that way, so `kb nook` and `kb done` show which books are through. The icon is the cover embedded in an epub or fb2. Lists show the first 40 matches, so add a word if what you want isn't there.
 
 These keys mean the same thing on every book row:
 
@@ -232,6 +232,8 @@ Choices that matter for this workflow:
 `kb model` reads `/v1/models` of both servers, so it knows what each one *can* serve; whether a model is loaded right now is `curl localhost:8080/health` (router mode: the per-model entry in `/models`), and `ask --dry-run` from a terminal shows what a question would send.
 
 ## KOReader users
+
+Each book's reading progress is read from its `.sdr` sidecar next to the file, the one KOReader keeps by default; sidecars kept under `docsettings/` are moved with the book but not read.
 
 Moves and renames also carry each book's `.sdr` sidecar along and rewrite the paths in `.adds/koreader/settings/{collection,history,bookmarks}.lua` (a `.bak` is written first) and under `.adds/koreader/docsettings/`, so highlights, progress and collections survive `kb done`, `kb tidy`, ↩ to the nook, `kb remove` and undo. This only works if `.adds/koreader` lives under your device root: either the root is the device itself, or your sync includes that folder.
 

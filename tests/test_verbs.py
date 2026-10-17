@@ -178,6 +178,15 @@ def test_a_row_leads_with_its_genre_then_its_places(ctx, title, subtitle):
     assert books(ctx)[title].subtitle.startswith(subtitle), "a vault book should show its folder genre first, others none"
 
 
+def test_a_nook_book_shows_how_far_koreader_got(ctx, device):
+    sidecar = device / "Nook" / "ubik.sdr"
+    sidecar.mkdir()
+    (sidecar / "metadata.epub.lua").write_text('return { ["percent_finished"] = 0.73, ["summary"] = { ["status"] = "reading" } }')
+    assert books(ctx)["Ubik"].subtitle.startswith("nook · 73% · Philip K Dick"), "reading progress follows the place"
+    (sidecar / "metadata.epub.lua").write_text('return { ["percent_finished"] = 1, ["summary"] = { ["status"] = "complete" } }')
+    assert books(ctx)["Ubik"].subtitle.startswith("nook · finished · "), "a book KOReader closed as complete is finished"
+
+
 def test_a_genre_set_by_hand_wins_over_the_folder(ctx):
     choice = api.filter(KIND, f"tag #{books(ctx)['Dhalgren'].id} fiction/fantasy", ctx).rows[1]
     api.act(KIND, "set_tag", [choice.id], ctx)
