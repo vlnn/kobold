@@ -50,21 +50,13 @@ def row_of(found, locator: str) -> Row:
         series_index=index,
         folder="",
         rel_path="",
-        root="",
         place="",
         format=book_format(Path(locator)),
         partial=locator.endswith(PARTIAL_SUFFIX),
-        language="",
         year=year,
-        cover="",
         size=0,
-        mtime=0.0,
         norm_title="",
         fingerprint=found.entity.id,
-        genre="",
-        subjects="",
-        description="",
-        guessed=False,
     )
 
 

@@ -15,21 +15,13 @@ BASE_ROW = {
     "series_index": "2",
     "folder": "02_NonFiction",
     "rel_path": "02_NonFiction/x.epub",
-    "root": "/lib",
     "place": "vault",
     "format": "epub",
     "partial": False,
-    "language": "en",
     "year": "2016",
-    "cover": "/cache/abc.png",
     "size": 1_500_000,
-    "mtime": 0.0,
     "norm_title": "deep work",
     "fingerprint": "f00",
-    "genre": "",
-    "subjects": "",
-    "description": "",
-    "guessed": False,
 }
 
 

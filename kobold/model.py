@@ -35,26 +35,13 @@ class Row:
     series_index: str
     folder: str
     rel_path: str
-    root: str
     place: str
     format: str
     partial: bool
-    language: str
     year: str
-    cover: str
     size: int
-    mtime: float
     norm_title: str
     fingerprint: str
-    genre: str
-    subjects: str
-    description: str
-    guessed: bool
-    copies: str = ""
-
-    @property
-    def path(self) -> str:
-        return f"{self.root}/{self.rel_path}"
 
 
 @dataclass
