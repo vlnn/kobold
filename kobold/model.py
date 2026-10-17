@@ -58,13 +58,6 @@ class Row:
 
 
 @dataclass
-class Suggestion:
-    answer: dict
-    evidence_hash: str
-    asked_at: str
-
-
-@dataclass
 class Finding:
     rule: str
     detail: str

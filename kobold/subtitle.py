@@ -5,7 +5,7 @@ from pathlib import Path
 from hoard.contract import TAGS, Context, Found
 
 from kobold import ROOT_SETTING
-from kobold.catalogue import genre_from_folder
+from kobold.folders import genre_from_folder
 from kobold.places import VAULT
 from kobold.roots import device_of
 

@@ -11,8 +11,8 @@ from typing import NamedTuple
 
 from hoard.contract import Context, Spelling, Standard
 
-from kobold.catalogue import genre_from_folder
 from kobold.filenames import EDITOR
+from kobold.folders import genre_from_folder
 from kobold.genres import known_genres
 from kobold.naming import author_folder, known_authors, surname_first
 from kobold.places import VAULT

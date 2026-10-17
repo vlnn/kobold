@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import shutil
+from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path, PurePosixPath
 
@@ -9,7 +10,7 @@ from hoard.contract import TAGS, Change, Plan
 from hoard.contract import Step as PlanStep
 
 from kobold.apply import EXECUTABLE, Action, Entry, Recorded, Step, prune_empty_dirs, run, undo_entries
-from kobold.catalogue import genre_from_folder
+from kobold.folders import genre_from_folder
 from kobold.lint import exact_duplicates, title_duplicates
 from kobold.model import Operation, Row
 from kobold.naming import canonical_name, destination, known_authors, shelves
@@ -195,20 +196,20 @@ def device_rows(founds, root: Path) -> list[Row]:
     return [placed_row(found, s.locator, s.storage, root) for found in founds for s in device_sightings(found)]
 
 
-class Genres:
-    def __init__(self, founds, ctx):
-        self.tags = {found.entity.id: found.tags[0] for found in founds if found.tags}
-        self.ctx = ctx
+def genre_reader(founds, ctx) -> Callable[[Row], str]:
+    tags = {found.entity.id: found.tags[0] for found in founds if found.tags}
 
-    def genre_of(self, row: Row) -> str:
-        genre = self.tags.get(row.fingerprint) or genre_from_folder(row.folder)
-        return self.ctx.standard(TAGS, genre) if genre else ""
+    def genre_of(row: Row) -> str:
+        genre = tags.get(row.fingerprint) or genre_from_folder(row.folder)
+        return ctx.standard(TAGS, genre) if genre else ""
+
+    return genre_of
 
 
 def tidy_plan(founds, ctx, root: Path) -> list[Operation]:
     rows = device_rows(founds, root)
     findings = [*exact_duplicates(rows), *title_duplicates(rows)]
-    operations = plan(rows, findings, Genres(founds, ctx), frozenset(vault_folders(ctx, root)))
+    operations = plan(rows, findings, genre_reader(founds, ctx), frozenset(vault_folders(ctx, root)))
     return [op for op in operations if op.kind in EXECUTABLE]
 
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 
-from kobold.catalogue import genre_from_folder, is_author_folder
+from kobold.folders import genre_from_folder, is_author_folder
 
 GENRES_SETTING = "KOBOLD_GENRES"
 COMMENT = "#"

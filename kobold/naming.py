@@ -6,8 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from kobold import cyrillic
-from kobold.catalogue import genre_from_folder, looks_like_person
 from kobold.filenames import EDITOR
+from kobold.folders import genre_from_folder, looks_like_person
 from kobold.model import Row
 from kobold.scan import PARTIAL_SUFFIX
 
