@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -35,14 +34,6 @@ def is_skipped(path: Path, root: Path, exclude: tuple[Path, ...]) -> bool:
     return bool(SKIP_FOLDERS & set(parts)) or in_sidecar(path, root) or any(path == e or e in path.parents for e in exclude)
 
 
-def iter_books(root: Path, exclude: tuple[Path, ...] = ()) -> Iterator[Path]:
-    for path in sorted(root.rglob("*")):
-        if is_skipped(path, root, exclude):
-            continue
-        if path.is_file() and not is_junk(path.name) and is_book(path):
-            yield path
-
-
 def is_hidden(path: Path, root: Path) -> bool:
     return any(part.startswith(".") for part in path.relative_to(root).parts)
 
@@ -58,14 +49,3 @@ def iter_junk(root: Path, exclude: tuple[Path, ...] = ()) -> Iterator[Path]:
 def display_stem(path: Path) -> str:
     name = path.name[: -len(PARTIAL_SUFFIX)] if is_partial(path) else path.name
     return nfc(Path(name).stem.strip())
-
-
-def probe_root(root: Path) -> str:
-    try:
-        entries = os.listdir(root)
-    except PermissionError as error:
-        hint = "grant Alfred access to Removable Volumes / Files and Folders in System Settings → Privacy & Security"
-        return f"permission denied reading {root} ({error}); {hint}"
-    except OSError as error:
-        return f"cannot read {root}: {error}"
-    return f"{root} is empty" if not entries else ""

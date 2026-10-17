@@ -95,11 +95,6 @@ def write_epub(path: Path, title: str) -> Path:
     return path
 
 
-@pytest.fixture(autouse=True)
-def no_quicklook(mocker):
-    mocker.patch("kobold.covers.shutil.which", return_value=None)
-
-
 @pytest.fixture
 def epub_file(tmp_path: Path) -> Path:
     path = tmp_path / "Newport, Cal - Deep Work (2016, GC) - libgen.li.epub"

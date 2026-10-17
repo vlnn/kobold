@@ -9,11 +9,13 @@ from kobold.folders import genre_from_folder
 from kobold.lint import all_folders
 from kobold.model import Finding, Operation, Row
 from kobold.naming import Shelves, destination, shelves
-from kobold.shelf import NOOK, series_key
+from kobold.places import NOOK
+from kobold.shelf import series_key
 
 FORMAT_RANK = ("epub", "fb2", "mobi", "azw3", "azw", "pdf", "djvu")
 TRASH = "_trash"
 DUPS = "_dups"
+EXECUTABLE = {"move", "trash", "dups"}
 GenreOf = Callable[[Row], str]
 
 
@@ -40,10 +42,6 @@ def prefer(rows: list[Row]) -> Row:
 
 def aside(kind: str, folder: str, row: Row, reason: str) -> Operation:
     return Operation(kind, row.rel_path, f"{folder}/{row.rel_path}", reason)
-
-
-def trash_junk(findings: list[Finding]) -> list[Operation]:
-    return [Operation("trash", p, f"{TRASH}/{p}", f.detail) for f in findings if f.rule == "junk" for p in f.rel_paths]
 
 
 def losers(finding: Finding, by_path: dict[str, Row]) -> list[Row]:
@@ -113,6 +111,6 @@ def relocations(rows: list[Row], genre_of: GenreOf, settled: set[str], folders: 
 
 def plan(rows: list[Row], findings: list[Finding], genre_of: GenreOf, folders: frozenset[str] = frozenset()) -> list[Operation]:
     by_path = {r.rel_path: r for r in rows}
-    ops = trash_junk(findings) + set_aside_duplicates(findings, by_path)
+    ops = set_aside_duplicates(findings, by_path)
     settled = {o.src for o in ops}
     return ops + relocations(rows, genre_of, settled, folders=folders)

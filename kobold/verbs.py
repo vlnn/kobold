@@ -1,28 +1,25 @@
 from __future__ import annotations
 
 import os
-import shutil
 from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path, PurePosixPath
 
-from hoard.contract import TAGS, Change, Plan
-from hoard.contract import Step as PlanStep
+from hoard import api
+from hoard.contract import TAGS, Change, Plan, Step
 
-from kobold.apply import EXECUTABLE, Action, Entry, Recorded, Step, prune_empty_dirs, run, undo_entries
+from kobold import KIND
 from kobold.genres import genre_of
 from kobold.lint import exact_duplicates, title_duplicates
 from kobold.model import Operation, Row
 from kobold.naming import canonical_name, destination, known_authors, shelves
 from kobold.paths import SIDECAR_SUFFIX, nfc, relative_path
 from kobold.places import DEVICE, LIBRARY, NOOK, VAULT, device_sightings, is_unfinished, on_device, stampable
-from kobold.plan import TRASH, plan
+from kobold.plan import EXECUTABLE, TRASH, plan
 from kobold.roots import device_root
 from kobold.scan import PARTIAL_SUFFIX, book_format, iter_junk
 from kobold.shelf import normalize_title
 from kobold.stamp import SUBJECTS, stamp_one, unstamp, wanted_on_done
-
-COPY = "copy"
 
 
 def reachable(found, place: str) -> str | None:
@@ -74,39 +71,28 @@ def series_count(row: Row, names: list[str]) -> int:
     return 1 + sum(1 for name in names if any(mark in name for mark in marks)) if row.series else 0
 
 
-def moved(entity_id: str, step: Step, root: Path) -> list[Change]:
-    result = run(Recorded.APPLY, [step], root, None)
-    return [Change(entity_id, entry.kind, entry.src, entry.dst) for entry in result.entries]
+def carried_out(steps: list[Step], ctx) -> list[Change]:
+    return api.carry_out(KIND, steps, ctx)
 
 
-def copied(entity_id: str, source: str, target: str, root: Path) -> list[Change]:
-    destination_path = root / target
-    if destination_path.exists():
-        return []
-    destination_path.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(source, destination_path)
-    return [Change(entity_id, COPY, source, target)]
+def nook_target(found, locator: str, ctx, authors: frozenset) -> str:
+    return os.path.join(ctx.roots_of(NOOK)[0], canonical_name(row_of(found, locator), authors))
 
 
-def nook_target(found, locator: str, ctx, root: Path, authors: frozenset) -> str:
-    return f"{relative_path(Path(ctx.roots_of(NOOK)[0]), root)}/{canonical_name(row_of(found, locator), authors)}"
-
-
-def bring(found, ctx, root: Path, authors: frozenset) -> list[Change]:
+def bringing(found, ctx, authors: frozenset) -> Step | None:
     if found.on(NOOK):
-        return []
+        return None
     if vault := reachable(found, VAULT):
-        target = nook_target(found, vault, ctx, root, authors)
-        return moved(found.entity.id, Step(Action.MOVE, relative_path(Path(vault), root), target), root)
+        return Step("move", found.entity.id, vault, nook_target(found, vault, ctx, authors), "to the nook")
     if library := reachable(found, LIBRARY):
-        return copied(found.entity.id, library, nook_target(found, library, ctx, root, authors), root)
-    return []
+        return Step("copy", found.entity.id, library, nook_target(found, library, ctx, authors), "to the nook")
+    return None
 
 
 def to_nook(founds, ctx) -> list[Change]:
     root = Path(device_root(ctx))
     authors = frozenset(known_authors(vault_folders(ctx, root)))
-    return [change for found in founds for change in bring(found, ctx, root, authors)]
+    return carried_out([step for found in founds if (step := bringing(found, ctx, authors))], ctx)
 
 
 def home_of(found, nook: str, layout, names: list[str]) -> str:
@@ -128,7 +114,7 @@ def finish(found, ctx, root: Path, layout, names: list[str]) -> list[Change]:
     home = home_of(found, nook, layout, names) if nook else ""
     if not home:
         return []
-    changes = moved(found.entity.id, Step(Action.MOVE, relative_path(Path(nook), root), home), root)
+    changes = carried_out([Step("move", found.entity.id, nook, str(root / home), "finished")], ctx)
     return changes + filed(found, home, ctx, root) if changes else changes
 
 
@@ -138,39 +124,24 @@ def done(founds, ctx) -> list[Change]:
     return [change for found in founds for change in finish(found, ctx, root, layout, names)]
 
 
-def set_aside(found, root: Path) -> list[Change]:
+def set_aside(found, root: Path) -> list[Step]:
     if not (found.on(LIBRARY) or is_unfinished(found)):
         return []
     copies = [locator for place in DEVICE if (locator := reachable(found, place))]
-    steps = [Step(Action.MOVE, relative_path(Path(locator), root), f"{TRASH}/{relative_path(Path(locator), root)}") for locator in copies]
-    return [change for step in steps for change in moved(found.entity.id, step, root)]
+    return [Step("move", found.entity.id, locator, str(root / TRASH / relative_path(Path(locator), root)), "removed") for locator in copies]
 
 
 def remove(founds, ctx) -> list[Change]:
     root = Path(device_root(ctx))
-    return [change for found in founds if on_device(found) for change in set_aside(found, root)]
-
-
-def uncopy(change: Change, root: Path) -> None:
-    target = root / change.after
-    if target.is_file():
-        target.unlink()
-        prune_empty_dirs(target.parent, root)
-
-
-def entry_of(change: Change) -> Entry:
-    return Entry("", change.kind_of_change, change.before, change.after)
+    return carried_out([step for found in founds if on_device(found) for step in set_aside(found, root)], ctx)
 
 
 def undo(changes, ctx) -> None:
     root = Path(device_root(ctx))
     for change in reversed(list(changes)):
-        if change.kind_of_change == COPY:
-            uncopy(change, root)
-        elif change.kind_of_change == SUBJECTS:
+        if change.kind_of_change == SUBJECTS:
             unstamp(change, root)
-        else:
-            undo_entries([entry_of(change)], root)
+    api.restore(KIND, [change for change in changes if change.kind_of_change != SUBJECTS], ctx)
 
 
 def placed_row(found, locator: str, place: str, root: Path) -> Row:
@@ -201,14 +172,18 @@ def tidy_plan(founds, ctx, root: Path) -> list[Operation]:
     return [op for op in operations if op.kind in EXECUTABLE]
 
 
+def tidy_step(op: Operation, ids: dict[str, str], root: Path) -> Step:
+    return Step("move", ids[op.src], str(root / op.src), str(root / op.dst), op.reason)
+
+
 def tidy(founds, ctx) -> list[Change]:
     root = Path(device_root(ctx))
     ids = {row.rel_path: row.fingerprint for row in device_rows(founds, root)}
-    return [change for op in tidy_plan(founds, ctx, root) for change in moved(ids[op.src], Step(Action.MOVE, op.src, op.dst), root)]
+    return carried_out([tidy_step(op, ids, root) for op in tidy_plan(founds, ctx, root)], ctx)
 
 
-def junk_step(path: Path, root: Path) -> PlanStep:
-    return PlanStep("trash", "", str(path), None, f"{path.name}: not a book")
+def junk_step(path: Path, root: Path) -> Step:
+    return Step("trash", "", str(path), None, f"{path.name}: not a book")
 
 
 def lint(founds, ctx) -> Plan:

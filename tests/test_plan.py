@@ -32,14 +32,6 @@ def test_prefer_picks_the_best_copy(candidates, winner):
     assert prefer(rows).rel_path == winner, f"{[c[0] for c in candidates]} should keep {winner}"
 
 
-def test_junk_goes_to_trash():
-    findings = [Finding("junk", "FSCK0000.000: not a book", ["00_Inbox/FSCK0000.000"])]
-    result = plan([], findings, genres())
-    assert ops(result) == [("trash", "00_Inbox/FSCK0000.000", "_trash/00_Inbox/FSCK0000.000")], (
-        "junk should move to _trash keeping its path"
-    )
-
-
 def test_exact_duplicates_keep_one_trash_the_rest():
     rows = [
         named("hlaskvyl.epub", folder="00_Inbox/bought", fingerprint="same"),

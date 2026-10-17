@@ -1,7 +1,7 @@
 from hoard.contract import TAGS, Command, Kind, LocalVectors, Standardize, Storage, Verb, lazy
 
 from kobold.places import DEVICE, NOOK, default_verb, has_home, on_device, removable, stampable
-from kobold.roots import ROOT_SETTING, SOURCES_SETTING, library_of, nook_of, parent_is_dir, vault_of
+from kobold.roots import ROOT_SETTING, SOURCES_SETTING, ground, library_of, nook_of, parent_is_dir, vault_of
 
 DEVICE_BOOK = lazy("kobold.reading", "read_device_book")
 UNDO = lazy("kobold.verbs", "undo")
@@ -33,6 +33,8 @@ KIND = Kind(
         "stamp": Verb("Stamp", lazy("kobold.stamp", "stamp"), lazy("kobold.stamp", "undo")),
     },
     lint=lazy("kobold.verbs", "lint"),
+    ground=ground,
+    escort=lazy("kobold.sidecars", "escort"),
     last_opened=lazy("kobold.history", "last_opened_id"),
     like=LocalVectors(LIKENESS, lazy("kobold.likeness", "vector")),
     pictured_first=True,

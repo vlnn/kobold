@@ -43,10 +43,6 @@ class FilenameGuess:
     year: str = ""
 
 
-def usable_title(title: str) -> bool:
-    return " " in title.strip() or len(WORD_BREAK.split(title.strip())) > 2
-
-
 def strip_noise(stem: str) -> str:
     previous = None
     while previous != stem:

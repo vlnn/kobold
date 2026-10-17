@@ -1,7 +1,7 @@
 import pytest
 
 from kobold.paths import relative_path
-from kobold.scan import is_junk, iter_books, probe_root
+from kobold.scan import is_junk
 
 
 @pytest.mark.parametrize(
@@ -21,39 +21,9 @@ def test_is_junk(name, junk):
     assert is_junk(name) is junk, f"{name!r} junk should be {junk}"
 
 
-def test_iter_books_skips_junk_and_keeps_partials(tmp_path):
-    (tmp_path / "a").mkdir()
-    (tmp_path / "a" / "one.epub").write_bytes(b"")
-    (tmp_path / "a" / "two.fb2.part").write_bytes(b"")
-    (tmp_path / "a" / "FSCK0000.000").write_bytes(b"")
-    (tmp_path / "a" / "notes.txt").write_bytes(b"")
-
-    found = sorted(p.name for p in iter_books(tmp_path))
-
-    assert found == ["one.epub", "two.fb2.part"], "scan should keep books and partials, drop junk"
-
-
 def test_relative_path_uses_posix_and_library_root(tmp_path):
     path = tmp_path / "01_Fiction" / "x.epub"
     assert relative_path(path, tmp_path) == "01_Fiction/x.epub", "relative path should be posix from root"
-
-
-def test_probe_reports_permission_error(tmp_path, mocker):
-
-    mocker.patch("kobold.scan.os.listdir", side_effect=PermissionError("Operation not permitted"))
-
-    assert "permission" in probe_root(tmp_path).lower(), "permission errors on the root should be reported"
-
-
-def test_probe_reports_empty_root(tmp_path):
-
-    assert "empty" in probe_root(tmp_path).lower(), "an empty root should be reported"
-
-
-def test_probe_ok(tmp_path):
-
-    (tmp_path / "x.epub").write_bytes(b"")
-    assert probe_root(tmp_path) == "", "a readable non-empty root should produce no message"
 
 
 def test_iter_junk_reports_non_books_and_empty_dirs(tmp_path):
@@ -75,22 +45,20 @@ def test_iter_junk_reports_non_books_and_empty_dirs(tmp_path):
 
 
 def test_scanners_skip_trash_dups_and_excluded_dirs(tmp_path):
-    from kobold.scan import iter_books, iter_junk
+    from kobold.scan import iter_junk
 
     for folder in ("_trash/x", "_dups/y", "data", "ok"):
         (tmp_path / folder).mkdir(parents=True)
         (tmp_path / folder / "book.epub").write_bytes(b"")
         (tmp_path / folder / "junk.txt").write_bytes(b"")
 
-    books = [p.relative_to(tmp_path).as_posix() for p in iter_books(tmp_path, exclude=(tmp_path / "data",))]
     junk = [p.relative_to(tmp_path).as_posix() for p in iter_junk(tmp_path, exclude=(tmp_path / "data",))]
 
-    assert books == ["ok/book.epub"], "books under _trash, _dups and the excluded dir should be ignored"
     assert junk == ["ok/junk.txt"], "junk under _trash, _dups and the excluded dir should be ignored"
 
 
 def test_junk_scan_ignores_hidden_trees_and_sidecars(tmp_path):
-    from kobold.scan import iter_books, iter_junk
+    from kobold.scan import iter_junk
 
     (tmp_path / ".adds" / "koreader" / "settings").mkdir(parents=True)
     (tmp_path / ".adds" / "koreader" / "settings" / "collection.lua").write_text("return {}")
@@ -100,4 +68,3 @@ def test_junk_scan_ignores_hidden_trees_and_sidecars(tmp_path):
     (tmp_path / "Book.epub").write_bytes(b"")
 
     assert list(iter_junk(tmp_path)) == [], "KOReader's hidden tree and sidecar contents are not junk"
-    assert [p.name for p in iter_books(tmp_path)] == ["Book.epub"], "nothing inside a sidecar is a library book"

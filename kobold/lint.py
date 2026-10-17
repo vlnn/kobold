@@ -5,8 +5,6 @@ from collections.abc import Callable, Iterable
 from pathlib import Path
 
 from kobold.model import Finding, Row
-from kobold.paths import relative_path
-from kobold.scan import iter_junk
 
 
 def grouped(rows: Iterable[Row], key: Callable[[Row], str]) -> list[list[Row]]:
@@ -48,11 +46,3 @@ def ancestors(folder: str) -> list[str]:
 
 def all_folders(rows: Iterable[Row]) -> set[str]:
     return {a for r in rows for a in ancestors(r.folder)}
-
-
-def junk(root: Path, exclude: tuple[Path, ...] = ()) -> list[Finding]:
-    return [Finding("junk", f"{p.name}: not a book", [relative_path(p, root)]) for p in iter_junk(root, exclude)]
-
-
-def lint(rows: list[Row], root: Path, exclude: tuple[Path, ...] = ()) -> list[Finding]:
-    return [*junk(root, exclude), *exact_duplicates(rows), *title_duplicates(rows)]

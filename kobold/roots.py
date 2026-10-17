@@ -20,6 +20,11 @@ def device_root(ctx) -> str:
     return os.path.dirname(nooks[0]) if nooks else ""
 
 
+def ground(ctx) -> list:
+    root = device_root(ctx)
+    return [root] if root else []
+
+
 def top_folders(device: str) -> list:
     return sorted(entry.name for entry in os.scandir(device) if entry.is_dir())
 
