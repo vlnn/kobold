@@ -8,6 +8,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from xml.sax.saxutils import escape
 
+from hoard.alfred.settings import is_on
 from hoard.contract import TAGS, Change
 
 from kobold.metadata import NS, opf_path, read_book
@@ -136,11 +137,10 @@ def write_subjects(path: Path, subjects: Sequence[str]) -> list[str]:
 
 
 STAMP_ON_DONE = "KOBOLD_STAMP_ON_DONE"
-ON = {"1", "true", "yes", "on"}
 
 
 def wanted_on_done(ctx) -> bool:
-    return ctx.setting(STAMP_ON_DONE, "1").strip().lower() in ON
+    return is_on(ctx.setting(STAMP_ON_DONE, "1"))
 
 
 def stamp_one(found, locator: str, genre: str, root: Path) -> list[Change]:
