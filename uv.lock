@@ -29,8 +29,8 @@ wheels = [
 
 [[package]]
 name = "hoard"
-version = "1.8.0"
-source = { git = "https://github.com/vlnn/hoard?tag=v1.8.0#913ae0153f85122bf55838f2fc3d47ae39b0a025" }
+version = "1.8.1"
+source = { git = "https://github.com/vlnn/hoard?tag=v1.8.1#f7ee58a2f9e997fcb8b43e09506cc136a67d972c" }
 
 [[package]]
 name = "iniconfig"
@@ -74,7 +74,7 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "hoard", git = "https://github.com/vlnn/hoard?tag=v1.8.0" }]
+requires-dist = [{ name = "hoard", git = "https://github.com/vlnn/hoard?tag=v1.8.1" }]
 
 [package.metadata.requires-dev]
 dev = [
