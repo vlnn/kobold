@@ -26,6 +26,18 @@ def reading(found: Found) -> str:
     return label(progress_of(Path(locator))) if locator else ""
 
 
+NEEDS_GENRE = "needs a genre"
+
+
+def shelf(found: Found, ctx: Context) -> str:
+    genre = genre_of(ctx, first_tag(found), vault_folder(found, ctx))
+    if genre:
+        return genre
+    if found.suggested:
+        return f"{found.suggested}?"
+    return NEEDS_GENRE if found.on(NOOK) else ""
+
+
 def subtitle(found: Found, ctx: Context) -> str:
-    parts = (genre_of(ctx, first_tag(found), vault_folder(found, ctx)), found.places, reading(found), *found.entity.fields)
+    parts = (shelf(found, ctx), found.places, reading(found), *found.entity.fields)
     return " · ".join(part for part in parts if part)

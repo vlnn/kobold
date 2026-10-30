@@ -6,7 +6,7 @@ from dataclasses import replace
 from pathlib import Path, PurePosixPath
 
 from hoard import api
-from hoard.contract import TAGS, TRASH, Change, Plan, Step
+from hoard.contract import TAGS, TRASH, Change, Outcome, Plan, Step
 
 from kobold import KIND
 from kobold.genres import genre_of
@@ -14,7 +14,7 @@ from kobold.lint import exact_duplicates, title_duplicates
 from kobold.model import Operation, Row
 from kobold.naming import canonical_name, destination, known_authors, shelves
 from kobold.paths import SIDECAR_SUFFIX, nfc, relative_path
-from kobold.places import DEVICE, LIBRARY, NOOK, VAULT, device_sightings, is_unfinished, on_device, stampable
+from kobold.places import DEVICE, LIBRARY, NOOK, VAULT, device_sightings, has_genre, is_unfinished, on_device, stampable
 from kobold.plan import DUPS, EXECUTABLE, plan
 from kobold.roots import device_root
 from kobold.scan import PARTIAL_SUFFIX, book_format, iter_junk
@@ -89,10 +89,29 @@ def bringing(found, ctx, authors: frozenset) -> Step | None:
     return None
 
 
-def to_nook(founds, ctx) -> list[Change]:
+def picker_for(founds) -> str | None:
+    untagged = [found for found in founds if not has_genre(found)]
+    if not untagged:
+        return None
+    return f"{KIND.keyword} tag #{untagged[0].entity.id} " if len(untagged) == 1 else f"{KIND.keyword} tag "
+
+
+def leaving_shelf(founds, ctx) -> None:
+    from kobold.rules import leaving_shelf
+
+    for found in founds:
+        if found.on(VAULT) and not found.on(NOOK):
+            leaving_shelf(found, ctx)
+
+
+def to_nook(founds, ctx) -> Outcome:
     root = Path(device_root(ctx))
     authors = frozenset(known_authors(vault_folders(ctx, root)))
-    return carried_out([step for found in founds if (step := bringing(found, ctx, authors))], ctx)
+    steps = {found.entity.id: step for found in founds if (step := bringing(found, ctx, authors))}
+    brought = [found for found in founds if found.entity.id in steps]
+    leaving_shelf(brought, ctx)
+    changes = carried_out(list(steps.values()), ctx)
+    return Outcome(changes, picker_for([found for found in brought if not found.on(VAULT)]))
 
 
 def home_of(found, nook: str, layout, names: list[str]) -> str:
@@ -118,10 +137,11 @@ def finish(found, ctx, root: Path, layout, names: list[str]) -> list[Change]:
     return changes + filed(found, home, ctx, root) if changes else changes
 
 
-def done(founds, ctx) -> list[Change]:
+def done(founds, ctx) -> Outcome:
     root = Path(device_root(ctx))
     layout, names = shelves(vault_folders(ctx, root)), vault_names(ctx)
-    return [change for found in founds for change in finish(found, ctx, root, layout, names)]
+    changes = [change for found in founds for change in finish(found, ctx, root, layout, names)]
+    return Outcome(changes, picker_for([found for found in founds if found.on(NOOK)]))
 
 
 def set_aside(found) -> list[Step]:

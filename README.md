@@ -33,7 +33,7 @@ kb std             →  Delany, Samuel R. ← S. R. Delany · one spelling per w
 
 1. Grab `Kobold.alfredworkflow` from [Releases](https://github.com/vlnn/kobold/releases) (every push to `main` publishes a `latest` build) and double-click it.
 2. In the workflow's configuration set **Device root** to the folder that is, or syncs with, your e-reader, e.g. `~/Books/kobo` (a Syncthing folder) or `/Volumes/Transcend/kobo` (the card itself). Set **Library folders** to where your books arrive, `~/Calibre Library:~/Downloads`, paths separated by `:`.
-3. Type `kb update` ↩. The index is built in the background; `kb` shows *Updating the index… · N of M checked* until it is done.
+3. Type `kb update` ↩. The index is built in the background; `kb` shows *Updating the index… · N of M checked* until it is done. From then on the index refreshes itself: a `kb` typed more than ten minutes after the last update starts another in the background, so books that arrived since show up on their own.
 
 Nothing to install: the workflow bundles `kobold` and [hoard](https://github.com/vlnn/hoard), the library it is built on, and runs on macOS's own `/usr/bin/python3` (3.9+), no dependencies.
 
@@ -75,7 +75,7 @@ A first word that names a command replaces the search with its list. Words after
 | --- | --- | --- | --- |
 | `kb <words>` | every place, books with a cover first, newest first | by place: to the nook, or open | — |
 | `kb nook` | the nook | open | — |
-| `kb done` / `finish` | nook books with a genre and an author | file it into the vault | Finish all N |
+| `kb done` / `finish` | the nook | file it into the vault, or pick its genre first | Finish all N |
 | `kb lib` / `import` | library books the device lacks | copy into the nook | Import all N |
 | `kb remove` / `trash` | device books the library still holds, and unfinished downloads | to the trash | Remove all N |
 | `kb fix [words]` | what tidying the device would do, one step per row | that step alone | Apply N · Empty the trash |
@@ -101,14 +101,14 @@ kb dhalgren              Dhalgren   library · Samuel R. Delany · 1975 · EPUB 
 kb nook                  Dhalgren   nook +library · Samuel R. Delany · 1975 · EPUB 1.2 MB
 ```
 
-The copy arrives in the nook under its canonical name, `Delany, Samuel R. - Dhalgren (1975).epub`; the library keeps its file. Read it on the device. When you are through:
+The copy arrives in the nook under its canonical name, `Delany, Samuel R. - Dhalgren (1975).epub`; the library keeps its file. If the book has no genre yet, Alfred comes back with the genre picker, the suggested genre first; Esc keeps the book untagged for now. Read it on the device. When you are through:
 
 ```
 kb done
    ↩ on Dhalgren         Finish: Dhalgren
 ```
 
-and it is in `01_Fiction/02_Sci-Fi/Delany, Samuel R./`. A book without a genre or an author has no home yet, so `kb done` does not list it and **Finish all N** counts only the books it will move: find it in `kb nook` or `kb tag` and give it a genre with ⌘↩ first.
+and it is in `01_Fiction/02_Sci-Fi/Delany, Samuel R./`. A nook book without a genre reads *needs a genre* (or `fiction/sci-fi?` when kobold has a guess) and ↩ on it in `kb done` opens the picker instead of moving it; **Finish all N** files every book that has a genre and an author and hands the one without a genre to the picker, or several to `kb tag`. A book without an author stays until `kb name` or the model gives it one.
 
 ## Walkthrough 2: tidy the vault
 
@@ -130,11 +130,21 @@ Genres are how the vault is laid out: the first two folder levels with their ord
 
 The picker offers the genres found in the vault and the ones listed under **Genres** in the workflow configuration, one per line in the same `fiction/sci-fi` form. A new device has no genre folders yet, so list the genres you want there and `kb tag` and the picker have them from the first book; folders appear as books are filed.
 
-- ⌘↩ on any book row opens the picker: the vault's genres, the model's guess first if there is one. Type to narrow them, or to create a new genre.
+- ⌘↩ on any book row opens the picker: the vault's genres, the suggested one first if there is one. Type to narrow them, or to create a new genre.
 - `kb tag` lists books without a genre you set; **Tag all N** picks one genre for the whole list.
 - `kb retag <words>` lists every book the words match, tagged or not, **Retag all N** gives them all one genre in a single undoable batch. Tagged the wrong genre to every Pohl? `kb retag pohl`, ↩ on the head row, pick the right one.
 
 Only genres you set are searchable; a folder genre is not, so `kb sci-fi` finds the books you tagged `fiction/sci-fi`.
+
+### Suggested genres, no model needed
+
+Most books say what they are: an epub carries `dc:subject` lines (`FICTION / Science Fiction / Space Opera`, or Calibre's tags), an fb2 its `<genre>` codes (`sf_space`). Every update reads them and proposes a genre for each book that has none, shown as `fiction/sci-fi? 80%` in `kb tag`, in the subtitle of a plain search, and first in the picker; **Accept N suggested** takes them all. The proposals come from three places, in this order:
+
+- **the shelf a book left.** A vault book moved to the nook is proposed the genre of the folder it came from, at 90%;
+- **what you picked before.** Setting a genre by hand teaches kobold that this book's subjects mean that genre; once two books with the same subject got the same genre, that is a rule, at 60% plus 10% per agreeing pick, up to 90%. Undoing a pick unlearns it; accepting a suggestion teaches nothing, so a rule cannot feed itself. The books already filed in your vault teach their subjects their shelf the first time they are read, so the rules know your library from the start;
+- **a built-in table** of BISAC headings, common Calibre tags and fb2 genre codes, at 80%. Its genres are spelled `fiction/sci-fi`, `nonfiction/history` and so on; a vault shelf with the same meaning (`01_Fiction/02_SciFi`) is used instead when one exists, otherwise the genre is proposed as written and the picker creates it when you accept.
+
+A book carrying several subjects that map to several genres is proposed the genre with more books on your shelves. The rules live in `kobold-rules.sqlite` next to the index and survive `kb update`. With a model server set, the model's answer replaces the rule's when it arrives; a book with a rule's proposal is still asked.
 
 KOReader's genre menu reads the metadata inside each book, not kobold's tags, so `kb done` writes the genre into the file as it files the book: `dc:subject` in an epub, `<genre>` in an fb2, replacing whatever the publisher put there. **Stamp the genre on finish** in the workflow configuration turns this off. `kb stamp` does the same for books already on the device. The book's text is untouched, so it stays the same book to kobold, and the batch is undoable. Other formats cannot be written and are left as they are; the library is never written.
 
@@ -251,7 +261,7 @@ Format support: epub and fb2 are read for metadata and cover; mobi, azw, azw3, p
 
 ## Where things are
 
-Alfred's workflow data folder, `~/Library/Application Support/Alfred/Workflow Data/com.anokhin.kobold`, holds `kobold.sqlite`: the index, your genres, the standard spellings, the model's answers and the last 300 exchanges with it, the vectors and the undo journal. It survives workflow updates and cache clears. The cache folder, `~/Library/Caches/com.runningwithcrayons.Alfred/Workflow Data/com.anokhin.kobold`, holds the covers and `worker.log`, where background updates and model passes write what went wrong.
+Alfred's workflow data folder, `~/Library/Application Support/Alfred/Workflow Data/com.anokhin.kobold`, holds `kobold.sqlite`: the index, your genres, the standard spellings, the model's answers and the last 300 exchanges with it, the vectors and the undo journal, and `kobold-rules.sqlite`: each book's subjects and the genre rules learned from your picks. Both survive workflow updates and cache clears. The cache folder, `~/Library/Caches/com.runningwithcrayons.Alfred/Workflow Data/com.anokhin.kobold`, holds the covers and `worker.log`, where background updates and model passes write what went wrong.
 
 **Upgrading from 0.5:** 0.6 is kobold rebuilt on hoard. **Device root** and **Library folders** carry over; the first `kb update` builds the new index. Not carried over: genres from `catalogue.tsv` (vault books get theirs from their folders again, nook books need one set), the model's answers and vectors, and the model settings, which are now **Chat model server**, **Embeddings server** and their keys. `books.db`, `oracle.tsv`, `oracle.log`, `vectors.db`, `journal.jsonl` and `covers/` in the data folder are no longer read; delete them when you like. Gone for now: `kb catalogue`, `kb classify` (use `kb tag`), the `kbi` keyword (use `kb lib`), searching by folder, path, subject or language, the green nook frame and pdf thumbnails.
 

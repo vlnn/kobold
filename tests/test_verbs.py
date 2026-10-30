@@ -72,14 +72,18 @@ def test_return_on_a_book_follows_its_place(ctx, title, verb):
     assert books(ctx)[title].verb == verb, f"↩ on {title} should {verb}"
 
 
-def test_a_vault_book_moves_to_the_nook_under_its_canonical_name_with_its_sidecar(ctx, device):
+def test_a_vault_book_moves_to_the_nook_under_its_canonical_name_with_its_sidecar(ctx, device, mocker):
+    run = mocker.patch("subprocess.run")
     assert act(ctx, "to_nook", "Dhalgren") == "To the nook: Dhalgren", "the notification should name the book"
+    run.assert_not_called()
     assert (device / DHALGREN_IN_NOOK).is_file(), "the book should arrive in the nook under its canonical name"
     assert (device / "Nook" / "Delany, Samuel R. - Dhalgren (1975).sdr" / "metadata.epub.lua").is_file(), "its sidecar should follow"
     assert f'"/mnt/onboard/{DHALGREN_IN_NOOK}"' in (device / ".adds/koreader/settings/history.lua").read_text(), (
         "KOReader's history should point at the new place"
     )
-    assert books(ctx, "dhalgren")["Dhalgren"].subtitle.startswith("nook +library"), "the index should see it in the nook"
+    assert books(ctx, "dhalgren")["Dhalgren"].subtitle.startswith("fiction/sci-fi? · nook +library"), (
+        "the index should see it in the nook, with the shelf it left as the suggested genre"
+    )
 
 
 def test_moving_to_the_nook_undoes_to_the_byte(ctx, device):
@@ -89,8 +93,11 @@ def test_moving_to_the_nook_undoes_to_the_byte(ctx, device):
     assert tree(device) == before, "undo should put the book, its sidecar and KOReader's history back"
 
 
-def test_a_library_book_is_copied_into_the_nook(ctx, device, library):
+def test_a_library_book_is_copied_into_the_nook(ctx, device, library, mocker):
+    run = mocker.patch("subprocess.run")
+    nova = books(ctx)["Nova"]
     assert act(ctx, "to_nook", "Nova") == "To the nook: Nova", "the notification should name the book"
+    assert run.call_args.args[0][-1].endswith(f'search "kb tag #{nova.id} "'), "a book without a genre should go on to the picker"
     assert (device / "Nook" / "Delany, Samuel R. - Nova (1968).epub").is_file(), "the copy should arrive under its canonical name"
     assert (library / "Delany" / "Nova.epub").is_file(), "the library keeps its file"
     api.act(KIND, "undo", [], ctx)
@@ -109,11 +116,19 @@ def test_finishing_a_book_with_a_genre_files_it_into_the_vault(ctx, device):
     assert (device / "Nook" / "ubik.epub").is_file(), "undo should bring it back to the nook"
 
 
-@pytest.mark.parametrize("title", ["Ubik", "Nameless"])
-def test_a_book_without_a_genre_or_an_author_stays_in_the_nook(ctx, device, title):
-    if title == "Nameless":
-        tag(ctx, "Nameless", "fiction/sci-fi")
-    assert act(ctx, "done", title) == "Finish: nothing to do", f"{title} has no home yet and should stay put"
+def test_a_book_without_an_author_stays_in_the_nook(ctx, device, mocker):
+    run = mocker.patch("subprocess.run")
+    tag(ctx, "Nameless", "fiction/sci-fi")
+    assert act(ctx, "done", "Nameless") == "Finish: nothing to do", "a book without an author has no home yet"
+    run.assert_not_called()
+
+
+def test_finishing_a_book_without_a_genre_opens_the_picker(ctx, device, mocker):
+    run = mocker.patch("subprocess.run")
+    ubik = books(ctx)["Ubik"]
+    assert ubik.subtitle.startswith("needs a genre · nook"), "a nook book without a genre should say so"
+    assert act(ctx, "done", "Ubik") == "Finish: nothing to do", "nothing moves until the book has a genre"
+    assert run.call_args.args[0][-1].endswith(f'search "kb tag #{ubik.id} "'), "↩ should hand the book to the genre picker"
 
 
 def test_removing_sets_aside_only_books_the_library_still_holds(ctx, device):
@@ -124,19 +139,21 @@ def test_removing_sets_aside_only_books_the_library_still_holds(ctx, device):
     assert (device / "Nook" / "ubik.epub").is_file(), "the only copy of a book stays on the device"
 
 
-def test_finish_lists_and_counts_only_books_with_a_home(ctx):
-    assert text.render(api.filter(KIND, "done", ctx))[0].startswith("» Nothing to finish"), "untagged nook books have no home yet"
+def test_finish_lists_every_nook_book_and_files_the_ones_with_a_home(ctx, mocker):
+    run = mocker.patch("subprocess.run")
+    assert sorted(books(ctx, "done")) == ["Nameless", "Ubik"], "kb done should list every nook book, homed or not"
     tag(ctx, "Ubik", "fiction/sci-fi")
-    assert sorted(books(ctx, "done")) == ["Ubik"], "kb done should list only the books it can file"
-    assert text.render(api.filter(KIND, "done", ctx))[0].startswith("» Finish all 1"), "the head row should count what Finish all will move"
-    assert api.act(KIND, "done", ["batch:done"], ctx) == "Finish: Ubik", "Finish all should do what its count promised"
+    assert text.render(api.filter(KIND, "done", ctx))[0].startswith("» Finish all 2"), "the head row should count the listed books"
+    nameless = books(ctx)["Nameless"]
+    assert api.act(KIND, "done", ["batch:done"], ctx) == "Finish: Ubik", "Finish all should move the books that have a home"
+    assert run.call_args.args[0][-1].endswith(f'search "kb tag #{nameless.id} "'), "and hand the one without a genre to the picker"
 
 
 @pytest.mark.parametrize(
     "command, titles",
     [
         ("nook", ["Nameless", "Ubik"]),
-        ("done", []),
+        ("done", ["Nameless", "Ubik"]),
         ("lib", ["Nova"]),
         ("import", ["Nova"]),
         ("remove", ["Dhalgren"]),
@@ -172,25 +189,51 @@ def test_the_kind_hands_its_koreader_seed_to_hoard(ctx):
     "title, subtitle",
     [
         ("Dhalgren", "fiction/sci-fi · vault +library · Samuel R. Delany · 1975 · "),
-        ("Ubik", "nook · Philip K Dick · 1969 · "),
+        ("Ubik", "needs a genre · nook · Philip K Dick · 1969 · "),
         ("Nova", "library · Samuel R. Delany · 1968 · "),
     ],
 )
 def test_a_row_leads_with_its_genre_then_its_places(ctx, title, subtitle):
-    assert books(ctx)[title].subtitle.startswith(subtitle), "a vault book should show its folder genre first, others none"
+    assert books(ctx)[title].subtitle.startswith(subtitle), "a vault book shows its folder genre, an untagged nook book asks for one"
 
 
 def test_a_nook_book_shows_how_far_koreader_got(ctx, device):
     sidecar = device / "Nook" / "ubik.sdr"
     sidecar.mkdir()
     (sidecar / "metadata.epub.lua").write_text('return { ["percent_finished"] = 0.73, ["summary"] = { ["status"] = "reading" } }')
-    assert books(ctx)["Ubik"].subtitle.startswith("nook · 73% · Philip K Dick"), "reading progress follows the place"
+    assert books(ctx)["Ubik"].subtitle.startswith("needs a genre · nook · 73% · Philip K Dick"), "reading progress follows the place"
     (sidecar / "metadata.epub.lua").write_text('return { ["percent_finished"] = 1, ["summary"] = { ["status"] = "complete" } }')
-    assert books(ctx)["Ubik"].subtitle.startswith("nook · finished · "), "a book KOReader closed as complete is finished"
+    assert books(ctx)["Ubik"].subtitle.startswith("needs a genre · nook · finished · "), "a book KOReader closed as complete is finished"
 
 
 def test_a_genre_set_by_hand_wins_over_the_folder(ctx):
     choice = api.filter(KIND, f"tag #{books(ctx)['Dhalgren'].id} fiction/fantasy", ctx).rows[1]
     api.act(KIND, "set_tag", [choice.id], ctx)
     assert books(ctx)["Dhalgren"].subtitle.startswith("fiction/fantasy · vault +library · "), "the set genre should lead"
-    assert books(ctx)["Ubik"].subtitle.startswith("nook · "), "an untagged nook book still has no genre to show"
+    assert books(ctx)["Ubik"].subtitle.startswith("needs a genre · nook · "), "an untagged nook book still has no genre to show"
+
+
+def test_a_library_books_subjects_suggest_a_vault_genre(ctx, library):
+    make_epub(
+        library / "Pohl" / "Gateway.epub",
+        title="Gateway",
+        authors=("Frederik Pohl",),
+        subjects=("FICTION / Science Fiction",),
+        chapters=("Gateway text.",),
+    )
+    api.update(KIND, ctx)
+    assert books(ctx, "tag gateway")["Gateway"].subtitle.startswith("fiction/sci-fi? 80% · "), (
+        "the publisher's subject should propose the vault's shelf"
+    )
+    assert books(ctx, "gateway")["Gateway"].subtitle.startswith("fiction/sci-fi? · library"), "a plain search should show the proposal too"
+    assert api.act(KIND, "accept_tags", ["suggested:gateway"], ctx) == "Tagged Gateway: fiction/sci-fi", (
+        "the suggestion should be accepted like the model's"
+    )
+
+
+def test_importing_several_untagged_books_sends_them_all_to_kb_tag(ctx, library, mocker):
+    run = mocker.patch("subprocess.run")
+    make_epub(library / "Pohl" / "Gateway.epub", title="Gateway", authors=("Frederik Pohl",), chapters=("Gateway text.",))
+    api.update(KIND, ctx)
+    assert api.act(KIND, "to_nook", ["batch:lib"], ctx) == "To the nook: 2 books", "Import all should copy every listed book"
+    assert run.call_args.args[0][-1].endswith('search "kb tag "'), "several books without a genre go to the kb tag list"

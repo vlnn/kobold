@@ -143,6 +143,26 @@ def read_fb2(path: Path, book: Book) -> Book:
     return book
 
 
+def epub_subjects(path: Path) -> list[str]:
+    with zipfile.ZipFile(path) as zf:
+        return texts_of(ET.fromstring(zf.read(opf_path(zf))), "opf:metadata/dc:subject")
+
+
+def fb2_subjects(path: Path) -> list[str]:
+    return texts_of(ET.parse(path).getroot(), "fb:description/fb:title-info/fb:genre")
+
+
+SUBJECT_READERS = {"epub": epub_subjects, "fb2": fb2_subjects}
+
+
+def read_subjects(path: Path) -> list[str]:
+    reader = SUBJECT_READERS.get(book_format(path))
+    try:
+        return reader(path) if reader else []
+    except Exception:
+        return []
+
+
 READERS = {"epub": read_epub, "fb2": read_fb2}
 MAGIC = {
     "pdf": (0, (b"%PDF",)),
