@@ -4,6 +4,7 @@ import os
 from typing import NamedTuple
 
 from kobold.folders import NOOK, is_nook, is_vault_folder
+from kobold.timing import timed_call
 
 ROOT_SETTING = "KOBOLD_ROOT"
 SOURCES_SETTING = "KOBOLD_SOURCES"
@@ -25,6 +26,7 @@ def ground(ctx) -> list:
     return [root] if root else []
 
 
+@timed_call("scandir")
 def top_folders(device: str) -> list:
     return sorted(entry.name for entry in os.scandir(device) if entry.is_dir())
 

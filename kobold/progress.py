@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import NamedTuple
 
 from kobold.paths import sidecar_of
+from kobold.timing import timed_call
 
 PERCENT = re.compile(r'\[?"?percent_finished"?\]?\s*=\s*([0-9.]+)')
 SUMMARY = re.compile(r'\[?"?summary"?\]?\s*=\s*\{([^}]*)\}')
@@ -36,6 +37,7 @@ def metadata_of(book: Path) -> Path:
     return sidecar_of(book) / f"metadata{book.suffix}.lua"
 
 
+@timed_call("progress")
 def progress_of(book: Path) -> Progress:
     metadata = metadata_of(book)
     return read_progress(metadata.read_text(encoding="utf-8")) if metadata.is_file() else Progress(None, "")

@@ -1,5 +1,6 @@
 from hoard.contract import TAGS, Command, Kind, LocalVectors, Standardize, Storage, Verb, lazy
 
+from kobold import timing  # noqa: F401  registers the at-exit timing report
 from kobold.places import DEVICE, NOOK, default_verb, in_nook, removable, stampable
 from kobold.roots import ROOT_SETTING, SOURCES_SETTING, ground, library_of, nook_of, parent_is_dir, vault_of
 
