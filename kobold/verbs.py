@@ -8,7 +8,7 @@ from pathlib import Path, PurePosixPath
 from hoard import api
 from hoard.contract import TAGS, TRASH, Change, Outcome, Plan, Step
 
-from kobold import KIND
+from kobold import KIND, rules
 from kobold.genres import genre_of
 from kobold.lint import exact_duplicates, title_duplicates
 from kobold.model import Operation, Row
@@ -83,11 +83,9 @@ def picker_for(founds) -> str | None:
 
 
 def leaving_shelf(founds, ctx) -> None:
-    from kobold.rules import leaving_shelf
-
     for found in founds:
         if found.on(VAULT) and not found.on(NOOK):
-            leaving_shelf(found, ctx)
+            rules.leaving_shelf(found, ctx)
 
 
 def to_nook(founds, ctx) -> Outcome:
