@@ -13,13 +13,14 @@ from kobold.genres import genre_of
 from kobold.lint import exact_duplicates, title_duplicates
 from kobold.model import Operation, Row
 from kobold.naming import canonical_name, destination, known_authors, shelves
-from kobold.paths import SIDECAR_SUFFIX, nfc, relative_path
+from kobold.paths import relative_path
 from kobold.places import DEVICE, LIBRARY, NOOK, VAULT, device_sightings, has_genre, is_unfinished, on_device, stampable
 from kobold.plan import DUPS, EXECUTABLE, plan
 from kobold.roots import device_root
 from kobold.scan import PARTIAL_SUFFIX, book_format, iter_junk
 from kobold.shelf import normalize_title
 from kobold.stamp import SUBJECTS, stamp_one, unstamp, wanted_on_done
+from kobold.vault import vault_folders, vault_names
 
 
 def reachable(found, place: str) -> str | None:
@@ -49,21 +50,6 @@ def row_of(found, locator: str) -> Row:
         norm_title="",
         fingerprint=found.entity.id,
     )
-
-
-def vault_walk(ctx):
-    for root in ctx.roots_of(VAULT):
-        for folder, folders, files in os.walk(root):
-            folders[:] = [name for name in folders if not name.startswith(".") and not name.endswith(SIDECAR_SUFFIX)]
-            yield folder, files
-
-
-def vault_folders(ctx, root: Path) -> set[str]:
-    return {relative_path(Path(folder), root) for folder, _ in vault_walk(ctx)}
-
-
-def vault_names(ctx) -> list[str]:
-    return [nfc(name) for _, files in vault_walk(ctx) for name in files]
 
 
 def series_count(row: Row, names: list[str]) -> int:
@@ -105,8 +91,7 @@ def leaving_shelf(founds, ctx) -> None:
 
 
 def to_nook(founds, ctx) -> Outcome:
-    root = Path(device_root(ctx))
-    authors = frozenset(known_authors(vault_folders(ctx, root)))
+    authors = frozenset(known_authors(vault_folders(ctx)))
     steps = {found.entity.id: step for found in founds if (step := bringing(found, ctx, authors))}
     brought = [found for found in founds if found.entity.id in steps]
     leaving_shelf(brought, ctx)
@@ -139,7 +124,7 @@ def finish(found, ctx, root: Path, layout, names: list[str]) -> list[Change]:
 
 def done(founds, ctx) -> Outcome:
     root = Path(device_root(ctx))
-    layout, names = shelves(vault_folders(ctx, root)), vault_names(ctx)
+    layout, names = shelves(vault_folders(ctx)), vault_names(ctx)
     changes = [change for found in founds for change in finish(found, ctx, root, layout, names)]
     return Outcome(changes, picker_for([found for found in founds if found.on(NOOK)]))
 
@@ -186,7 +171,7 @@ def genre_reader(founds, ctx) -> Callable[[Row], str]:
 
 def tidy_plan(founds, ctx, rows: list[Row], root: Path) -> list[Operation]:
     findings = [*exact_duplicates(rows), *title_duplicates(rows)]
-    operations = plan(rows, findings, genre_reader(founds, ctx), frozenset(vault_folders(ctx, root)))
+    operations = plan(rows, findings, genre_reader(founds, ctx), frozenset(vault_folders(ctx)))
     return [op for op in operations if op.kind in EXECUTABLE]
 
 

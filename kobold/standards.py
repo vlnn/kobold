@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-import os
 import re
 import unicodedata
 from collections import Counter, defaultdict
-from collections.abc import Iterable, Iterator, Sequence
+from collections.abc import Iterable, Sequence
 from itertools import combinations
 from pathlib import Path
 from typing import NamedTuple
@@ -15,8 +14,8 @@ from kobold.filenames import EDITOR
 from kobold.folders import genre_from_folder
 from kobold.genres import known_genres
 from kobold.naming import author_folder, known_authors, surname_first
-from kobold.places import VAULT
 from kobold.scan import is_book
+from kobold.vault import vault_folders, vault_walk
 
 CYRILLIC_LETTER = re.compile(r"[Ѐ-ӿ]")
 NAME_PUNCTUATION = re.compile(r"[\s.,\-‐–—_()\"]+")
@@ -205,16 +204,8 @@ def proposals_for(group: list, standard) -> list:
     return proposals + ([Standard(standard.spelling, other)] if other else [])
 
 
-def vault_walk(ctx: Context) -> Iterator[tuple]:
-    for root in ctx.roots_of(VAULT):
-        device = os.path.dirname(root)
-        for folder, folders, files in os.walk(root):
-            folders[:] = [name for name in folders if not name.startswith(".")]
-            yield Path(os.path.relpath(folder, device)).as_posix(), files
-
-
 def author_folders(ctx: Context) -> frozenset:
-    return frozenset(known_authors({folder for folder, _ in vault_walk(ctx)}))
+    return frozenset(known_authors(vault_folders(ctx)))
 
 
 def authors(spellings: Sequence[Spelling], ctx: Context) -> list:
