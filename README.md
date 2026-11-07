@@ -306,8 +306,11 @@ uv run pytest
 uv run ruff check && uv run ruff format --check
 uv run --python 3.13 python -m hoard.build --check   → dist/kobold.alfredworkflow, answering an empty query
 make link                                             → a workflow in Alfred symlinked to this checkout
+make test-system                                      → the suite on /usr/bin/python3, as the workflow runs
 ```
+
+Two Pythons: the workflow *runs* on macOS's `/usr/bin/python3` (3.9), so the code and `uv run pytest` stay 3.9-clean and CI tests both ends. The *build* reads `workflow/plist.toml` with `tomllib` in hoard, which is 3.11+, so `make build` and `make check` need `uv run --python 3.13` and cannot run on the system Python. Lifting that is a `tomli` fallback in hoard, not here.
 
 hoard is pinned to a tag in `pyproject.toml`. To work on both, keep a hoard checkout next to this one and add `--with-editable ../hoard` to any of the commands above, e.g. `uv run --with-editable ../hoard pytest`. To move to a newer hoard, change the tag and run `uv lock`.
 
-`docs/interface.md`, `docs/plan.md` and `docs/oracle.md` describe the 0.5 design, before hoard.
+`docs/history/` keeps the 0.5 design notes, from before hoard, for the reasoning; the README is the current interface.
