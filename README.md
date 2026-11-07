@@ -142,7 +142,7 @@ Most books say what they are, in `dc:subject` lines or fb2 `<genre>` codes, and 
 
 ## One name per writer, one name per genre
 
-Libraries spell the same writer several ways (`Samuel R. Delany`, `Delany, Samuel R.`, `S. R. Delany`) and genres drift the same way. Every `kb update` finds such spellings, applies the safe merges on its own (case, order, accents, `ё`/`е`) and leaves the rest in `kb std` for **Accept N**. No model is needed. [docs/spellings.md](docs/spellings.md) says what merges, what waits and what never does.
+Libraries spell the same writer several ways (`Samuel R. Delany`, `Delany, Samuel R.`, `S. R. Delany`) and genres drift the same way. Every `kb update` finds such spellings, applies the safe merges on its own (case, order, accents, `ё`/`е`) and leaves the rest in `kb std` for **Accept N**; a writer spelled in two scripts (`Zelazny, Roger ↔ Желязни, Роджер`) is offered as a link, so either name finds every edition while each book keeps its own. No model is needed. [docs/spellings.md](docs/spellings.md) says what merges, what waits, what links and what never does.
 
 ## Books like this
 

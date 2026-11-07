@@ -10,4 +10,4 @@ kb like              starts from the book KOReader opened last, else the newest 
 ⌃↩ on any row        the same list for that book
 ```
 
-It is a likeness of words, not of meaning: same author, same series, same genre and shared vocabulary rank high, while two novels with the same mood in different words do not find each other. A book whose file is not reachable during the update is placed by its title, authors, series, year and genre alone. A genre set later does not move a book until its vector is made again.
+It is a likeness of words, not of meaning: same author, same series, same genre and shared vocabulary rank high, while two novels with the same mood in different words do not find each other. A book whose file is not reachable during the update is placed by its title, authors, series, year and genre alone. A genre set later does not move a book until its vector is made again; linking two spellings of a writer remakes the vectors of their books on the next update.
