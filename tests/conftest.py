@@ -8,6 +8,12 @@ from kobold.model import Placed
 
 pytest_plugins = ["hoard.testing"]
 
+
+@pytest.fixture(autouse=True)
+def alfred(mocker):
+    return mocker.patch("hoard._requery.reopen")
+
+
 BASE_ROW = {
     "title": "Deep Work",
     "authors": "Cal Newport",

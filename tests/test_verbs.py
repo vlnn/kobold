@@ -75,10 +75,9 @@ def test_return_on_a_book_follows_its_place(ctx, title, verb):
     assert books(ctx)[title].verb == verb, f"↩ on {title} should {verb}"
 
 
-def test_a_vault_book_moves_to_the_nook_under_its_canonical_name_with_its_sidecar(ctx, device, mocker):
-    run = mocker.patch("subprocess.run")
+def test_a_vault_book_moves_to_the_nook_under_its_canonical_name_with_its_sidecar(ctx, device, alfred):
     assert act(ctx, "to_nook", "Dhalgren") == "To the nook: Dhalgren", "the notification should name the book"
-    run.assert_not_called()
+    alfred.assert_not_called()
     assert (device / DHALGREN_IN_NOOK).is_file(), "the book should arrive in the nook under its canonical name"
     assert (device / "Nook" / "Delany, Samuel R. - Dhalgren (1975).sdr" / "metadata.epub.lua").is_file(), "its sidecar should follow"
     assert f'"/mnt/onboard/{DHALGREN_IN_NOOK}"' in (device / ".adds/koreader/settings/history.lua").read_text(), (
@@ -96,11 +95,10 @@ def test_moving_to_the_nook_undoes_to_the_byte(ctx, device):
     assert tree(device) == before, "undo should put the book, its sidecar and KOReader's history back"
 
 
-def test_a_library_book_is_copied_into_the_nook(ctx, device, library, mocker):
-    run = mocker.patch("subprocess.run")
+def test_a_library_book_is_copied_into_the_nook(ctx, device, library, alfred):
     nova = books(ctx)["Nova"]
     assert act(ctx, "to_nook", "Nova") == "To the nook: Nova", "the notification should name the book"
-    assert run.call_args.args[0][-1].endswith(f'search "kb tag #{nova.id} "'), "a book without a genre should go on to the picker"
+    assert alfred.call_args.args[0] == f"kb tag #{nova.id} ", "a book without a genre should go on to the picker"
     assert (device / "Nook" / "Delany, Samuel R. - Nova (1968).epub").is_file(), "the copy should arrive under its canonical name"
     assert (library / "Delany" / "Nova.epub").is_file(), "the library keeps its file"
     api.act(KIND, "undo", [], ctx)
@@ -119,19 +117,17 @@ def test_finishing_a_book_with_a_genre_files_it_into_the_vault(ctx, device):
     assert (device / "Nook" / "ubik.epub").is_file(), "undo should bring it back to the nook"
 
 
-def test_a_book_without_an_author_stays_in_the_nook(ctx, device, mocker):
-    run = mocker.patch("subprocess.run")
+def test_a_book_without_an_author_stays_in_the_nook(ctx, device, alfred):
     tag(ctx, "Nameless", "fiction/sci-fi")
     assert act(ctx, "done", "Nameless") == "Finish: nothing to do", "a book without an author has no home yet"
-    run.assert_not_called()
+    alfred.assert_not_called()
 
 
-def test_finishing_a_book_without_a_genre_opens_the_picker(ctx, device, mocker):
-    run = mocker.patch("subprocess.run")
+def test_finishing_a_book_without_a_genre_opens_the_picker(ctx, device, alfred):
     ubik = books(ctx)["Ubik"]
     assert ubik.subtitle.startswith("needs a genre · nook"), "a nook book without a genre should say so"
     assert act(ctx, "done", "Ubik") == "Finish: nothing to do", "nothing moves until the book has a genre"
-    assert run.call_args.args[0][-1].endswith(f'search "kb tag #{ubik.id} "'), "↩ should hand the book to the genre picker"
+    assert alfred.call_args.args[0] == f"kb tag #{ubik.id} ", "↩ should hand the book to the genre picker"
 
 
 def test_removing_sets_aside_only_books_the_library_still_holds(ctx, device):
@@ -142,14 +138,13 @@ def test_removing_sets_aside_only_books_the_library_still_holds(ctx, device):
     assert (device / "Nook" / "ubik.epub").is_file(), "the only copy of a book stays on the device"
 
 
-def test_finish_lists_every_nook_book_and_files_the_ones_with_a_home(ctx, mocker):
-    run = mocker.patch("subprocess.run")
+def test_finish_lists_every_nook_book_and_files_the_ones_with_a_home(ctx, alfred):
     assert sorted(books(ctx, "done")) == ["Nameless", "Ubik"], "kb done should list every nook book, homed or not"
     tag(ctx, "Ubik", "fiction/sci-fi")
     assert text.render(api.filter(KIND, "done", ctx))[0].startswith("» Finish all 2"), "the head row should count the listed books"
     nameless = books(ctx)["Nameless"]
     assert api.act(KIND, "done", ["batch:done"], ctx) == "Finish: Ubik", "Finish all should move the books that have a home"
-    assert run.call_args.args[0][-1].endswith(f'search "kb tag #{nameless.id} "'), "and hand the one without a genre to the picker"
+    assert alfred.call_args.args[0] == f"kb tag #{nameless.id} ", "and hand the one without a genre to the picker"
 
 
 @pytest.mark.parametrize(
@@ -234,12 +229,11 @@ def test_a_library_books_subjects_suggest_a_vault_genre(ctx, library):
     )
 
 
-def test_importing_several_untagged_books_sends_them_all_to_kb_tag(ctx, library, mocker):
-    run = mocker.patch("subprocess.run")
+def test_importing_several_untagged_books_sends_them_all_to_kb_tag(ctx, library, alfred):
     make_epub(library / "Pohl" / "Gateway.epub", title="Gateway", authors=("Frederik Pohl",), chapters=("Gateway text.",))
     api.update(KIND, ctx)
     assert api.act(KIND, "to_nook", ["batch:lib"], ctx) == "To the nook: 2 books", "Import all should copy every listed book"
-    assert run.call_args.args[0][-1].endswith('search "kb tag "'), "several books without a genre go to the kb tag list"
+    assert alfred.call_args.args[0] == "kb tag ", "several books without a genre go to the kb tag list"
 
 
 def dhalgren_found(device: Path) -> Found:
