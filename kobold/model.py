@@ -33,15 +33,19 @@ class Row:
     authors: str
     series: str
     series_index: str
-    folder: str
-    rel_path: str
-    place: str
     format: str
     partial: bool
     year: str
+    fingerprint: str
+
+
+@dataclass
+class Placed(Row):
+    folder: str
+    rel_path: str
+    place: str
     size: int
     norm_title: str
-    fingerprint: str
 
 
 @dataclass

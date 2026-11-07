@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Callable
-from dataclasses import replace
+from dataclasses import asdict
 from pathlib import Path, PurePosixPath
 
 from hoard import api
@@ -11,7 +11,7 @@ from hoard.contract import TAGS, TRASH, Change, Outcome, Plan, Step
 from kobold import KIND, rules
 from kobold.genres import genre_of
 from kobold.lint import exact_duplicates, title_duplicates
-from kobold.model import Operation, Row
+from kobold.model import Operation, Placed, Row
 from kobold.naming import canonical_name, destination, known_authors, shelves
 from kobold.paths import relative_path
 from kobold.places import DEVICE, LIBRARY, NOOK, VAULT, device_sightings, has_genre, is_unfinished, on_device, stampable
@@ -40,14 +40,9 @@ def row_of(found, locator: str) -> Row:
         authors=authors,
         series=series,
         series_index=index,
-        folder="",
-        rel_path="",
-        place="",
         format=book_format(Path(locator)),
         partial=locator.endswith(PARTIAL_SUFFIX),
         year=year,
-        size=0,
-        norm_title="",
         fingerprint=found.entity.id,
     )
 
@@ -146,10 +141,10 @@ def undo(changes, ctx) -> None:
     api.restore(KIND, [change for change in changes if change.kind_of_change != SUBJECTS], ctx)
 
 
-def placed_row(found, locator: str, place: str, root: Path) -> Row:
+def placed_row(found, locator: str, place: str, root: Path) -> Placed:
     rel = relative_path(Path(locator), root)
-    return replace(
-        row_of(found, locator),
+    return Placed(
+        **asdict(row_of(found, locator)),
         rel_path=rel,
         folder=PurePosixPath(rel).parent.as_posix(),
         place=place,
@@ -158,16 +153,16 @@ def placed_row(found, locator: str, place: str, root: Path) -> Row:
     )
 
 
-def device_rows(founds, root: Path) -> list[Row]:
+def device_rows(founds, root: Path) -> list[Placed]:
     return [placed_row(found, s.locator, s.storage, root) for found in founds for s in device_sightings(found)]
 
 
-def genre_reader(founds, ctx) -> Callable[[Row], str]:
+def genre_reader(founds, ctx) -> Callable[[Placed], str]:
     tags = {found.entity.id: found.tags[0] for found in founds if found.tags}
     return lambda row: genre_of(ctx, tags.get(row.fingerprint, ""), row.folder)
 
 
-def tidy_plan(founds, ctx, rows: list[Row], root: Path) -> list[Operation]:
+def tidy_plan(founds, ctx, rows: list[Placed], root: Path) -> list[Operation]:
     findings = [*exact_duplicates(rows), *title_duplicates(rows)]
     operations = plan(rows, findings, genre_reader(founds, ctx), frozenset(vault_folders(ctx)))
     return [op for op in operations if op.kind in EXECUTABLE]

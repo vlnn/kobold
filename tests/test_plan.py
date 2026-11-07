@@ -3,12 +3,12 @@ from pathlib import Path
 
 import pytest
 
-from kobold.model import Finding, Operation, Row
+from kobold.model import Finding, Operation, Placed
 from kobold.plan import plan, prefer
 from tests.test_lint import named
 
 
-def genres(**by_fingerprint) -> Callable[[Row], str]:
+def genres(**by_fingerprint) -> Callable[[Placed], str]:
     return lambda row: by_fingerprint.get(row.fingerprint, "")
 
 

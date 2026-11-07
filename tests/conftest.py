@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from kobold.model import Row
+from kobold.model import Placed
 
 pytest_plugins = ["hoard.testing"]
 
@@ -25,8 +25,8 @@ BASE_ROW = {
 }
 
 
-def row(**overrides) -> Row:
-    return Row(**{**BASE_ROW, **overrides})
+def row(**overrides) -> Placed:
+    return Placed(**{**BASE_ROW, **overrides})
 
 
 PNG_1X1 = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==")

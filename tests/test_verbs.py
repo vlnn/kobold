@@ -3,11 +3,14 @@ from pathlib import Path
 
 import pytest
 from hoard import api
+from hoard.contract import Entity, Found, Sighting
 from hoard.items import Item
 from hoard.render import text
 from hoard.testing import make_epub
 
 from kobold import KIND
+from kobold.model import Row
+from kobold.verbs import placed_row, row_of
 
 HISTORY = '{\n  [1] = {\n    ["file"] = "/mnt/onboard/01_Fiction/02_Sci-Fi/dhalgren.epub",\n    ["time"] = 1700000000,\n  },\n}\n'
 DHALGREN_IN_NOOK = "Nook/Delany, Samuel R. - Dhalgren (1975).epub"
@@ -237,3 +240,28 @@ def test_importing_several_untagged_books_sends_them_all_to_kb_tag(ctx, library,
     api.update(KIND, ctx)
     assert api.act(KIND, "to_nook", ["batch:lib"], ctx) == "To the nook: 2 books", "Import all should copy every listed book"
     assert run.call_args.args[0][-1].endswith('search "kb tag "'), "several books without a genre go to the kb tag list"
+
+
+def dhalgren_found(device: Path) -> Found:
+    locator = str(device / "01_Fiction" / "02_Sci-Fi" / "dhalgren.epub")
+    entity = Entity("abc", "Dhalgren", ("Samuel R. Delany", "", "1975", "EPUB 1.0 MB"))
+    return Found(entity, (Sighting("abc", "vault", locator, 0.0, 1),))
+
+
+def test_row_of_carries_only_what_naming_reads(device):
+    found = dhalgren_found(device)
+    row = row_of(found, found.nearest.locator)
+    assert type(row) is Row, "a row made from an entity alone should not pretend to be placed"
+    assert (row.title, row.authors, row.format, row.fingerprint) == ("Dhalgren", "Samuel R. Delany", "epub", "abc"), (
+        "the naming fields should come from the entity and the locator"
+    )
+
+
+def test_placed_row_adds_where_the_file_is(device):
+    found = dhalgren_found(device)
+    placed = placed_row(found, found.nearest.locator, "vault", device)
+    assert isinstance(placed, Row), "a placed row should still be a row for naming"
+    assert (placed.place, placed.folder, placed.rel_path) == ("vault", "01_Fiction/02_Sci-Fi", "01_Fiction/02_Sci-Fi/dhalgren.epub"), (
+        "placement should add the place and the path from the device root"
+    )
+    assert placed.norm_title == "dhalgren" and placed.size > 0, "the normalised title and the size on disk should be filled in"
