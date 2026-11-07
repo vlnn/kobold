@@ -1,5 +1,6 @@
 import pytest
 
+from kobold import cyrillic
 from kobold.cyrillic import surname_first
 
 
@@ -55,3 +56,9 @@ from kobold.cyrillic import surname_first
 )
 def test_cyrillic_order(author, folder):
     assert surname_first(author.split()) == folder, f"{author!r} should file under {folder!r}"
+
+
+@pytest.mark.parametrize("pattern", [cyrillic.PATRONYMIC, cyrillic.SURNAME_SUFFIX])
+def test_name_ending_alternations_list_each_ending_once(pattern):
+    endings = pattern.pattern.removeprefix("(?:").removesuffix(")$").split("|")
+    assert len(endings) == len(set(endings)), "a duplicated ending is a typo waiting to hide a missing one"
