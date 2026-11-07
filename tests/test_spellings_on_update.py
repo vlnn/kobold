@@ -49,11 +49,12 @@ def test_an_update_gives_a_reordered_spelling_the_standard_name(ctx):
     assert "· Delany, Samuel R. ·" in book(ctx, "Nova").subtitle, "a variant in word order only should be fixed on update"
 
 
-def test_initials_wait_in_std_under_the_standard_name(ctx):
+def test_initials_wait_in_std_under_the_standard_name_and_two_scripts_as_a_link(ctx):
     assert lines(ctx, "std") == [
-        "» Accept 1 | ↩ makes every spelling below standard",
+        "» Accept 2 | ↩ makes every spelling below standard",
         "Delany, Samuel R. | authors · S. R. Delany · 1 book",
-    ], "a spelling with initials should be proposed, not applied"
+        "Roger Zelazny ↔ Роджер Желязни | authors · link · 2 books",
+    ], "a spelling with initials should be proposed, not applied; a writer in two scripts should be offered as a link"
 
 
 def test_an_accepted_standard_names_the_imported_file(ctx, device):
@@ -63,8 +64,12 @@ def test_an_accepted_standard_names_the_imported_file(ctx, device):
 
 
 @pytest.mark.parametrize("title, author", [("Nine Princes in Amber", "Roger Zelazny"), ("Девʼять принців Амбера", "Роджер Желязни")])
-def test_each_script_keeps_its_own_spelling(ctx, title, author):
+def test_each_script_keeps_its_own_spelling_even_once_linked(ctx, title, author):
+    api.act(KIND, "standardize", ["std:"], ctx)
     assert f"· {author} ·" in book(ctx, title).subtitle, "a book should keep the spelling of its own language"
+    assert {book(ctx, "Nine Princes in Amber").id, book(ctx, "Девʼять принців Амбера").id} <= {
+        row.id for row in api.filter(KIND, "желязни", ctx).rows if isinstance(row, Item)
+    }, "while either spelling finds both books"
 
 
 def test_genre_folders_spelled_two_ways_become_one_genre(ctx, device):

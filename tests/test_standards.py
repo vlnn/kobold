@@ -92,8 +92,6 @@ def test_one_group_can_hold_both_kinds_of_variant():
     "spellings",
     [
         [("Samuel Delany", 1), ("Sarah Delany", 1)],
-        [("Roger Zelazny", 1), ("Роджер Желязни", 1)],
-        [("Желязны, Роджер", 1), ("Zelazny, Roger", 1)],
         [("Philip K. Dick", 1), ("Philip Roth", 1)],
         [("A. Smith", 1), ("Adam Smith", 1), ("Alice Smith", 1)],
         [("D. Samuel", 1), ("Samuel Delany", 1)],
@@ -101,8 +99,49 @@ def test_one_group_can_hold_both_kinds_of_variant():
         [],
     ],
 )
-def test_different_people_and_different_scripts_stay_apart(spellings):
-    assert authors(spelled(*spellings), NO_DEVICE) == [], "only one person in one script should be grouped"
+def test_different_people_stay_apart(spellings):
+    assert authors(spelled(*spellings), NO_DEVICE) == [], "only one person should be grouped"
+
+
+def link(latin: str, cyrillic: str) -> Standard:
+    return Standard(latin, (cyrillic,), search_only=True)
+
+
+@pytest.mark.parametrize(
+    "spellings, expected",
+    [
+        ([("Zelazny, Roger", 1), ("Желязни, Роджер", 1)], [link("Zelazny, Roger", "Желязни, Роджер")]),
+        ([("Желязны, Роджер", 1), ("Zelazny, Roger", 1)], [link("Zelazny, Roger", "Желязны, Роджер")]),
+        ([("Roger Zelazny", 1), ("Роджер Желязни", 1)], [link("Roger Zelazny", "Роджер Желязни")]),
+        ([("Dick, Philip K.", 1), ("Дик, Филип", 1)], [link("Dick, Philip K.", "Дик, Филип")]),
+        ([("Le Guin, Ursula K.", 1), ("Ле Гуин, Урсула", 1)], [link("Le Guin, Ursula K.", "Ле Гуин, Урсула")]),
+    ],
+)
+def test_the_same_writer_in_two_scripts_is_offered_as_a_link(spellings, expected):
+    assert authors(spelled(*spellings), NO_DEVICE) == expected, "a writer in two scripts is one search, two folders"
+
+
+@pytest.mark.parametrize(
+    "spellings",
+    [
+        [("Smith, Adam", 1), ("Смит, Алиса", 1)],
+        [("Green, John", 1), ("Grin, John", 1), ("Грин, Джон", 1)],
+        [("Smith, John", 1), ("Смит, Джон", 1), ("Шмидт, Джон", 1), ("Шмит, Джон", 1)],
+        [("Dick, Philip", 1), ("Рот, Филип", 1)],
+        [("Zelazny, Roger", 1), ("Лем, Станислав", 1)],
+    ],
+)
+def test_a_link_needs_matching_surnames_fitting_given_names_and_no_other_candidate(spellings):
+    assert authors(spelled(*spellings), NO_DEVICE) == [], "a doubtful pair is not offered"
+
+
+def test_links_join_the_standards_of_merge_groups_and_come_after_the_merges():
+    found = authors(spelled(("Zelazny, Roger", 2), ("R. Zelazny", 1), ("Желязни, Роджер", 1), ("Роджер Желязни", 1)), NO_DEVICE)
+    assert found == [
+        Standard("Zelazny, Roger", ("R. Zelazny",)),
+        Standard("Желязни, Роджер", ("Роджер Желязни",), True),
+        link("Zelazny, Roger", "Желязни, Роджер"),
+    ], "each script merges its own variants first; the link joins what each script settles on"
 
 
 def test_an_existing_author_folder_names_the_standard(tmp_path):
