@@ -136,152 +136,29 @@ The picker offers the genres found in the vault and the ones listed under **Genr
 
 Only genres you set are searchable; a folder genre is not, so `kb sci-fi` finds the books you tagged `fiction/sci-fi`.
 
-### Suggested genres, no model needed
+### Suggested genres
 
-Most books say what they are: an epub carries `dc:subject` lines (`FICTION / Science Fiction / Space Opera`, or Calibre's tags), an fb2 its `<genre>` codes (`sf_space`). Every update reads them and proposes a genre for each book that has none, shown as `fiction/sci-fi? 80%` in `kb tag`, in the subtitle of a plain search, and first in the picker; **Accept N suggested** takes them all. The proposals come from three places, in this order:
+Most books say what they are, in `dc:subject` lines or fb2 `<genre>` codes, and every update proposes a genre for each book that has none: `fiction/sci-fi? 80%` in `kb tag`, first in the picker, **Accept N suggested** takes them all. Proposals come from the shelf a book left, from your own picks, and from a built-in table; `kb done` writes the genre into the file so KOReader's genre menu sees it. [docs/genres.md](docs/genres.md) has the rules and the percentages.
 
-- **the shelf a book left.** A vault book moved to the nook is proposed the genre of the folder it came from, at 90%;
-- **what you picked before.** Setting a genre by hand teaches kobold that this book's subjects mean that genre; once two books with the same subject got the same genre, that is a rule, at 60% plus 10% per agreeing pick, up to 90%. Undoing a pick unlearns it; accepting a suggestion teaches nothing, so a rule cannot feed itself. The books already filed in your vault teach their subjects their shelf the first time they are read, so the rules know your library from the start;
-- **a built-in table** of BISAC headings, common Calibre tags and fb2 genre codes, at 80%. Its genres are spelled `fiction/sci-fi`, `nonfiction/history` and so on; a vault shelf with the same meaning (`01_Fiction/02_SciFi`) is used instead when one exists, otherwise the genre is proposed as written and the picker creates it when you accept.
+## One name per writer, one name per genre
 
-A book carrying several subjects that map to several genres is proposed the genre with more books on your shelves. The rules live in `kobold-rules.sqlite` next to the index and survive `kb update`. With a model server set, the model's answer replaces the rule's when it arrives; a book with a rule's proposal is still asked.
-
-KOReader's genre menu reads the metadata inside each book, not kobold's tags, so `kb done` writes the genre into the file as it files the book: `dc:subject` in an epub, `<genre>` in an fb2, replacing whatever the publisher put there. **Stamp the genre on finish** in the workflow configuration turns this off. `kb stamp` does the same for books already on the device. The book's text is untouched, so it stays the same book to kobold, and the batch is undoable. Other formats cannot be written and are left as they are; the library is never written.
-
-A genre you set wins over the folder. The book moves to the new genre's folder on the next `kb fix`, or on `kb done` when it leaves the nook.
-
-## Walkthrough 4: one name per writer, one name per genre
-
-Libraries spell the same writer several ways: `Samuel R. Delany` in one epub, `Delany, Samuel R.` in another, `S. R. Delany` in a third. Without a fix each of these gets its own author folder, its own file names and its own search results. Genres drift the same way: `02_SciFi` next to `03_Sci-Fi`, a hand tag `sci-fi` next to the folder genre `fiction/sci-fi`. Every `kb update` looks for such spellings and proposes a standard for each group. No model is needed.
-
-```
-kb update                  Delany, Samuel R.  ←  Samuel R. Delany        applied: only order, case or marks differ
-kb std                     Accept 2
-                           Delany, Samuel R.    authors · S. R. Delany · 3 books
-                           fiction/sci-fi       tags · sci-fi · 1 book
-   ↩ on one                Standard: Delany, Samuel R.
-   ⌘↩ on one               pick another spelling as the standard, or Keep apart
-```
-
-- **Applied on update, no question asked:** spellings that differ only in word order (when one of them is `Surname, Given`, or both name the same surname), case, punctuation, accents (`Stanislaw` / `Stanisław`), `ё`/`е` or apostrophes. For genres: separators, case, `and`, and plurals (`sci-fi_fantasy` / `Sci-Fi and Fantasy`, `thriller` / `Thrillers`). Each update's fixes are one undoable batch. Undoing it means *no*: those spellings are kept apart from then on.
-- **Waiting in `kb std`:** swapped names with no comma to tell the surname (`Henry James` / `James Henry`), initials (`S. R. Delany`), a missing middle name or patronymic (`Ursula Le Guin`, `Іванов, Іван`), a bare surname, a genre without its parent (`sci-fi` → `fiction/sci-fi`) and synonyms (`sf`, `science fiction` → `scifi`). **Accept N** takes them all as one undoable batch.
-- **Which spelling becomes the standard:** for writers, the fullest name first, then proper capitalisation, then a name without `(ed.)`, then accents, then an existing author folder, then the `Surname, Given` form, then the most books. For genres, an existing vault folder wins, then the deeper path (`fiction/sci-fi` over `sci-fi`), then the folder or tag with more books.
-- **Never merged:** different people (`Samuel` / `Sarah Delany`), and spellings in different scripts. `Zelazny, Roger` and `Желязни, Роджер` stay two spellings, so each book keeps the name in its own language. An ambiguous short form such as `A. Smith`, when both `Adam Smith` and `Alice Smith` exist, is left alone.
-
-A standard sticks. Books that arrive later with a known variant are indexed under the standard, `kb fix` and `kb done` file them into the standard author folder under the standard file name, and a copy into the nook is named the same way. Genre variants disappear from the picker and from the model's choices, books tagged with a variant are retagged, and the next `kb fix` moves books from a variant genre folder into the standard one. Files themselves change only when they are filed or copied, as everywhere else in kobold.
+Libraries spell the same writer several ways (`Samuel R. Delany`, `Delany, Samuel R.`, `S. R. Delany`) and genres drift the same way. Every `kb update` finds such spellings, applies the safe merges on its own (case, order, accents, `ё`/`е`) and leaves the rest in `kb std` for **Accept N**. No model is needed. [docs/spellings.md](docs/spellings.md) says what merges, what waits and what never does.
 
 ## Books like this
 
-`kb like` needs no model. On every update kobold works out, for each new book, how it reads: its authors, series, genre, decade and title words, plus its subjects, description and opening text taken as short letter runs, so *корабель* and *корабля* still count as the same word. Books that share more of that come out closer.
+`kb like dhalgren` lists the books that read most like it, by authors, series, genre, decade and shared vocabulary; `kb like` alone starts from the book KOReader opened last, and ⌃↩ on any row does the same for that book. No model is needed. [docs/likeness.md](docs/likeness.md).
 
-```
-kb like dhalgren     Like Dhalgren
-                     Nova        91% · library · Samuel R. Delany · 1968 · EPUB 400 KB   ↩ copies it in
-                     Babel-17    88% · vault · …                                          ↩ to the nook
-kb like              starts from the book KOReader opened last, else the newest book
-⌃↩ on any row        the same list for that book
-```
+## A local model, if you run one
 
-It is a likeness of words, not of meaning: same author, same series, same genre and shared vocabulary rank high, while two novels with the same mood in different words do not find each other. A book whose file is not reachable during the update is placed by its title, authors, series, year and genre alone. A genre set later does not move a book until its vector is made again.
-
-## Walkthrough 5: let a local model do the reading
-
-Everything above works with no model. If you run [llama.cpp](https://github.com/ggml-org/llama.cpp)'s `llama-server` on the Mac, the workflow can propose answers to the two chores that still need a human per book — a genre for a new book, and a real title and author for a file named `7_815203.epub`. The model never moves a file.
-
-Set **Chat model server** in the workflow configuration to the server's URL (`http://127.0.0.1:8080`), then:
-
-```
-kb model                       Chat models · http://127.0.0.1:8080, then a row per model · ↩ uses it
-kb tag                         Ask about 12 books · ↩ asks in the background
-kb tag                         Dhalgren   fiction/sci-fi? 90% · …   ← the ? is a suggestion
-   Accept 9 suggested          ↩ gives every listed book its suggestion, one undoable batch
-```
-
-A confident answer to the name question (80% or more) corrects the book's title and author in the index, so search finds it, and when the book is filed or copied into the nook it gets its canonical name from the corrected row. The file is not touched before that. Less certain answers wait in `kb name` for **Accept N**. Corrections survive `kb update`.
-
-What the model sees is the book's title, authors, series and year, its `dc:subject`/`dc:description` (fb2: `genre`/`annotation`) and the first two thousand characters of its text; `ask --dry-run` from a terminal (see *From a terminal*) prints exactly that. Every answer is constrained by a JSON schema and kept until that evidence changes. Setting a genre by hand forgets the model's guess.
-
-If the server wants a key — `--api-key`, or `LLAMA_API_KEY` exported in the shell that started it — put it in **Chat server API key**.
-
-Turn on **Ask and embed on update** and `kb update` asks the name and genre questions by itself after reading the places, for books without an answer. Off by default, so updating stays as fast as it is. The **Embeddings server** setting is not used: `kb like` makes its own vectors.
-
-Nothing in the UI mentions a model until its server is set; a server that does not answer shows as *Chat server not reachable* in `kb model`.
-
-### Running llama-server
-
-The workflow only needs an OpenAI-compatible `/v1/chat/completions` that honours `response_format` with a JSON schema; any recent `llama-server` does. Two ways to run it:
-
-```sh
-llama-server --hf-repo <org>/<model>-GGUF:Q4_K_M --alias oracle --jinja -c 8192 -ngl 99 --port 8080
-```
-
-serves one model; `kb model` then lists it under its alias. Or start the server with no model and a preset file, and it runs in *router mode*: every `[section]` is a model it can serve, loaded the first time a request names it:
-
-```ini
-[oracle]
-hf-repo = <org>/<model>-GGUF:Q4_K_M
-jinja = true
-ctx-size = 8192
-n-gpu-layers = 99
-```
-
-```sh
-llama-server --port 8080 --models-preset ~/.config/llama.cpp/models.ini --models-max 2
-```
-
-Router mode is the comfortable one — swap models in `kb model` without restarting anything — with one thing to know: nothing is loaded until it is asked for. The first question after a start pays for loading the weights, and the very first time for downloading them into `~/.cache/llama.cpp`, which for a 20–30 B model is minutes to tens of minutes during which every request times out at 60 s and the pass stops. Wait for the download (the blob grows under `…/blobs/*.downloadInProgress`), or ask once from a terminal with `curl` before the pass, and ask again. `sleep-idle-seconds` in a preset unloads the model after that many idle seconds and brings the loading pause back on the next question; leave it out on a machine with the RAM, or expect the first question after each break to time out.
-
-Choices that matter for this workflow:
-
-- **An instruct model, not a thinking one.** A thinking model spends its time inside `<think>` and often misses the 60 s limit.
-- **`--jinja`.** Without it the chat template is approximated and the JSON-schema grammar fights the model more than it should.
-- **Context of 8 k or so.** A question carries the book's metadata, subjects, blurb and two thousand characters of text: 3–4 k tokens with Cyrillic text.
-- **Start it as a service** (`brew services start llama.cpp` with the preset in its arguments, or a launchd agent) rather than from a shell, so it is there when Alfred asks and survives a logout. A manually started copy loses the port to a service that is already listening and exits at once — check `lsof -nP -iTCP:8080 -sTCP:LISTEN` when a restart seems to change nothing.
-
-`kb model` reads `/v1/models` of both servers, so it knows what each one *can* serve; whether a model is loaded right now is `curl localhost:8080/health` (router mode: the per-model entry in `/models`), and `ask --dry-run` from a terminal shows what a question would send.
+Everything above works with no model. With llama.cpp's `llama-server` on the Mac, `kb tag` can ask it for a genre and `kb name` for a real title and author for a file named `7_815203.epub`. The model never moves a file. Set **Chat model server** in the workflow configuration; [docs/model.md](docs/model.md) has the settings, what the model sees, and how to run the server.
 
 ## KOReader users
 
-Each book's reading progress is read from its `.sdr` sidecar next to the file, the one KOReader keeps by default; sidecars kept under `docsettings/` are moved with the book but not read.
+Reading progress comes from each book's `.sdr` sidecar, and every move carries the sidecar along and rewrites KOReader's history, collections and bookmarks, so nothing is lost on `kb done` or undo. [docs/koreader.md](docs/koreader.md) says what has to live under the device root for that to work.
 
-Moves and renames also carry each book's `.sdr` sidecar along and rewrite the paths in `.adds/koreader/settings/{collection,history,bookmarks}.lua` (a `.bak` is written first) and under `.adds/koreader/docsettings/`, so highlights, progress and collections survive `kb done`, `kb fix`, ↩ to the nook, `kb remove` and undo. This only works if `.adds/koreader` lives under your device root: either the root is the device itself, or your sync includes that folder.
+## Under the hood
 
-## How it reads your folders
-
-The vault tree is what the e-reader shows, so the tool keeps it meaning exactly one thing: **genre → author → series**.
-
-- The vault is every top-level folder of the device root except the nook, hidden ones, and `_trash` and `_dups` left by kobold 0.7 (a move into the trash cleans them up). Books loose at the top of the device root are not read.
-- Genre is the first two folder levels with their order prefixes stripped: `01_Fiction/02_Sci-Fi_Fantasy/…` → `fiction/sci-fi_fantasy`. A folder that looks like an author (`Surname, Given` or `Given Surname`) ends the genre early, so `programming/Dietrich, Erik/…` is genre `programming` with the author straight under it. Books under `inbox`, `archives`, `_inbox` or `_broken` have no genre from their folder.
-- The nook is the top-level folder whose name is `nook` after the order prefix (`00_Nook`, `Nook`); when there is none, `Nook/` is created on the first import.
-- Author folders are `Surname, Given`. An epub's `file-as` sort name and an fb2's name tags are taken as they are; a plain `Given Surname` string is split by rule, and for Cyrillic names the rule knows a few hundred given names, patronymics and surname endings, so `Роджер Желязни` and `Шевчук Валерій` both file under the surname. Existing folders win: if you already have `Le Guin, Ursula K.`, that spelling is reused.
-- A series gets its own folder only when the vault holds more than one book of it.
-- Canonical file name: `Surname, Given - Title (Series 03) (Year).epub`, FAT-safe, ≤ 255 bytes. A book is renamed to it when it is filed into the vault, tidied or copied into the nook, never where it lies.
-
-Format support: epub and fb2 are read for metadata and cover; mobi, azw, azw3, pdf and djvu are described from their filename (libgen, Anna's Archive, `[Series №N]`, `Title - Author` and friends). `.part` files on the device are indexed as unfinished downloads, and only ever offered to `kb remove`. Library folders leave out unreadable and unfinished files.
-
-## Where things are
-
-Alfred's workflow data folder, `~/Library/Application Support/Alfred/Workflow Data/com.anokhin.kobold`, holds `kobold.sqlite`: the index, your genres, the standard spellings, the model's answers and the last 300 exchanges with it, the vectors and the undo journal, and `kobold-rules.sqlite`: each book's subjects and the genre rules learned from your picks. Both survive workflow updates and cache clears. The cache folder, `~/Library/Caches/com.runningwithcrayons.Alfred/Workflow Data/com.anokhin.kobold`, holds the covers and `worker.log`, where background updates and model passes write what went wrong.
-
-**Upgrading from 0.5:** 0.6 is kobold rebuilt on hoard. **Device root** and **Library folders** carry over; the first `kb update` builds the new index. Not carried over: genres from `catalogue.tsv` (vault books get theirs from their folders again, nook books need one set), the model's answers and vectors, and the model settings, which are now **Chat model server**, **Embeddings server** and their keys. `books.db`, `oracle.tsv`, `oracle.log`, `vectors.db`, `journal.jsonl` and `covers/` in the data folder are no longer read; delete them when you like. Gone for now: `kb catalogue`, `kb classify` (use `kb tag`), the `kbi` keyword (use `kb lib`), searching by folder, path, subject or language, the green nook frame and pdf thumbnails.
-
-## From a terminal
-
-The workflow is hoard's command line with the kobold kind, so the same commands work in a checkout:
-
-```
-export KOBOLD_ROOT=/Volumes/Transcend/kobo
-export KOBOLD_SOURCES="$HOME/Calibre Library:$HOME/Downloads"
-export alfred_workflow_data="$HOME/Library/Application Support/Alfred/Workflow Data/com.anokhin.kobold"
-export alfred_workflow_cache="$HOME/Library/Caches/com.runningwithcrayons.Alfred/Workflow Data/com.anokhin.kobold"
-uv run python -m hoard kobold update
-uv run python -m hoard kobold filter --text delany
-uv run python -m hoard kobold plan                  kb fix's steps, nothing moved
-uv run python -m hoard kobold ask name --dry-run    what the model would be sent
-uv run python -m hoard kobold doctor                Python, SQLite, folders, settings and servers
-```
-
-`filter` without `--text` prints Alfred's JSON, whose `arg` is a book's fingerprint; `act <verb> <fingerprint>…` runs a verb on books, e.g. `act to_nook …`, `act done …`, `act undo`. Without the two `alfred_workflow_*` variables the terminal uses `~/.local/share/hoard/kobold`, a copy of its own.
+How the vault tree is read (genre → author → series), where the index and the rules live, upgrading from 0.5, and the same commands from a terminal: [docs/internals.md](docs/internals.md).
 
 ## When something looks off
 

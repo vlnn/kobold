@@ -1,4 +1,4 @@
-> Design note for the local model as built in 0.5, kept for the reasoning. `kb classify` is now `kb tag`, the catalogue is gone, and the current behaviour is in the README under *Walkthrough 5*.
+> Design note for the local model as built in 0.5, kept for the reasoning. `kb classify` is now `kb tag`, the catalogue is gone, and the current behaviour is in [model.md](../model.md).
 
 # kobold — local model (oracle) design
 
