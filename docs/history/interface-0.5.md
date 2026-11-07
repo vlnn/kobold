@@ -1,3 +1,5 @@
+> Design note for kobold 0.5, kept for the reasoning. The current interface is the README; `catalogue.tsv`, `kb classify`, `kb catalogue`, `kbi` and the green nook frame are gone.
+
 # The interface
 
 What the workflow does, in one page. `plan.md` says how it was built.

@@ -1,3 +1,5 @@
+> Design note for the local model as built in 0.5, kept for the reasoning. `kb classify` is now `kb tag`, the catalogue is gone, and the current behaviour is in the README under *Walkthrough 5*.
+
 # kobold — local model (oracle) design
 
 Status: implemented, 2026-10-03; cut down with the 0.5.0 interface (`docs/interface.md`), 2026-10-04.

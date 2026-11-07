@@ -168,7 +168,7 @@ kb std                     Accept 2
 - **Which spelling becomes the standard:** for writers, the fullest name first, then proper capitalisation, then a name without `(ed.)`, then accents, then an existing author folder, then the `Surname, Given` form, then the most books. For genres, an existing vault folder wins, then the deeper path (`fiction/sci-fi` over `sci-fi`), then the folder or tag with more books.
 - **Never merged:** different people (`Samuel` / `Sarah Delany`), and spellings in different scripts. `Zelazny, Roger` and `Желязни, Роджер` stay two spellings, so each book keeps the name in its own language. An ambiguous short form such as `A. Smith`, when both `Adam Smith` and `Alice Smith` exist, is left alone.
 
-A standard sticks. Books that arrive later with a known variant are indexed under the standard, `kb fix` and `kb done` file them into the standard author folder under the standard file name, and a copy into the nook is named the same way. Genre variants disappear from the picker and from the model's choices, books tagged with a variant are retagged, and the next `kb tidy` moves books from a variant genre folder into the standard one. Files themselves change only when they are filed or copied, as everywhere else in kobold.
+A standard sticks. Books that arrive later with a known variant are indexed under the standard, `kb fix` and `kb done` file them into the standard author folder under the standard file name, and a copy into the nook is named the same way. Genre variants disappear from the picker and from the model's choices, books tagged with a variant are retagged, and the next `kb fix` moves books from a variant genre folder into the standard one. Files themselves change only when they are filed or copied, as everywhere else in kobold.
 
 ## Books like this
 
@@ -244,7 +244,7 @@ Choices that matter for this workflow:
 
 Each book's reading progress is read from its `.sdr` sidecar next to the file, the one KOReader keeps by default; sidecars kept under `docsettings/` are moved with the book but not read.
 
-Moves and renames also carry each book's `.sdr` sidecar along and rewrite the paths in `.adds/koreader/settings/{collection,history,bookmarks}.lua` (a `.bak` is written first) and under `.adds/koreader/docsettings/`, so highlights, progress and collections survive `kb done`, `kb tidy`, ↩ to the nook, `kb remove` and undo. This only works if `.adds/koreader` lives under your device root: either the root is the device itself, or your sync includes that folder.
+Moves and renames also carry each book's `.sdr` sidecar along and rewrite the paths in `.adds/koreader/settings/{collection,history,bookmarks}.lua` (a `.bak` is written first) and under `.adds/koreader/docsettings/`, so highlights, progress and collections survive `kb done`, `kb fix`, ↩ to the nook, `kb remove` and undo. This only works if `.adds/koreader` lives under your device root: either the root is the device itself, or your sync includes that folder.
 
 ## How it reads your folders
 

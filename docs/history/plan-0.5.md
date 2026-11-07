@@ -1,3 +1,5 @@
+> Build plan for the 0.5 rewrite, kept for the reasoning. It is done; `build.sh` became `python -m hoard.build`, and the modules it lists were later folded into hoard.
+
 # Implementation plan for the new interface
 
 Companion to `interface.md`, which says what the workflow should do. This says in what order to build it, what each step deletes, and what stays green. Every step ends with `uv run pytest` passing and `./build.sh` producing a workflow you could use that evening; no step leaves the tool half-migrated.
