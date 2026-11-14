@@ -39,6 +39,8 @@ Nothing to install: the workflow bundles `kobold` and [hoard](https://github.com
 
 If your device root is on a removable volume and `kb` says *Not reachable* while it is mounted, give Alfred access to **Removable Volumes** (System Settings → Privacy & Security → Files and Folders), then `kb update` again.
 
+Typing never reads the device. A card that has gone to sleep takes seconds to answer, so between updates `kb` lists the device as the last update found it, and that update, running in the background, is what wakes the card. Pressing ↩ on a book reads the device as it is.
+
 ## Search
 
 Every word you type must match, by prefix, the title, the authors, the series, the year, the format or a genre you set. Case and diacritics are ignored.
@@ -51,7 +53,7 @@ kb delany 1975           author + year
 kb                       newest books first, books without a cover after
 ```
 
-A book that exists in several places is one row, shown at its nearest place: nook, then vault, then library. The subtitle starts with the book's genre, the one you set or else the one its vault folder gives it, then says where it is and where else it is: `fiction/sci-fi · vault +library · Samuel R. Delany · 1975 · EPUB 1.2 MB`. A nook book also says how far KOReader got, `nook · 73%`, or `finished` or `abandoned` once you closed it that way, so `kb nook` and `kb done` show which books are through. The icon is the cover embedded in an epub or fb2. Lists show the first 40 matches, so add a word if what you want isn't there.
+A book that exists in several places is one row, shown at its nearest place: nook, then vault, then library. The subtitle starts with the book's genre, the one you set or else the one its vault folder gives it, then says where it is and where else it is: `fiction/sci-fi · vault +library · Samuel R. Delany · 1975 · EPUB 1.2 MB`. A nook book also says how far KOReader got, `nook · 73%`, or `finished` or `abandoned` once you closed it that way, so `kb nook` and `kb done` show which books are through; the progress is the one the last update saw. The icon is the cover embedded in an epub or fb2. Lists show the first 40 matches, so add a word if what you want isn't there.
 
 These keys mean the same thing on every book row:
 
@@ -168,6 +170,8 @@ How the vault tree is read (genre → author → series), where the index and th
 | *No folder set for nook* | set **Device root** in the workflow configuration |
 | *Not reachable: …* | the folder is not there right now: mount the volume, or grant Alfred Removable Volumes access |
 | *Updating the index… · counting files* | the update is listing the files it will read; the count follows |
+| the device was unplugged, yet its books still say *nook* or *vault* | the rows are from the last update, and the next one notices: `kb update`, or the one `kb` starts by itself once the index is ten minutes old |
+| a book's progress or a new genre folder is missing | both are read at an update: `kb update`, or wait for the next |
 | *Asking the model… · N of M asked* | the chat model is answering for every book it has not seen, one at a time; **Ask and embed on update** starts this after each update |
 | *Embedding… · N of M embedded* | an update is working out `kb like` for new books; usually well under a minute |
 | *Nothing to finish*, yet `kb nook` is full | those books have no genre or no author yet: ⌘↩ on them in `kb nook` or `kb tag` to give them a genre |

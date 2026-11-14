@@ -6,7 +6,9 @@ from pathlib import Path
 from kobold.identity import fingerprint
 from kobold.koreader import settings_dir
 from kobold.paths import nfc
+from kobold.places import NOOK
 from kobold.roots import device_root
+from kobold.seen import asleep, recall
 
 ENTRY = re.compile(r"\{[^{}]*\}")
 FILE = re.compile(r'\["file"\]\s*=\s*"((?:[^"\\]|\\.)*)"')
@@ -48,7 +50,16 @@ def last_opened(root: Path) -> str | None:
     return in_library(file, root) if file else None
 
 
-def last_opened_id(ctx) -> str | None:
+def read_last_opened_id(ctx) -> str | None:
     root = Path(device_root(ctx))
     rel = last_opened(root) if root.is_dir() else None
     return fingerprint(root / rel) if rel else None
+
+
+def last_opened_seen(ctx) -> str | None:
+    seen = recall(ctx)
+    return seen.last_opened if seen else None
+
+
+def last_opened_id(ctx) -> str | None:
+    return last_opened_seen(ctx) if asleep(ctx, NOOK) else read_last_opened_id(ctx)

@@ -1,6 +1,6 @@
 [project]
 name = "kobold"
-version = "0.9.0"
+version = "0.9.1"
 description = "Alfred workflow on hoard: search and tidy an ebook library across library, vault and nook"
 requires-python = ">=3.9"
 dependencies = ["hoard>=1.11.0"]

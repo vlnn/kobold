@@ -16,8 +16,8 @@ KIND = Kind(
     name="kobold",
     keyword="kb",
     storages=(
-        Storage("nook", nook_of(ROOT_SETTING), DEVICE_BOOK, mounted=parent_is_dir),
-        Storage("vault", vault_of(ROOT_SETTING), DEVICE_BOOK),
+        Storage("nook", nook_of(ROOT_SETTING), DEVICE_BOOK, mounted=parent_is_dir, sleeps=True),
+        Storage("vault", vault_of(ROOT_SETTING), DEVICE_BOOK, sleeps=True),
         Storage("library", library_of(SOURCES_SETTING), lazy("kobold.reading", "read_library_book")),
     ),
     fields=("authors", "series", "year", "format"),
@@ -39,6 +39,7 @@ KIND = Kind(
     ground=ground,
     escort=lazy("kobold.sidecars", "escort"),
     last_opened=lazy("kobold.history", "last_opened_id"),
+    updated=lazy("kobold.survey", "survey"),
     like=LocalVectors(LIKENESS, lazy("kobold.likeness", "vector")),
     pictured_first=True,
     subtitle=lazy("kobold.subtitle", "subtitle"),

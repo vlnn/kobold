@@ -15,6 +15,8 @@ class TestConformance(Conformance):
                 date="1969",
                 chapters=("Ubik text.",),
             )
+            (root / "Dick, Philip K. - Ubik (1969).sdr").mkdir()
+            (root / "Dick, Philip K. - Ubik (1969).sdr" / "metadata.epub.lua").write_text("return { percent_finished = 0.4 }")
             return
         if storage == "vault":
             make_fb2(root / "Lem, Stanislaw - Solaris.fb2", title="Solaris", authors=(("Stanislaw", "Lem"),))

@@ -47,3 +47,7 @@ def label(progress: Progress) -> str:
     if progress.status in WORDS:
         return WORDS[progress.status]
     return f"{int(progress.percent * 100)}%" if progress.percent is not None else ""
+
+
+def progress_label(book: Path) -> str:
+    return label(progress_of(book))

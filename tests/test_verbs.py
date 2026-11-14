@@ -199,8 +199,10 @@ def test_a_nook_book_shows_how_far_koreader_got(ctx, device):
     sidecar = device / "Nook" / "ubik.sdr"
     sidecar.mkdir()
     (sidecar / "metadata.epub.lua").write_text('return { ["percent_finished"] = 0.73, ["summary"] = { ["status"] = "reading" } }')
+    api.update(KIND, ctx)
     assert books(ctx)["Ubik"].subtitle.startswith("needs a genre · nook · 73% · Philip K Dick"), "reading progress follows the place"
     (sidecar / "metadata.epub.lua").write_text('return { ["percent_finished"] = 1, ["summary"] = { ["status"] = "complete" } }')
+    api.update(KIND, ctx)
     assert books(ctx)["Ubik"].subtitle.startswith("needs a genre · nook · finished · "), "a book KOReader closed as complete is finished"
 
 

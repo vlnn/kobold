@@ -5,6 +5,8 @@ import os
 from hoard.contract import TAGS
 
 from kobold.folders import genre_from_folder, is_author_folder
+from kobold.places import VAULT
+from kobold.seen import asleep, recall
 
 GENRES_SETTING = "KOBOLD_GENRES"
 COMMENT = "#"
@@ -27,12 +29,21 @@ def configured_genres(ctx) -> list:
 
 
 def folder_genres(ctx) -> list:
-    roots = [root for root in ctx.roots_of("vault") if os.path.isdir(root)]
-    return [genre for root in roots for genre in genres_under(root) if genre]
+    roots = [root for root in ctx.roots_of(VAULT) if os.path.isdir(root)]
+    return sorted({genre for root in roots for genre in genres_under(root) if genre})
+
+
+def genres_seen(ctx) -> list:
+    seen = recall(ctx)
+    return seen.genres if seen else []
+
+
+def vault_genres(ctx) -> list:
+    return genres_seen(ctx) if asleep(ctx, VAULT) else folder_genres(ctx)
 
 
 def known_genres(ctx) -> list:
-    return sorted({*configured_genres(ctx), *folder_genres(ctx)})
+    return sorted({*configured_genres(ctx), *vault_genres(ctx)})
 
 
 def genre_of(ctx, tag: str, folder: str) -> str:

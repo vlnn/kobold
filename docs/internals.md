@@ -15,9 +15,21 @@ The vault tree is what the e-reader shows, so the tool keeps it meaning exactly 
 
 Format support: epub and fb2 are read for metadata and cover; mobi, azw, azw3, pdf and djvu are described from their filename (libgen, Anna's Archive, `[Series №N]`, `Title - Author` and friends). `.part` files on the device are indexed as unfinished downloads, and only ever offered to `kb remove`. Library folders leave out unreadable and unfinished files.
 
+## What a keystroke reads
+
+Nothing on the device. Alfred runs `kb` afresh for every key, and a card or disk that has gone to sleep makes whoever asks it wait until it is awake, so the nook and the vault are declared to hoard as storages that sleep:
+
+- **Where the nook and the vault folders are, and that they are reachable**, is what the last update recorded in the index, as long as that update reached all of them. An update that found the device missing records that too, and then every keystroke looks for it, so plugging it in shows at once; a missing device answers immediately.
+- **Each nook book's progress, the vault's genre folders and KOReader's last book** (the seed of a bare `kb like`) are noted by every update in `seen.json` in the cache folder, and read from there while the device is left asleep. Clearing the cache leaves rows without progress until the next update.
+- **The library folders** are looked at on every keystroke as before; they are on the Mac's own disk.
+
+An update is the background one, started by `kb update` or by a `kb` typed more than ten minutes after the last, and the one that ends every ↩ that changes something: to the nook, `kb done`, `kb remove`, `kb fix`, undo. Those read the device as it is, and so does `kb fix` while it lists its plan.
+
+Set the environment variable `KOBOLD_TIMING=1` in the workflow (the `[x]` panel) to see what was read and how long it took: every listing of the device root and every sidecar read prints a `kobold timing:` line, with a total when the run ends. Keystrokes print to Alfred's debugger, the background update to `worker.log`, where a first line of several seconds is the device waking up.
+
 ## Where things are
 
-Alfred's workflow data folder, `~/Library/Application Support/Alfred/Workflow Data/com.anokhin.kobold`, holds `kobold.sqlite`: the index, your genres, the standard spellings, the model's answers and the last 300 exchanges with it, the vectors and the undo journal, and `kobold-rules.sqlite`: each book's subjects and the genre rules learned from your picks. Both survive workflow updates and cache clears. The cache folder, `~/Library/Caches/com.runningwithcrayons.Alfred/Workflow Data/com.anokhin.kobold`, holds the covers and `worker.log`, where background updates and model passes write what went wrong.
+Alfred's workflow data folder, `~/Library/Application Support/Alfred/Workflow Data/com.anokhin.kobold`, holds `kobold.sqlite`: the index, your genres, the standard spellings, the model's answers and the last 300 exchanges with it, the vectors and the undo journal, and `kobold-rules.sqlite`: each book's subjects and the genre rules learned from your picks. Both survive workflow updates and cache clears. The cache folder, `~/Library/Caches/com.runningwithcrayons.Alfred/Workflow Data/com.anokhin.kobold`, holds the covers, `seen.json` and `worker.log`, where background updates and model passes write what went wrong.
 
 **Upgrading from 0.5:** 0.6 is kobold rebuilt on hoard. **Device root** and **Library folders** carry over; the first `kb update` builds the new index. Not carried over: genres from `catalogue.tsv` (vault books get theirs from their folders again, nook books need one set), the model's answers and vectors, and the model settings, which are now **Chat model server**, **Embeddings server** and their keys. `books.db`, `oracle.tsv`, `oracle.log`, `vectors.db`, `journal.jsonl` and `covers/` in the data folder are no longer read; delete them when you like. Gone for now: `kb catalogue`, `kb classify` (use `kb tag`), the `kbi` keyword (use `kb lib`), searching by folder, path, subject or language, the green nook frame and pdf thumbnails.
 
