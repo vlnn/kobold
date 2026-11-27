@@ -1,10 +1,13 @@
 import math
 
 import pytest
-from hoard.contract import Entity, Found, Sighting
+from hoard.contract import Context, Entity, Found, Sighting
 from hoard.testing import make_epub
 
 from kobold import likeness
+
+NO_LINKS = Context(data="", cache="")
+LINKED = NO_LINKS._replace(links={"authors": {"Zelazny, Roger": "Желязни, Роджер", "Желязни, Роджер": "Zelazny, Roger"}})
 
 
 def found(title, authors="", series="", year="", tags=(), sightings=()):
@@ -16,8 +19,8 @@ def cosine(a, b):
     return dot / (math.sqrt(sum(x * x for x in a)) * math.sqrt(sum(y * y for y in b)))
 
 
-def similarity(one, other):
-    return cosine(likeness.vector(one, None), likeness.vector(other, None))
+def similarity(one, other, ctx=NO_LINKS):
+    return cosine(likeness.vector(one, ctx), likeness.vector(other, ctx))
 
 
 def on_shelf(path, title, authors):
@@ -25,7 +28,7 @@ def on_shelf(path, title, authors):
 
 
 def test_every_vector_has_the_same_length():
-    sizes = {len(likeness.vector(f, None)) for f in (found("Dhalgren"), found("Ubik", "Philip K. Dick", "", "1969", ("sci-fi",)))}
+    sizes = {len(likeness.vector(f, NO_LINKS)) for f in (found("Dhalgren"), found("Ubik", "Philip K. Dick", "", "1969", ("sci-fi",)))}
     assert sizes == {likeness.DIMENSIONS}, "vectors of any book should be comparable, so all the same length"
 
 
@@ -83,13 +86,20 @@ def test_inflected_cyrillic_descriptions_match_by_character_grams(tmp_path):
 )
 def test_a_book_that_cannot_be_read_still_gets_its_metadata_vector(sightings):
     book = found("Nova", "Samuel R. Delany", "", "1968", ("sci-fi",), sightings)
-    assert likeness.vector(book, None) == likeness.vector(found("Nova", "Samuel R. Delany", "", "1968", ("sci-fi",)), None), (
+    assert likeness.vector(book, NO_LINKS) == likeness.vector(found("Nova", "Samuel R. Delany", "", "1968", ("sci-fi",)), NO_LINKS), (
         "an unreachable or missing file should fall back to title, authors, series, year and tags, not fail"
     )
 
 
 def test_the_text_of_a_readable_book_changes_its_vector(tmp_path):
     path = make_epub(tmp_path / "nova.epub", title="Nova", authors=("Samuel R. Delany",), chapters=("Lorq Von Ray chases a star.",))
-    assert likeness.vector(on_shelf(path, "Nova", "Samuel R. Delany"), None) != likeness.vector(found("Nova", "Samuel R. Delany"), None), (
-        "a reachable book should add its subjects, description and opening text to the metadata"
-    )
+    assert likeness.vector(on_shelf(path, "Nova", "Samuel R. Delany"), NO_LINKS) != likeness.vector(
+        found("Nova", "Samuel R. Delany"), NO_LINKS
+    ), "a reachable book should add its subjects, description and opening text to the metadata"
+
+
+def test_a_linked_author_pulls_a_translation_towards_its_original():
+    original, translation = found("Lord of Light", "Zelazny, Roger", year="1967"), found("Князь Света", "Желязни, Роджер", year="1971")
+    stranger = found("Ringworld", "Niven, Larry", year="1970")
+    assert similarity(original, translation, LINKED) > similarity(original, stranger, LINKED), "the link should count as a shared author"
+    assert similarity(original, translation, NO_LINKS) <= similarity(original, stranger, NO_LINKS), "without it the scripts share nothing"
