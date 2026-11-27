@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from kobold.genres import folder_genres
-from kobold.history import read_last_opened_id
+from kobold.history import read_last_opened_id, read_opened
 from kobold.places import NOOK
 from kobold.progress import progress_label
 from kobold.seen import Seen, remember
@@ -18,4 +18,4 @@ def nook_progress(founds) -> dict[str, str]:
 
 
 def survey(founds, ctx) -> None:
-    remember(Seen(nook_progress(founds), folder_genres(ctx), read_last_opened_id(ctx)), ctx)
+    remember(Seen(nook_progress(founds), folder_genres(ctx), read_last_opened_id(ctx), read_opened(founds, ctx)), ctx)

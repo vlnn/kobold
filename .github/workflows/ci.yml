@@ -31,7 +31,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
       - run: uv run --locked --python 3.13 python -m hoard.build --check
-      - run: mv dist/kobold.alfredworkflow dist/Kobold.alfredworkflow
+      - name: Add the window and check it against the Alfred UI schema
+        run: make check-window BUILD_PYTHON=3.13
+      - run: mv dist/kobold-window.alfredworkflow dist/Kobold.alfredworkflow
       - uses: actions/upload-artifact@v4
         with:
           name: Kobold.alfredworkflow

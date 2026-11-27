@@ -69,7 +69,8 @@ def test_an_update_remembers_what_rows_need_from_the_device(ctx, device):
         progress={str(device / "Nook" / "ubik.epub"): "73%"},
         genres=["fiction/sci-fi", "poetry"],
         last_opened=books(ctx)["Dhalgren"].id,
-    ), "the update should note each nook book's progress, the vault's genre folders and KOReader's last book"
+        opened=[[books(ctx)["Dhalgren"].id, 1700000000]],
+    ), "the update should note each nook book's progress, the vault's genre folders and what KOReader opened"
 
 
 def test_the_device_sleeps_between_updates():

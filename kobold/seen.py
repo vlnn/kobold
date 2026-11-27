@@ -12,6 +12,7 @@ class Seen(NamedTuple):
     progress: dict
     genres: list
     last_opened: str | None
+    opened: list = []
 
 
 def path_in(ctx) -> str:
