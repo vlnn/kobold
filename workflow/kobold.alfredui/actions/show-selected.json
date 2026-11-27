@@ -1,0 +1,64 @@
+{
+  "type": "json",
+  "variables": {
+    "picked": "{value:self.selected.uid}",
+    "s_cover_image": "{value:self.selected.cover.image}",
+    "s_title_text": "{value:self.selected.title.text}",
+    "s_authors": "{value:self.selected.authors}",
+    "s_meta": "{value:self.selected.meta}",
+    "s_genre": "{value:self.selected.genre}",
+    "s_lit_library": "{value:self.selected.lit_library}",
+    "s_lit_nook": "{value:self.selected.lit_nook}",
+    "s_lit_vault": "{value:self.selected.lit_vault}",
+    "s_bar_progress": "{value:self.selected.bar.progress}",
+    "s_ring": "{value:self.selected.ring}",
+    "s_track": "{value:self.selected.track}",
+    "s_reading": "{value:self.selected.reading}",
+    "s_action": "{value:self.selected.action}",
+    "s_locator": "{value:self.selected.locator}"
+  },
+  "src": {
+    "update": {
+      "ids": {
+        "d_cover": {
+          "image": "{var:s_cover_image}"
+        },
+        "d_title": {
+          "text": "{var:s_title_text}"
+        },
+        "d_authors": {
+          "text": "{var:s_authors}"
+        },
+        "d_meta": {
+          "text": "{var:s_meta}"
+        },
+        "d_genre": {
+          "text": "{var:s_genre}"
+        },
+        "d_library": {
+          "colour": "{var:s_lit_library}"
+        },
+        "d_nook": {
+          "colour": "{var:s_lit_nook}"
+        },
+        "d_vault": {
+          "colour": "{var:s_lit_vault}"
+        },
+        "d_ring": {
+          "progress": "{var:s_bar_progress}",
+          "colour": "{var:s_ring}",
+          "background": "{var:s_track}"
+        },
+        "d_reading": {
+          "text": "{var:s_reading}"
+        },
+        "d_action": {
+          "text": "{var:s_action}"
+        },
+        "d_path": {
+          "text": "{var:s_locator}"
+        }
+      }
+    }
+  }
+}

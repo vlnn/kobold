@@ -1,10 +1,23 @@
 from hoard.testing import Conformance, make_epub, make_fb2
+from hoard.testing.conformance import module_defining, private_hoard_imports, source_files
 
 from kobold import KIND
+
+WINDOW_SEAM = {"followup.py": ["hoard._requery"]}
+
+
+def seam_of(path) -> list:
+    return next((allowed for name, allowed in WINDOW_SEAM.items() if str(path).endswith(name)), [])
 
 
 class TestConformance(Conformance):
     kind = KIND
+
+    def test_kind_imports_no_private_hoard_module(self):
+        for path in source_files(module_defining(self.kind)):
+            assert private_hoard_imports(path) == seam_of(path), (
+                f"{path} should import only hoard's public surface, bar the window's one seam"
+            )
 
     def make_samples(self, storage, root):
         if storage == "nook":

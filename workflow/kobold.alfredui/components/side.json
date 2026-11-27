@@ -1,0 +1,247 @@
+{
+  "constraints": {
+    "region": "right",
+    "size": {
+      "width": 280
+    }
+  },
+  "type": "view",
+  "layout": "stack",
+  "background": {
+    "light": "#0000000a",
+    "dark": "#ffffff0d"
+  },
+  "components": [
+    {
+      "id": "bookpane",
+      "type": "view",
+      "layout": "inline",
+      "direction": "vertical",
+      "padding": 14,
+      "spacing": 8,
+      "components": [
+        {
+          "constraints": {
+            "position": "centre",
+            "size": {
+              "width": 150,
+              "height": 210
+            }
+          },
+          "id": "d_cover",
+          "type": "imageview",
+          "resize": "fit",
+          "cornerradius": 6,
+          "contenttintcolour": "tertiaryLabelColor",
+          "image": {
+            "type": "symbol",
+            "src": "books.vertical"
+          },
+          "accessibility": {
+            "label": "Cover"
+          }
+        },
+        {
+          "constraints": {
+            "position": "centre",
+            "stretch": "horizontal"
+          },
+          "id": "d_title",
+          "type": "label",
+          "text": "",
+          "textalign": "centre",
+          "colour": "labelColor",
+          "font": {
+            "size": 16,
+            "weight": "semibold"
+          },
+          "linebreak": "wordwrap"
+        },
+        {
+          "constraints": {
+            "position": "centre",
+            "stretch": "horizontal"
+          },
+          "id": "d_authors",
+          "type": "label",
+          "text": "",
+          "textalign": "centre",
+          "colour": "secondaryLabelColor",
+          "font": {
+            "size": 12
+          },
+          "linebreak": "wordwrap"
+        },
+        {
+          "constraints": {
+            "position": "centre",
+            "stretch": "horizontal"
+          },
+          "id": "d_meta",
+          "type": "label",
+          "text": "",
+          "textalign": "centre",
+          "colour": "tertiaryLabelColor",
+          "font": {
+            "size": 11
+          }
+        },
+        {
+          "constraints": {
+            "position": "centre",
+            "stretch": "horizontal"
+          },
+          "id": "d_genre",
+          "type": "label",
+          "text": "",
+          "textalign": "centre",
+          "colour": "systemPurpleColor",
+          "font": {
+            "size": 11,
+            "weight": "medium"
+          }
+        },
+        {
+          "constraints": {
+            "position": "centre"
+          },
+          "type": "view",
+          "layout": "inline",
+          "spacing": 6,
+          "tooltip": "Where this book is: it arrives in the library, waits in the nook, is filed in the vault",
+          "components": [
+            {
+              "id": "d_library",
+              "type": "label",
+              "text": "● library",
+              "colour": "quaternaryLabelColor",
+              "font": {
+                "size": 11,
+                "weight": "semibold"
+              }
+            },
+            {
+              "type": "label",
+              "text": "→",
+              "colour": "tertiaryLabelColor",
+              "font": {
+                "size": 11
+              }
+            },
+            {
+              "id": "d_nook",
+              "type": "label",
+              "text": "● nook",
+              "colour": "quaternaryLabelColor",
+              "font": {
+                "size": 11,
+                "weight": "semibold"
+              }
+            },
+            {
+              "type": "label",
+              "text": "→",
+              "colour": "tertiaryLabelColor",
+              "font": {
+                "size": 11
+              }
+            },
+            {
+              "id": "d_vault",
+              "type": "label",
+              "text": "● vault",
+              "colour": "quaternaryLabelColor",
+              "font": {
+                "size": 11,
+                "weight": "semibold"
+              }
+            }
+          ]
+        },
+        {
+          "constraints": {
+            "position": "centre"
+          },
+          "type": "view",
+          "layout": "inline",
+          "spacing": 8,
+          "components": [
+            {
+              "constraints": {
+                "position": "centre",
+                "size": {
+                  "width": 26,
+                  "height": 26
+                }
+              },
+              "id": "d_ring",
+              "type": "progress",
+              "style": "round",
+              "thickness": 4,
+              "progress": 0.0,
+              "colour": "#00000000",
+              "background": "#00000000",
+              "accessibility": {
+                "label": "Reading progress"
+              }
+            },
+            {
+              "constraints": {
+                "position": "centre"
+              },
+              "id": "d_reading",
+              "type": "label",
+              "text": "",
+              "colour": "secondaryLabelColor",
+              "font": {
+                "size": 12,
+                "monospaced": "digits"
+              }
+            }
+          ]
+        },
+        {
+          "constraints": {
+            "position": "centre",
+            "stretch": "horizontal"
+          },
+          "id": "d_action",
+          "type": "label",
+          "text": "",
+          "textalign": "centre",
+          "colour": "controlAccentColor",
+          "font": {
+            "size": 12,
+            "weight": "medium"
+          }
+        },
+        {
+          "constraints": {
+            "position": "centre",
+            "stretch": "horizontal"
+          },
+          "id": "d_path",
+          "type": "label",
+          "text": "",
+          "textalign": "centre",
+          "colour": "tertiaryLabelColor",
+          "font": {
+            "size": 10
+          },
+          "linebreak": "truncatemiddle",
+          "selectable": true
+        }
+      ]
+    },
+    {
+      "id": "statspane",
+      "type": "view",
+      "layout": "inline",
+      "direction": "vertical",
+      "padding": 14,
+      "spacing": 6,
+      "hidden": true,
+      "components": []
+    }
+  ]
+}

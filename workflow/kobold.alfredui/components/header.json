@@ -1,0 +1,207 @@
+{
+  "constraints": {
+    "region": "top"
+  },
+  "type": "view",
+  "layout": "border",
+  "components": [
+    {
+      "constraints": {
+        "region": "centre"
+      },
+      "type": "view",
+      "layout": "border",
+      "padding": 12,
+      "spacing": 10,
+      "components": [
+        {
+          "constraints": {
+            "region": "left",
+            "position": "centre",
+            "size": {
+              "width": 24,
+              "height": 24
+            }
+          },
+          "type": "imageview",
+          "contenttintcolour": "secondaryLabelColor",
+          "image": {
+            "type": "symbol",
+            "src": "books.vertical",
+            "size": {
+              "width": 22
+            }
+          },
+          "accessibility": {
+            "label": "Kobold"
+          }
+        },
+        {
+          "constraints": {
+            "region": "centre",
+            "position": "centre",
+            "stretch": "horizontal"
+          },
+          "id": "query",
+          "type": "textfield",
+          "text": "{var:typed}",
+          "placeholder": "Search books, or nook · done · lib · fix · tag · stats · update",
+          "focus": true,
+          "bordered": false,
+          "focusring": false,
+          "background": null,
+          "font": {
+            "size": 22,
+            "weight": "light"
+          },
+          "textinsets": {
+            "horizontal": 0,
+            "vertical": 0
+          },
+          "accessibility": {
+            "label": "Search",
+            "help": "Type words to find books, or a command such as nook, done, fix or stats."
+          },
+          "events": [
+            {
+              "triggers": "typingstopped",
+              "action": {
+                "type": "script",
+                "src": "scripts/window",
+                "async": true,
+                "args": [
+                  "search",
+                  "{value:self.text}"
+                ]
+              }
+            },
+            {
+              "triggers": "actioned",
+              "action": [
+                {
+                  "type": "json",
+                  "src": {
+                    "update": {
+                      "ids": {
+                        "status": {
+                          "text": "Working…",
+                          "colour": "secondaryLabelColor"
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "type": "script",
+                  "src": "scripts/window",
+                  "async": true,
+                  "args": [
+                    "act",
+                    "default",
+                    "{var:typed}",
+                    "{value:books.selected.uid}",
+                    "{var:back}"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "constraints": {
+            "region": "right",
+            "position": "centre"
+          },
+          "type": "view",
+          "layout": "inline",
+          "spacing": 10,
+          "components": [
+            {
+              "id": "n_library",
+              "type": "label",
+              "text": "library",
+              "colour": "systemBlueColor",
+              "font": {
+                "size": 11,
+                "weight": "semibold",
+                "monospaced": "digits"
+              },
+              "tooltip": "Books the last update found in the library"
+            },
+            {
+              "id": "n_nook",
+              "type": "label",
+              "text": "nook",
+              "colour": "systemGreenColor",
+              "font": {
+                "size": 11,
+                "weight": "semibold",
+                "monospaced": "digits"
+              },
+              "tooltip": "Books the last update found in the nook"
+            },
+            {
+              "id": "n_vault",
+              "type": "label",
+              "text": "vault",
+              "colour": "systemOrangeColor",
+              "font": {
+                "size": 11,
+                "weight": "semibold",
+                "monospaced": "digits"
+              },
+              "tooltip": "Books the last update found in the vault"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "constraints": {
+        "region": "bottom"
+      },
+      "type": "view",
+      "layout": "border",
+      "padding": 0,
+      "spacing": 8,
+      "components": [
+        {
+          "constraints": {
+            "region": "centre",
+            "position": "centre",
+            "stretch": "horizontal",
+            "insets": {
+              "left": 12
+            }
+          },
+          "id": "job",
+          "type": "progress",
+          "progress": 0.0,
+          "thickness": 3,
+          "colour": "#00000000",
+          "background": "#00000000",
+          "accessibility": {
+            "label": "Index update"
+          }
+        },
+        {
+          "constraints": {
+            "region": "right",
+            "position": "centre",
+            "insets": {
+              "right": 12
+            }
+          },
+          "id": "jobtext",
+          "type": "label",
+          "text": "",
+          "colour": "tertiaryLabelColor",
+          "font": {
+            "size": 10,
+            "monospaced": "digits"
+          }
+        }
+      ]
+    }
+  ]
+}

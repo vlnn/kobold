@@ -1,0 +1,182 @@
+{
+  "constraints": {
+    "region": "centre"
+  },
+  "id": "books",
+  "type": "dataview",
+  "padding": 6,
+  "spacing": 0,
+  "placeholder": "Reading the index…",
+  "behaviour": {
+    "selection": {
+      "wrap": "none"
+    }
+  },
+  "data": {
+    "type": "basic",
+    "src": []
+  },
+  "events": [
+    {
+      "triggers": "changed",
+      "action": "{file:actions/show-selected.json}"
+    }
+  ],
+  "cell": {
+    "height": 56,
+    "init": {
+      "row.background": null,
+      "title.colour": "labelColor",
+      "subtitle.colour": "secondaryLabelColor",
+      "cover.contenttintcolour": "secondaryLabelColor"
+    },
+    "selected": {
+      "row.background": "alfredSelectedResultBackgroundColor",
+      "title.colour": "alfredSelectedResultTextColor",
+      "subtitle.colour": "alfredSelectedResultTextColor",
+      "place.colour": "alfredSelectedResultTextColor",
+      "cover.contenttintcolour": "alfredSelectedResultTextColor"
+    },
+    "root": {
+      "id": "row",
+      "type": "view",
+      "layout": "border",
+      "padding": 5,
+      "spacing": 10,
+      "cornerradius": 7,
+      "events": [
+        {
+          "triggers": "doubleclicked",
+          "action": [
+            {
+              "type": "json",
+              "src": {
+                "update": {
+                  "ids": {
+                    "status": {
+                      "text": "Working…",
+                      "colour": "secondaryLabelColor"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "type": "script",
+              "src": "scripts/window",
+              "async": true,
+              "args": [
+                "act",
+                "default",
+                "{var:typed}",
+                "{data:uid}",
+                "{var:back}"
+              ]
+            }
+          ]
+        }
+      ],
+      "components": [
+        {
+          "constraints": {
+            "region": "left",
+            "position": "centre",
+            "size": {
+              "width": 34,
+              "height": 46
+            }
+          },
+          "id": "frame",
+          "type": "view",
+          "layout": "stack",
+          "padding": 2,
+          "cornerradius": 4,
+          "cliptobounds": true,
+          "components": [
+            {
+              "id": "cover",
+              "type": "imageview",
+              "resize": "fit",
+              "cornerradius": 3,
+              "contenttintcolour": "secondaryLabelColor"
+            }
+          ]
+        },
+        {
+          "constraints": {
+            "region": "centre",
+            "position": "left",
+            "stretch": "horizontal"
+          },
+          "type": "view",
+          "layout": "inline",
+          "direction": "vertical",
+          "spacing": 2,
+          "components": [
+            {
+              "constraints": {
+                "position": "centre",
+                "stretch": "horizontal"
+              },
+              "id": "title",
+              "type": "label",
+              "linebreak": "truncatetail",
+              "font": {
+                "size": 14
+              }
+            },
+            {
+              "constraints": {
+                "position": "centre",
+                "stretch": "horizontal"
+              },
+              "id": "subtitle",
+              "type": "label",
+              "linebreak": "truncatetail",
+              "font": {
+                "size": 11
+              }
+            }
+          ]
+        },
+        {
+          "constraints": {
+            "region": "right",
+            "position": "centre"
+          },
+          "type": "view",
+          "layout": "inline",
+          "direction": "vertical",
+          "spacing": 4,
+          "components": [
+            {
+              "constraints": {
+                "position": "right"
+              },
+              "id": "place",
+              "type": "label",
+              "textalign": "right",
+              "font": {
+                "size": 11,
+                "weight": "medium",
+                "monospaced": "digits"
+              }
+            },
+            {
+              "constraints": {
+                "position": "right",
+                "size": {
+                  "width": 84,
+                  "height": 4
+                }
+              },
+              "id": "bar",
+              "type": "progress",
+              "thickness": 4
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

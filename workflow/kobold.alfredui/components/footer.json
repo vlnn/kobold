@@ -1,0 +1,39 @@
+{
+  "constraints": {
+    "region": "bottom"
+  },
+  "type": "view",
+  "layout": "border",
+  "padding": 8,
+  "spacing": 12,
+  "components": [
+    {
+      "constraints": {
+        "region": "left",
+        "position": "left"
+      },
+      "type": "label",
+      "text": "↩ act   ⌘↩ genre   ⇧↩ open   ⌥↩ reveal   ⌃↩ more like it   ⌘Y look   ⌥⌘C copy path",
+      "colour": "tertiaryLabelColor",
+      "font": {
+        "size": 11
+      }
+    },
+    {
+      "constraints": {
+        "region": "centre",
+        "position": "right",
+        "stretch": "horizontal"
+      },
+      "id": "status",
+      "type": "label",
+      "text": "",
+      "textalign": "right",
+      "linebreak": "truncatetail",
+      "colour": "secondaryLabelColor",
+      "font": {
+        "size": 11
+      }
+    }
+  ]
+}

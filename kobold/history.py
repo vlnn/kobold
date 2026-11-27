@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from itertools import islice
 from pathlib import Path
 
 from kobold.identity import fingerprint
@@ -14,6 +15,7 @@ ENTRY = re.compile(r"\{[^{}]*\}")
 FILE = re.compile(r'\["file"\]\s*=\s*"((?:[^"\\]|\\.)*)"')
 TIME = re.compile(r'\["time"\]\s*=\s*(\d+)')
 ESCAPE = re.compile(r"\\(.)")
+REMEMBERED = 12
 
 
 def unescape(lua: str) -> str:
@@ -48,6 +50,25 @@ def last_opened(root: Path) -> str | None:
         return None
     file = latest_file(history.read_text(encoding="utf-8"))
     return in_library(file, root) if file else None
+
+
+def opened_files(root: Path):
+    history = settings_dir(root) / "history.lua"
+    newest_first = sorted(entries(history.read_text(encoding="utf-8")), reverse=True) if history.exists() else []
+    return ((time, rel) for time, file in newest_first if (rel := in_library(file, root)))
+
+
+def ids_by_locator(founds) -> dict[str, str]:
+    return {nfc(sighting.locator): found.entity.id for found in founds for sighting in found.sightings if sighting.locator}
+
+
+def read_opened(founds, ctx, limit: int = REMEMBERED) -> list[list]:
+    root = Path(device_root(ctx))
+    if not root.is_dir():
+        return []
+    known = ids_by_locator(founds)
+    indexed = ([known.get(nfc(str(root / rel))), time] for time, rel in opened_files(root))
+    return list(islice((pair for pair in indexed if pair[0]), limit))
 
 
 def read_last_opened_id(ctx) -> str | None:

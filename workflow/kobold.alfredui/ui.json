@@ -1,0 +1,255 @@
+{
+  "bundleid": "com.anokhin.kobold",
+  "log": {
+    "level": "warning",
+    "internal": true
+  },
+  "variablesconfig": {
+    "typed": {
+      "src": "args[0]",
+      "default": ""
+    },
+    "picked": {
+      "default": ""
+    },
+    "seen": {
+      "default": ""
+    },
+    "back": {
+      "default": ""
+    }
+  },
+  "pulse": {
+    "src": "scripts/window",
+    "args": [
+      "tick",
+      "{var:typed}",
+      "{var:picked}",
+      "{var:seen}"
+    ],
+    "interval": 0,
+    "intervalmode": "delay"
+  },
+  "window": {
+    "title": "Kobold",
+    "size": {
+      "height": 580
+    },
+    "minsize": {
+      "height": 320
+    },
+    "padding": 0,
+    "root": {
+      "type": "view",
+      "layout": "border",
+      "events": [
+        {
+          "triggers": "preload",
+          "action": {
+            "type": "script",
+            "src": "scripts/window",
+            "async": true,
+            "args": [
+              "search",
+              "{var:typed}"
+            ]
+          }
+        }
+      ],
+      "shortcuts": [
+        {
+          "shortcut": "↑",
+          "action": {
+            "type": "function",
+            "src": "books",
+            "args": "selectprevious"
+          }
+        },
+        {
+          "shortcut": "↓",
+          "action": {
+            "type": "function",
+            "src": "books",
+            "args": "selectnext"
+          }
+        },
+        {
+          "shortcut": "⌘↑",
+          "action": {
+            "type": "function",
+            "src": "books",
+            "args": [
+              "selectfirst",
+              "scrolltop"
+            ]
+          }
+        },
+        {
+          "shortcut": "⌘↓",
+          "action": {
+            "type": "function",
+            "src": "books",
+            "args": [
+              "selectlast",
+              "scrollbottom"
+            ]
+          }
+        },
+        {
+          "shortcut": "⇧↩",
+          "action": [
+            {
+              "type": "json",
+              "src": {
+                "update": {
+                  "ids": {
+                    "status": {
+                      "text": "Working…",
+                      "colour": "secondaryLabelColor"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "type": "script",
+              "src": "scripts/window",
+              "async": true,
+              "args": [
+                "act",
+                "shift",
+                "{var:typed}",
+                "{value:books.selected.uid}",
+                "{var:back}"
+              ]
+            }
+          ]
+        },
+        {
+          "shortcut": "⌥↩",
+          "action": [
+            {
+              "type": "json",
+              "src": {
+                "update": {
+                  "ids": {
+                    "status": {
+                      "text": "Working…",
+                      "colour": "secondaryLabelColor"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "type": "script",
+              "src": "scripts/window",
+              "async": true,
+              "args": [
+                "act",
+                "alt",
+                "{var:typed}",
+                "{value:books.selected.uid}",
+                "{var:back}"
+              ]
+            }
+          ]
+        },
+        {
+          "shortcut": "⌘↩",
+          "action": [
+            {
+              "type": "json",
+              "src": {
+                "update": {
+                  "ids": {
+                    "status": {
+                      "text": "Working…",
+                      "colour": "secondaryLabelColor"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "type": "script",
+              "src": "scripts/window",
+              "async": true,
+              "args": [
+                "act",
+                "cmd",
+                "{var:typed}",
+                "{value:books.selected.uid}",
+                "{var:back}"
+              ]
+            }
+          ]
+        },
+        {
+          "shortcut": "⌃↩",
+          "action": [
+            {
+              "type": "json",
+              "src": {
+                "update": {
+                  "ids": {
+                    "status": {
+                      "text": "Working…",
+                      "colour": "secondaryLabelColor"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "type": "script",
+              "src": "scripts/window",
+              "async": true,
+              "args": [
+                "act",
+                "ctrl",
+                "{var:typed}",
+                "{value:books.selected.uid}",
+                "{var:back}"
+              ]
+            }
+          ]
+        },
+        {
+          "shortcut": "⌘Y",
+          "action": {
+            "type": "script",
+            "src": "scripts/window",
+            "async": true,
+            "args": [
+              "look",
+              "{var:typed}",
+              "{value:books.selected.uid}"
+            ]
+          }
+        },
+        {
+          "shortcut": "⌥⌘C",
+          "action": {
+            "type": "json",
+            "variables": {
+              "path": "{value:books.selected.locator}"
+            },
+            "src": {
+              "copy": {
+                "type": "text",
+                "src": "{var:path}"
+              }
+            }
+          }
+        }
+      ],
+      "components": [
+        "{file:components/header.json}",
+        "{file:components/books.json}",
+        "{file:components/side.json}",
+        "{file:components/footer.json}"
+      ]
+    }
+  }
+}

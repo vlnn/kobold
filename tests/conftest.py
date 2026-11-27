@@ -129,3 +129,48 @@ def library(tmp_path: Path, epub_file: Path, fb2_file: Path) -> Path:
     (tmp_path / "00_Inbox" / "Delany, Samuel R - Nova - 2014.epub.part").write_bytes(b"")
     (tmp_path / "00_Inbox" / "Napkin.pdf").write_bytes(b"%PDF-1.4")
     return tmp_path
+
+
+SCI_FI = "01_Fiction/02_Sci-Fi"
+
+
+@pytest.fixture
+def kobo(tmp_path) -> Path:
+    from hoard.testing import make_epub
+
+    root = tmp_path / "kobo"
+    make_epub(root / "Nook" / "ubik.epub", title="Ubik", authors=("Philip K Dick",), date="1969", chapters=("Ubik text.",))
+    (root / "Nook" / "ubik.sdr").mkdir()
+    (root / "Nook" / "ubik.sdr" / "metadata.epub.lua").write_text("return { percent_finished = 0.4 }")
+    make_epub(
+        root / SCI_FI / "dhalgren.epub",
+        title="Dhalgren",
+        authors=("Samuel R. Delany",),
+        date="1975",
+        chapters=("Dhalgren text.",),
+        cover=PNG_1X1,
+    )
+    return root
+
+
+@pytest.fixture
+def calibre(tmp_path, kobo) -> Path:
+    import shutil
+
+    from hoard.testing import make_epub
+
+    root = tmp_path / "Calibre Library"
+    make_epub(root / "Delany" / "Nova.epub", title="Nova", authors=("Samuel R. Delany",), date="1968", chapters=("Nova text.",))
+    shutil.copy(kobo / SCI_FI / "dhalgren.epub", root / "Delany" / "Dhalgren.epub")
+    return root
+
+
+@pytest.fixture
+def shelved(context_with, kobo, calibre):
+    from hoard import api
+
+    from kobold import KIND
+
+    ctx = api.context(KIND, context_with(KOBOLD_ROOT=str(kobo), KOBOLD_SOURCES=str(calibre)))
+    api.update(KIND, ctx)
+    return ctx
