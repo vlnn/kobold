@@ -31,7 +31,7 @@ kb std             →  Delany, Samuel R. ← S. R. Delany · one spelling per w
 
 ## Install (three minutes)
 
-1. Grab `Kobold.alfredworkflow` from [Releases](https://github.com/vlnn/kobold/releases) (every push to `main` publishes a `latest` build) and double-click it. It needs Alfred 6 with the Powerpack: `kb` opens a window inside Alfred.
+1. Grab `Kobold.alfredworkflow` from [Releases](https://github.com/vlnn/kobold/releases) (every push to `main` publishes a `latest` build, and a numbered one when the version in `pyproject.toml` is new) and double-click it. It needs Alfred 6 with the Powerpack: `kb` opens a window inside Alfred.
 2. In the workflow's configuration set **Device root** to the folder that is, or syncs with, your e-reader, e.g. `~/Books/kobo` (a Syncthing folder) or `/Volumes/Transcend/kobo` (the card itself). Set **Library folders** to where your books arrive, `~/Calibre Library:~/Downloads`, paths separated by `:`.
 3. Type `kb update` ↩. The index is built in the background; `kb` shows *Updating the index… · N of M checked* until it is done. From then on the index refreshes itself: a `kb` typed more than ten minutes after the last update starts another in the background, so books that arrived since show up on their own.
 
