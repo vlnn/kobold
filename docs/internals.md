@@ -45,7 +45,7 @@ The rows are hoard's own, from `api.filter`, so the window lists and does exactl
 
 The side pane follows the selection without a script: `actions/show-selected.json` copies the selected row's values into the pane. It is generated from `kobold.pane.PANE`, and a test fails when the two drift. `kobold.dashboard` builds the `stats` bars from the index.
 
-A verb's follow-up (`kb tag #<id> ` after ↩ on an untagged book) is shown in the window instead of reopening Alfred's search bar. hoard 1.11 has no public way to hand that query back, so `kobold/followup.py` swaps hoard's private `reopen` for the call; it is the one private import, and `tests/test_conformance.py` names it. hoard 1.12 takes `follow_up=` on `api.act`, which removes the module.
+A verb's follow-up (`kb tag #<id> ` after ↩ on an untagged book) is shown in the window instead of reopening Alfred's search bar. The window passes `follow_up=` to `api.act` (hoard 1.12) and takes the query from there.
 
 `workflow/assemble.py` builds what is released: hoard's bundle, plus the window bundle, a `kb` keyword that opens it, the old list moved to `kbc`, and every workflow setting exported to the window's scripts.
 

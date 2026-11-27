@@ -10,7 +10,7 @@ from typing import Callable
 from hoard import api, cli
 from hoard.items import Head, Item, Items
 
-from kobold import KIND, cells, dashboard, followup, home, opened
+from kobold import KIND, cells, dashboard, home, opened
 from kobold.facts import WINDOW_KIND
 from kobold.pane import pane_of
 
@@ -159,7 +159,9 @@ def started(verb: str) -> str:
 def carried_out(verb: str, arg: str, ctx) -> tuple:
     if verb in cli.BACKGROUND:
         return started(verb), None
-    return followup.act(KIND, verb, [arg], ctx)
+    asked: list = []
+    message = api.act(KIND, verb, [arg], ctx, follow_up=asked.append)
+    return message, (asked[0] if asked else None)
 
 
 def without_keyword(query: str) -> str:
