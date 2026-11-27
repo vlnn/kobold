@@ -1,3 +1,6 @@
+import json
+import os
+
 import pytest
 from hoard import api
 from hoard.items import Item
@@ -108,6 +111,19 @@ def test_device_and_window_openings_are_merged_by_time(shelved, mocker):
     assert opened.recent(shelved) == [("a", 40), ("d", 20), ("w", 10)], (
         "KOReader's history and the window's openings should be one timeline"
     )
+
+
+def test_openings_are_kept_with_the_index_not_in_the_cache(shelved):
+    opened.note("a", shelved, 40)
+    assert os.path.dirname(opened.path_in(shelved)) == shelved.data, "clearing the cache should not forget what was opened"
+    assert os.path.exists(opened.path_in(shelved)), "the opening should be written there"
+
+
+def test_openings_noted_in_the_cache_before_are_carried_over(shelved):
+    with open(os.path.join(shelved.cache, opened.FILE), "w", encoding="utf-8") as handle:
+        json.dump([["old", 10]], handle)
+    opened.note("new", shelved, 40)
+    assert opened.recent(shelved) == [("new", 40), ("old", 10)], "the first opening after the move should keep the earlier ones"
 
 
 def test_the_window_remembers_only_so_many_openings(shelved):

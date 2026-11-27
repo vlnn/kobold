@@ -4,7 +4,9 @@ import os
 import pytest
 from hoard.items import Head, Items
 
-from kobold import cells, window
+from kobold import cells, latest, window
+
+NOW = 1_700_100_000
 
 
 def ids(document: dict) -> dict:
@@ -50,9 +52,9 @@ def test_the_header_counts_each_shelf(shelved, label, text):
     assert ids(window.search("", shelved))[label]["text"] == text, f"{label} should read {text}"
 
 
-def test_an_idle_index_stops_the_pulse_and_hides_the_job(shelved):
+def test_an_idle_search_leaves_the_pulse_alone_and_hides_the_job(shelved):
     document = window.search("", shelved)
-    assert document["pulse"] == {"interval": 0}, "nothing is running, so nothing needs polling"
+    assert "pulse" not in document, "only a tick may stop the pulse: a search does not know a job was just started"
     assert ids(document)["job"]["colour"] == cells.CLEAR, "an idle job bar should be invisible"
     assert ids(document)["jobtext"]["text"] == "", "an idle job should say nothing"
 
@@ -92,18 +94,34 @@ def test_any_other_search_brings_the_book_pane_back(shelved):
 
 def test_a_tick_with_nothing_new_leaves_the_list_alone(shelved):
     seen = window.search("", shelved)["variables"]["seen"]
-    assert "books" not in ids(window.tick("", "", seen, shelved)), "an unchanged list should not be redrawn under the reader's hands"
+    assert "books" not in ids(window.tick("", "", seen, ctx=shelved)), "an unchanged list should not be redrawn under the reader's hands"
+
+
+@pytest.mark.parametrize(
+    ("watch", "interval"),
+    [(str(NOW + 3), 1), (str(NOW), 0), (str(NOW - 60), 0), ("0", 0), ("", 0), ("soon", 0)],
+)
+def test_an_idle_tick_keeps_beating_only_while_a_started_job_is_awaited(shelved, watch, interval):
+    seen = window.search("", shelved)["variables"]["seen"]
+    document = window.tick("", "", seen, watch, ctx=shelved, now=NOW)
+    assert document["pulse"] == {"interval": interval}, f"with watch={watch!r} at {NOW} the pulse should be {interval}"
+
+
+def test_a_redrawing_tick_decides_the_pulse_too(shelved):
+    assert window.tick("", "", "stale", str(NOW + 3), ctx=shelved, now=NOW)["pulse"] == {"interval": window.BEAT}, (
+        "a tick that redraws should still wait for the started job"
+    )
 
 
 def test_a_tick_with_news_redraws_and_keeps_the_selection(shelved):
     picked = uid_of(shelved, "", "Nova")
-    shown = ids(window.tick("", picked, "stale", shelved))
+    shown = ids(window.tick("", picked, "stale", ctx=shelved))
     assert shown["books"]["select"] == picked, "a redraw should keep the row the reader was on"
     assert shown["d_title"]["text"] == "Nova", "the pane should still show that row"
 
 
 def test_a_tick_selects_the_first_row_when_the_picked_one_left(shelved):
-    shown = ids(window.tick("", "gone", "stale", shelved))
+    shown = ids(window.tick("", "gone", "stale", ctx=shelved))
     assert shown["books"]["select"] == shown["books"]["data"]["src"][0]["uid"], "a vanished selection should fall to the first row"
 
 
@@ -155,11 +173,13 @@ def test_command_return_opens_the_genre_picker(shelved):
 
 
 def test_updating_starts_the_pulse(shelved, workflow_environment, mocker):
+    mocker.patch("kobold.window.time.time", return_value=NOW)
     spawn = mocker.patch("hoard._worker.spawn", return_value=True)
     document = window.act("default", "update", "head:update", "", shelved)
     assert spawn.call_args.args[:2] == ("kobold", "update"), "the update should run in the background worker"
     assert ids(document)["status"]["text"] == "Updating the index", "the footer should say the update began"
     assert document["pulse"] == {"interval": window.BEAT}, "a started job should be watched"
+    assert int(document["variables"]["watch"]) > NOW, "the pulse should be told to hold on until the worker shows up"
 
 
 def test_a_failing_verb_is_reported_in_the_footer(shelved, mocker):
@@ -180,6 +200,22 @@ def test_the_script_always_prints_one_json_action(workflow_environment, capsys, 
     window.main(argv)
     printed = capsys.readouterr().out
     assert isinstance(json.loads(printed), dict), f"{argv} should print exactly one JSON object for Alfred to apply"
+
+
+def test_a_search_overtaken_by_a_newer_one_prints_nothing(workflow_environment, shelved, capsys, mocker):
+    def overtaken(*args):
+        latest.claim(shelved.cache)
+        return {"update": {"ids": {}}}
+
+    mocker.patch.dict(window.MODES, {"search": overtaken})
+    window.main(["search", "ubi"])
+    assert json.loads(capsys.readouterr().out) == {}, "an answer to what is no longer typed should not replace the list"
+
+
+def test_a_tick_is_never_held_back_by_a_search(workflow_environment, shelved, capsys, mocker):
+    mocker.patch.dict(window.MODES, {"tick": lambda *args: (latest.claim(shelved.cache), {"pulse": {"interval": 0}})[1]})
+    window.main(["tick", ""])
+    assert json.loads(capsys.readouterr().out) == {"pulse": {"interval": 0}}, "only searches race each other"
 
 
 def test_a_search_from_the_script_reaches_the_index(workflow_environment, capsys):

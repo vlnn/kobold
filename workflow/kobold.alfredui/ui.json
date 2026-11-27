@@ -17,6 +17,9 @@
     },
     "back": {
       "default": ""
+    },
+    "watch": {
+      "default": "0"
     }
   },
   "pulse": {
@@ -25,7 +28,8 @@
       "tick",
       "{var:typed}",
       "{var:picked}",
-      "{var:seen}"
+      "{var:seen}",
+      "{var:watch}"
     ],
     "interval": 0,
     "intervalmode": "delay"
