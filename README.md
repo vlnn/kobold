@@ -14,7 +14,7 @@ You do not sort the library. You keep three places and let the tool move books b
 - the **vault** — the folder tree on your e-reader (or the folder that syncs with it): `genre / Author, Name / Series / Author - Title (Year).epub`. Kobold keeps it tidy.
 - the **nook** — one folder on the e-reader with the handful of books you are reading right now. Nobody reads more than a few books at once; the nook is where they wait.
 
-Everything else is search. Type `kb` in Alfred, see the newest books across all three places with their covers; press ↩ on one and it comes to the nook — copied from the library, or moved out of the vault. Read it. Then `kb done`, ↩, and it is filed into the vault under its genre and author.
+Everything else is search. Type `kb` in Alfred, see the books you opened and added last across all three places with their covers; press ↩ on one and it comes to the nook — copied from the library, or moved out of the vault. Read it. Then `kb done`, ↩, and it is filed into the vault under its genre and author.
 
 ## Demo
 
@@ -31,7 +31,7 @@ kb std             →  Delany, Samuel R. ← S. R. Delany · one spelling per w
 
 ## Install (three minutes)
 
-1. Grab `Kobold.alfredworkflow` from [Releases](https://github.com/vlnn/kobold/releases) (every push to `main` publishes a `latest` build) and double-click it.
+1. Grab `Kobold.alfredworkflow` from [Releases](https://github.com/vlnn/kobold/releases) (every push to `main` publishes a `latest` build) and double-click it. It needs Alfred 6 with the Powerpack: `kb` opens a window inside Alfred.
 2. In the workflow's configuration set **Device root** to the folder that is, or syncs with, your e-reader, e.g. `~/Books/kobo` (a Syncthing folder) or `/Volumes/Transcend/kobo` (the card itself). Set **Library folders** to where your books arrive, `~/Calibre Library:~/Downloads`, paths separated by `:`.
 3. Type `kb update` ↩. The index is built in the background; `kb` shows *Updating the index… · N of M checked* until it is done. From then on the index refreshes itself: a `kb` typed more than ten minutes after the last update starts another in the background, so books that arrived since show up on their own.
 
@@ -40,6 +40,22 @@ Nothing to install: the workflow bundles `kobold` and [hoard](https://github.com
 If your device root is on a removable volume and `kb` says *Not reachable* while it is mounted, give Alfred access to **Removable Volumes** (System Settings → Privacy & Security → Files and Folders), then `kb update` again.
 
 Typing never reads the device. A card that has gone to sleep takes seconds to answer, so between updates `kb` lists the device as the last update found it, and that update, running in the background, is what wakes the card. Pressing ↩ on a book reads the device as it is.
+
+## The window
+
+`kb` opens kobold's own window inside Alfred, and it stays open while you work: the search field on top, the list under it, the selected book on the right.
+
+- **A row** has the cover in a frame coloured by place — green for the nook, orange for the vault, blue for the library — the place on the right, and under it a bar of how far KOReader got in a nook book.
+- **The side pane** shows the selected book: cover, title, author, genre, a `library → nook → vault` strip lit where the book is, a ring of reading progress, and what ↩ will do.
+- **The header** counts the books in each place. While the index updates, a thin bar under the search field fills, with *N of M checked* beside it.
+- **The footer** names the keys and says what the last ↩ did, where Alfred's notification used to.
+- **A follow-up stays in the window.** ↩ on a library book copies it to the nook and shows the genre picker in place; pick a genre and you are back in the search you came from.
+
+**A bare `kb` is home**: the books you opened last and the books added last take turns, an opened one first, 24 rows at most, each book once. A row says why it is there, `opened 2 h ago` or `added`. Opened means KOReader's history as the last update read it, and the books you open from the window, which count at once. Added means first seen by the latest update, then by file date.
+
+The list searches when you pause typing. Double-click acts as ↩ does.
+
+`kbc` is the old list in Alfred's own results, with the same commands, kept for the day the window misbehaves.
 
 ## Search
 
@@ -50,10 +66,10 @@ kb dhalgren              one book
 kb delany                everything by Delany
 kb delany epub           …only the epubs
 kb delany 1975           author + year
-kb                       newest books first, books without a cover after
+kb                       home: last opened and last added, in turns
 ```
 
-A book that exists in several places is one row, shown at its nearest place: nook, then vault, then library. The subtitle starts with the book's genre, the one you set or else the one its vault folder gives it, then says where it is and where else it is: `fiction/sci-fi · vault +library · Samuel R. Delany · 1975 · EPUB 1.2 MB`. A nook book also says how far KOReader got, `nook · 73%`, or `finished` or `abandoned` once you closed it that way, so `kb nook` and `kb done` show which books are through; the progress is the one the last update saw. The icon is the cover embedded in an epub or fb2. Lists show the first 40 matches, so add a word if what you want isn't there.
+A book that exists in several places is one row, shown at its nearest place: nook, then vault, then library. The subtitle starts with the book's genre, the one you set or else the one its vault folder gives it, then says where it is and where else it is: `fiction/sci-fi · vault +library · Samuel R. Delany · 1975 · EPUB 1.2 MB`. A nook book also says how far KOReader got, `nook · 73%` with a bar under it, or `finished` or `abandoned` once you closed it that way, so `kb nook` and `kb done` show which books are through; the progress is the one the last update saw. The icon is the cover embedded in an epub or fb2. Lists show the first 40 matches, so add a word if what you want isn't there.
 
 These keys mean the same thing on every book row:
 
@@ -64,8 +80,8 @@ These keys mean the same thing on every book row:
 | ⌘↩ | set its genre (opens the genre picker) |
 | ⌃↩ | books like it (`kb like`) |
 | ⌘Y | Quick Look |
-| ⌘C | copy its path |
-| ⌘L | large type |
+| ⌥⌘C | copy its path |
+| ↑ ↓ | move through the list; ⌘↑ ⌘↓ jump to its ends |
 
 ↩ belongs to the command that listed the row. In a plain `kb` search it follows the place: a library book is copied into the nook, a vault book is moved there, a nook book opens.
 
@@ -88,7 +104,7 @@ A first word that names a command replaces the search with its list. Words after
 | `kb std [words]` | author and genre spellings that look like one | make it the standard | Accept N |
 | `kb like [words]` | neighbours of the first match, or of the book KOReader opened last | by place, as `kb` | — |
 | `kb rnd` | ten random books | by place, as `kb` | — |
-| `kb stats` | counts per place and when each was last read | — | — |
+| `kb stats` | counts per place and when each was last read; the side pane draws bars for the shelves, what you are reading, genres and formats | — | — |
 | `kb undo` | the last batch | undo it | — |
 | `kb update` | — | read every place again, in the background | — |
 | `kb model` | what each model server serves | use that model | — |
@@ -103,7 +119,7 @@ kb dhalgren              Dhalgren   library · Samuel R. Delany · 1975 · EPUB 
 kb nook                  Dhalgren   nook +library · Samuel R. Delany · 1975 · EPUB 1.2 MB
 ```
 
-The copy arrives in the nook under its canonical name, `Delany, Samuel R. - Dhalgren (1975).epub`; the library keeps its file. If the book has no genre yet, Alfred comes back with the genre picker, the suggested genre first; Esc keeps the book untagged for now. Read it on the device. When you are through:
+The copy arrives in the nook under its canonical name, `Delany, Samuel R. - Dhalgren (1975).epub`; the library keeps its file. If the book has no genre yet, the window shows the genre picker, the suggested genre first; clear the search field to keep the book untagged for now. Read it on the device. When you are through:
 
 ```
 kb done
@@ -185,7 +201,9 @@ How the vault tree is read (genre → author → series), where the index and th
 ```
 uv run pytest
 uv run ruff check && uv run ruff format --check
-uv run --python 3.13 python -m hoard.build --check   → dist/kobold.alfredworkflow, answering an empty query
+uv run --python 3.13 python -m hoard.build --check   → dist/kobold.alfredworkflow, the list alone, answering an empty query
+make window                                           → dist/kobold-window.alfredworkflow, what is released: the list plus the window
+make check-window                                     → the same, checked against the Alfred UI schema
 make link                                             → a workflow in Alfred symlinked to this checkout
 make test-system                                      → the suite on /usr/bin/python3, as the workflow runs
 ```
@@ -193,5 +211,7 @@ make test-system                                      → the suite on /usr/bin/
 Two Pythons: the workflow *runs* on macOS's `/usr/bin/python3` (3.9), so the code and `uv run pytest` stay 3.9-clean and CI tests both ends. The *build* reads `workflow/plist.toml` with `tomllib` in hoard, which is 3.11+, so `make build` and `make check` need `uv run --python 3.13` and cannot run on the system Python. Lifting that is a `tomli` fallback in hoard, not here.
 
 hoard is pinned to a tag in `pyproject.toml`. To work on both, keep a hoard checkout next to this one and add `--with-editable ../hoard` to any of the commands above, e.g. `uv run --with-editable ../hoard pytest`. To move to a newer hoard, change the tag and run `uv lock`.
+
+The window is `workflow/kobold.alfredui/` (an Alfred UI bundle) and five modules that answer it; [docs/internals.md](docs/internals.md) says which. `workflow/assemble.py` adds it to hoard's bundle.
 
 `docs/history/` keeps the 0.5 design notes, from before hoard, for the reasoning; the README is the current interface.
