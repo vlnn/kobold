@@ -5,17 +5,20 @@ import json
 import re
 import subprocess
 import sys
+import time
 from typing import Callable
 
 from hoard import api, cli
 from hoard.items import Head, Item, Items
 
-from kobold import KIND, cells, dashboard, home, opened
+from kobold import KIND, cells, dashboard, home, latest, opened
 from kobold.facts import WINDOW_KIND
 from kobold.pane import pane_of
 
 MODULE = "kobold"
 BEAT = 1
+GRACE = 5
+SEARCH = "search"
 ACCENT = "controlAccentColor"
 ALARM = "systemRedColor"
 DEFAULT = "default"
@@ -67,8 +70,16 @@ def job_of(items: Items) -> dict:
     }
 
 
-def pulse_for(items: Items) -> dict:
-    return {"interval": BEAT if is_working(items) else 0}
+def moment(watch: str) -> int:
+    return int(watch) if watch.isdigit() else 0
+
+
+def pulse_for(items: Items, watch: str, now: float) -> dict:
+    return {"interval": BEAT if is_working(items) or now < moment(watch) else 0}
+
+
+def beating(items: Items) -> dict:
+    return {"pulse": {"interval": BEAT}} if is_working(items) else {}
 
 
 def opened_index(ctx):
@@ -116,7 +127,6 @@ def redrawn(items: Items, typed: str, picked: str, ctx) -> dict:
     return {
         "variables": {"typed": typed, "seen": fingerprint(shown), "picked": uid_of(selected(shown, picked))},
         "update": {"ids": {**list_update(shown, picked), **job_of(items), **surroundings(ctx, typed)}, "relayout": is_stats(typed)},
-        "pulse": pulse_for(items),
     }
 
 
@@ -125,16 +135,25 @@ def quiet(text: str = "") -> dict:
 
 
 def search(typed: str = "", ctx=None, module: str | None = None) -> dict:
-    document = redrawn(listed(typed, ctx, module), typed, "", ctx)
+    items = listed(typed, ctx, module)
+    # only a tick stops the pulse: a search cannot tell that a job was started a moment ago
+    document = {**redrawn(items, typed, "", ctx), **beating(items)}
     document["update"]["ids"]["status"] = quiet()
     return document
 
 
-def tick(typed: str = "", picked: str = "", seen: str = "", ctx=None, module: str | None = None) -> dict:
-    items = listed(typed, ctx, module)
+def ticked(items: Items, typed: str, picked: str, seen: str, ctx) -> dict:
     if fingerprint([row for row, _ in paired(items)]) == seen:
-        return {"update": {"ids": job_of(items)}, "pulse": pulse_for(items)}
+        return {"update": {"ids": job_of(items)}}
     return redrawn(items, typed, picked, ctx)
+
+
+def tick(
+    typed: str = "", picked: str = "", seen: str = "", watch: str = "", ctx=None, module: str | None = None, now: float | None = None
+) -> dict:
+    items = listed(typed, ctx, module)
+    beat = pulse_for(items, watch, time.time() if now is None else now)
+    return {**ticked(items, typed, picked, seen, ctx), "pulse": beat}
 
 
 def chosen(typed: str, uid: str, ctx):
@@ -190,6 +209,7 @@ def moved(typed: str, back: str, came_from: str, message: str, ctx, working: boo
         document["update"]["ids"]["query"] = {"text": typed}
     if working:
         document["pulse"] = {"interval": BEAT}
+        document["variables"]["watch"] = str(int(time.time()) + GRACE)
     return document
 
 
@@ -239,7 +259,7 @@ def answered(work: Callable[[], dict]) -> dict:
 
 MODES = {
     "search": lambda *args: search(*args[:1], module=MODULE),
-    "tick": lambda *args: tick(*args[:3], module=MODULE),
+    "tick": lambda *args: tick(*args[:4], module=MODULE),
     "act": lambda *args: act(*args[:4]),
     "look": lambda *args: look(*args[:2]),
 }
@@ -249,7 +269,18 @@ def unknown(*args) -> dict:
     raise ValueError("usage: window search|tick|act|look …")
 
 
+def newest_only(work: Callable[[], dict]) -> dict:
+    folder = api.settings(KIND, None).cache
+    token = latest.claim(folder)
+    answer = work()
+    return answer if latest.holds(token, folder) else {}
+
+
+def run(name: str, args: list) -> dict:
+    mode = MODES.get(name, unknown)
+    return newest_only(lambda: mode(*args)) if name == SEARCH else mode(*args)
+
+
 def main(argv=None) -> None:
     argv = list(sys.argv[1:] if argv is None else argv)
-    mode = MODES.get(argv[0] if argv else "", unknown)
-    print(json.dumps(answered(lambda: mode(*argv[1:])), ensure_ascii=False))
+    print(json.dumps(answered(lambda: run(argv[0] if argv else "", argv[1:])), ensure_ascii=False))

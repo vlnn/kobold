@@ -11,6 +11,10 @@ KEPT = 12
 
 
 def path_in(ctx) -> str:
+    return os.path.join(ctx.data, FILE)
+
+
+def former_path_in(ctx) -> str:
     return os.path.join(ctx.cache, FILE)
 
 
@@ -18,12 +22,17 @@ def as_pairs(stored) -> list:
     return [(book, at) for book, at in stored]
 
 
-def in_window(ctx) -> list:
+def stored_at(path: str) -> list | None:
     try:
-        with open(path_in(ctx), encoding="utf-8") as handle:
+        with open(path, encoding="utf-8") as handle:
             return as_pairs(json.load(handle))
     except (OSError, ValueError, TypeError):
-        return []
+        return None
+
+
+def in_window(ctx) -> list:
+    kept = stored_at(path_in(ctx))
+    return (stored_at(former_path_in(ctx)) or []) if kept is None else kept
 
 
 def on_device(ctx) -> list:

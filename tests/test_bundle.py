@@ -58,7 +58,7 @@ def test_the_window_script_can_be_run():
     assert os.access(BUNDLE / "scripts" / "window", os.X_OK), "Alfred runs the script directly, so it should be executable"
 
 
-@pytest.mark.parametrize("variable", ["typed", "picked", "seen"])
+@pytest.mark.parametrize("variable", ["typed", "picked", "seen", "watch"])
 def test_the_pulse_passes_what_a_tick_needs(variable):
     ui = loaded(BUNDLE / "ui.json")
     assert f"{{var:{variable}}}" in ui["pulse"]["args"], f"the pulse should hand {variable} to the tick"

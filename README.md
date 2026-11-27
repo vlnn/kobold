@@ -203,7 +203,7 @@ uv run pytest
 uv run ruff check && uv run ruff format --check
 uv run --python 3.13 python -m hoard.build --check   → dist/kobold.alfredworkflow, the list alone, answering an empty query
 make window                                           → dist/kobold-window.alfredworkflow, what is released: the list plus the window
-make check-window                                     → the same, checked against the Alfred UI schema
+make check-window                                     → the same, checked against the Alfred UI schema by workflow/checker
 make link                                             → a workflow in Alfred symlinked to this checkout
 make test-system                                      → the suite on /usr/bin/python3, as the workflow runs
 ```

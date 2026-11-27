@@ -1,6 +1,5 @@
 .venv/
 dist/
-.alfred-ui-skill/
 .ci-clone/
 __pycache__/
 *.egg-info/
