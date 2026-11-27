@@ -59,10 +59,15 @@ def decade(year: str) -> list[str]:
     return [f"decade:{year[:3]}"] if year[:4].isdigit() else []
 
 
-def metadata_sections(found) -> dict[str, list[str]]:
+def author_names(authors: str, ctx) -> list[str]:
+    names = [name.strip() for name in authors.split(";") if name.strip()]
+    return names + [partner for name in names if (partner := ctx.linked("authors", name))]
+
+
+def metadata_sections(found, ctx) -> dict[str, list[str]]:
     authors, series, year, _ = found.entity.fields
     return {
-        "authors": labelled("author", authors.split(";")),
+        "authors": labelled("author", author_names(authors, ctx)),
         "series": labelled("series", [series_name(series)] if series else []),
         "tags": labelled("tag", list(found.tags)),
         "title": labelled("title", words(found.entity.title)),
@@ -120,4 +125,4 @@ def weighted_sum(sections: dict[str, list[str]]) -> list[float]:
 
 
 def vector(found, ctx) -> list[float]:
-    return weighted_sum({**metadata_sections(found), **text_sections(read(found))})
+    return weighted_sum({**metadata_sections(found, ctx), **text_sections(read(found))})

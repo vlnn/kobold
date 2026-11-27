@@ -14,6 +14,7 @@ from kobold.filenames import EDITOR
 from kobold.folders import genre_from_folder
 from kobold.genres import known_genres
 from kobold.naming import author_folder, known_authors, surname_first
+from kobold.phonetic import fits_into, plain_latin, sounds_like, without_marks
 from kobold.scan import is_book
 from kobold.vault import vault_folders, vault_walk
 
@@ -24,7 +25,6 @@ GENRE_SEPARATORS = re.compile(r"[\s_\-&+.,]+")
 LATIN, CYRILLIC = "latin", "cyrillic"
 SYNONYMS = {"sf": "scifi", "sciencefiction": "scifi", "nonfic": "nonfiction"}
 SINGULAR_ENDINGS = ("ss", "us", "is")
-UNDECOMPOSED = str.maketrans({"ł": "l", "Ł": "L", "ø": "o", "Ø": "O", "đ": "d", "Đ": "D", "ı": "i", "ß": "ss", "æ": "ae", "œ": "oe"})
 
 
 class Name(NamedTuple):
@@ -47,14 +47,6 @@ def script_of(text: str) -> str:
     return CYRILLIC if CYRILLIC_LETTER.search(text) else LATIN
 
 
-def without_marks(text: str) -> str:
-    return "".join(c for c in unicodedata.normalize("NFKD", text) if not unicodedata.combining(c))
-
-
-def plain_latin(text: str) -> str:
-    return without_marks(text).translate(UNDECOMPOSED)
-
-
 def folded(text: str, script: str) -> str:
     lowered = APOSTROPHES.sub("", text.casefold().replace("ё", "е"))
     return plain_latin(lowered) if script == LATIN else unicodedata.normalize("NFC", lowered)
@@ -75,25 +67,6 @@ def name_of(spelling: Spelling) -> Name | None:
     if not tokens:
         return None
     return Name(spelling.value, spelling.count, script, frozenset(words(surname_text(bare), script)), tokens)
-
-
-def abbreviates(short: str, full: str) -> bool:
-    return len(short) == 1 and full.startswith(short)
-
-
-def partner(token: str, left: list) -> str | None:
-    exact = next((other for other in left if other == token), None)
-    return exact or next((other for other in left if abbreviates(token, other) or abbreviates(other, token)), None)
-
-
-def fits_into(small: tuple, large: tuple) -> bool:
-    left = list(large)
-    for token in sorted(small, key=len, reverse=True):
-        found = partner(token, left)
-        if found is None:
-            return False
-        left.remove(found)
-    return True
 
 
 def compatible(a: Name, b: Name) -> bool:
@@ -208,14 +181,38 @@ def author_folders(ctx: Context) -> frozenset:
     return frozenset(known_authors(vault_folders(ctx)))
 
 
+def representatives(names: list, groups: list, folders: frozenset) -> list:
+    grouped = {name for group in groups for name in group}
+    settled = [min(group, key=lambda name: author_rank(name, folders)) for group in groups]
+    return [name for name in names if name not in grouped] + settled
+
+
+def bare(name: Name) -> str:
+    return EDITOR.sub("", name.spelling).strip()
+
+
+def sound_pairs(names: list) -> list:
+    latin = [name for name in names if name.script == LATIN]
+    cyrillic = [name for name in names if name.script == CYRILLIC]
+    pairs = [(a, b) for a in latin for b in cyrillic if sounds_like(bare(a), bare(b))]
+    seen = Counter(name for pair in pairs for name in pair)
+    return [(a, b) for a, b in pairs if seen[a] == 1 and seen[b] == 1]
+
+
+def links(names: list, groups: list, folders: frozenset) -> list:
+    pairs = sorted(sound_pairs(representatives(names, groups, folders)), key=lambda pair: pair[0].spelling)
+    return [Standard(latin.spelling, (cyrillic.spelling,), search_only=True) for latin, cyrillic in pairs]
+
+
 def authors(spellings: Sequence[Spelling], ctx: Context) -> list:
     names = [name for name in map(name_of, spellings) if name is not None]
     folders = author_folders(ctx)
+    groups = name_groups(names)
     proposals = []
-    for group in name_groups(names):
+    for group in groups:
         standard = min(group, key=lambda name: author_rank(name, folders))
         proposals += proposals_for(group, standard)
-    return proposals
+    return proposals + links(names, groups, folders)
 
 
 class Genre(NamedTuple):
