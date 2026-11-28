@@ -65,12 +65,13 @@ def take_away(device: Path) -> None:
 
 
 def test_an_update_remembers_what_rows_need_from_the_device(ctx, device):
+    ubik_read_at = int((device / "Nook" / "ubik.sdr" / "metadata.epub.lua").stat().st_mtime)
     assert seen.recall(ctx) == seen.Seen(
         progress={str(device / "Nook" / "ubik.epub"): "73%"},
         genres=["fiction/sci-fi", "poetry"],
         last_opened=books(ctx)["Dhalgren"].id,
-        opened=[[books(ctx)["Dhalgren"].id, 1700000000]],
-    ), "the update should note each nook book's progress, the vault's genre folders and what KOReader opened"
+        opened=[[books(ctx)["Ubik"].id, ubik_read_at], [books(ctx)["Dhalgren"].id, 1700000000]],
+    ), "the update should note each nook book's progress, the vault's genre folders, what KOReader opened and when each sidecar was written"
 
 
 def test_the_device_sleeps_between_updates():

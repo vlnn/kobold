@@ -54,6 +54,17 @@ def test_the_selection_action_in_the_bundle_is_the_one_the_pane_describes():
     )
 
 
+def component(ident: str) -> dict:
+    return next(node for part in PARTS for node in walk(loaded(part)) if node.get("id") == ident)
+
+
+@pytest.mark.parametrize("ident", ["jobtext", "d_reading", "n_library", "n_nook", "n_vault"])
+def test_a_label_filled_without_a_relayout_has_its_width_reserved(ident):
+    assert component(ident)["constraints"]["size"]["width"] > 0, (
+        f"{ident} starts empty and is filled by an update that does not re-layout, so it needs room from the start"
+    )
+
+
 def test_the_window_script_can_be_run():
     assert os.access(BUNDLE / "scripts" / "window", os.X_OK), "Alfred runs the script directly, so it should be executable"
 
