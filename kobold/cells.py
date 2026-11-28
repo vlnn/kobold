@@ -6,6 +6,7 @@ from hoard.items import Head, Item
 
 from kobold.facts import unpacked
 from kobold.places import LIBRARY, NOOK, VAULT
+from kobold.scope import hidden_panels
 
 PLACE_COLOURS = {NOOK: "systemGreenColor", VAULT: "systemOrangeColor", LIBRARY: "systemBlueColor"}
 UNLIT = "quaternaryLabelColor"
@@ -139,6 +140,7 @@ def cell(uid: str, title: str, subtitle: str, image: dict, verb_label: str, loca
         "genre": "",
         "reading": "",
         **lights([]),
+        **hidden_panels(uid),
     }
 
 

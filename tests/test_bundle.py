@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from kobold import cells, dashboard, pane, window
+from kobold import cells, dashboard, pane, scope, window
 from tests.test_cells import BOOK
 
 BUNDLE = Path(__file__).parent.parent / "workflow" / "kobold.alfredui"
@@ -85,6 +85,14 @@ def test_the_reading_note_is_centred_across_the_pane():
     )
 
 
+def test_the_stats_pane_holds_a_panel_for_every_scope():
+    assert children_of("statspane") == [scope.view(name) for name in scope.SCOPES], "the cursor picks one of these panels to show"
+
+
+def stats_panel() -> dict:
+    return component(scope.view(scope.OVERVIEW))
+
+
 CHROME_HEIGHT = 93
 LINE_HEIGHT = 14
 
@@ -98,7 +106,7 @@ def stacked_height(pane: dict, lines: int) -> int:
 
 
 def test_the_fullest_stats_panel_fits_the_pane():
-    needed = stacked_height(component("statspane"), dashboard.most_lines())
+    needed = stacked_height(stats_panel(), dashboard.most_lines())
     assert needed <= room_for_stats(), "Alfred squashes every line of a panel taller than the pane, so the fullest one should fit"
 
 

@@ -229,12 +229,50 @@
     {
       "id": "statspane",
       "type": "view",
-      "layout": "inline",
-      "direction": "vertical",
-      "padding": 14,
-      "spacing": 3,
+      "layout": "stack",
       "hidden": true,
-      "components": []
+      "components": [
+        {
+          "id": "stats_all",
+          "type": "view",
+          "layout": "inline",
+          "direction": "vertical",
+          "padding": 14,
+          "spacing": 3,
+          "hidden": false,
+          "components": []
+        },
+        {
+          "id": "stats_nook",
+          "type": "view",
+          "layout": "inline",
+          "direction": "vertical",
+          "padding": 14,
+          "spacing": 3,
+          "hidden": true,
+          "components": []
+        },
+        {
+          "id": "stats_vault",
+          "type": "view",
+          "layout": "inline",
+          "direction": "vertical",
+          "padding": 14,
+          "spacing": 3,
+          "hidden": true,
+          "components": []
+        },
+        {
+          "id": "stats_library",
+          "type": "view",
+          "layout": "inline",
+          "direction": "vertical",
+          "padding": 14,
+          "spacing": 3,
+          "hidden": true,
+          "components": []
+        }
+      ]
     }
   ]
 }

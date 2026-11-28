@@ -11,7 +11,7 @@ from typing import Callable
 from hoard import api, cli
 from hoard.items import Head, Item, Items
 
-from kobold import KIND, cells, dashboard, home, latest, opened
+from kobold import KIND, cells, dashboard, home, latest, opened, scope
 from kobold.facts import WINDOW_KIND
 from kobold.pane import pane_of
 
@@ -97,8 +97,9 @@ def is_stats(typed: str) -> bool:
 def panes(con, ctx, typed: str) -> dict:
     if not is_stats(typed):
         return {"bookpane": {"hidden": False}, "statspane": {"hidden": True}}
-    components = dashboard.panel(con, api.settings(KIND, ctx))
-    return {"bookpane": {"hidden": True}, "statspane": {"hidden": False, "components": components}}
+    settings = api.settings(KIND, ctx)
+    filled = {scope.view(name): {"components": dashboard.panel(con, settings, name)} for name in scope.SCOPES}
+    return {"bookpane": {"hidden": True}, "statspane": {"hidden": False}, **filled}
 
 
 def surroundings(ctx, typed: str) -> dict:
@@ -107,6 +108,14 @@ def surroundings(ctx, typed: str) -> dict:
         return {**counters(con), **panes(con, ctx, typed)}
     finally:
         con.close()
+
+
+def merged(*updates: dict) -> dict:
+    ids: dict = {}
+    for update in updates:
+        for component, properties in update.items():
+            ids.setdefault(component, {}).update(properties)
+    return ids
 
 
 def selected(shown: list, picked: str) -> dict | None:
@@ -126,7 +135,7 @@ def redrawn(items: Items, typed: str, picked: str, ctx) -> dict:
     shown = [row for row, _ in paired(items)]
     return {
         "variables": {"typed": typed, "seen": fingerprint(shown), "picked": uid_of(selected(shown, picked))},
-        "update": {"ids": {**list_update(shown, picked), **job_of(items), **surroundings(ctx, typed)}, "relayout": is_stats(typed)},
+        "update": {"ids": merged(list_update(shown, picked), job_of(items), surroundings(ctx, typed)), "relayout": is_stats(typed)},
     }
 
 

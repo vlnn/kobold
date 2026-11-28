@@ -3,7 +3,7 @@ import time
 import pytest
 from hoard import api
 
-from kobold import KIND, dashboard
+from kobold import KIND, dashboard, scope
 
 
 @pytest.fixture
@@ -112,14 +112,62 @@ def test_every_line_of_the_panel_is_set_small(build):
     assert build("text")["font"]["size"] == "small", "the fit of the panel is counted in small lines"
 
 
-def full_panel(con, shelved, mocker) -> list:
-    many = [(f"name {n}", n + 1) for n in range(dashboard.TOP)]
-    mocker.patch.object(dashboard, "reading_now", return_value=[(name, "40%") for name, _ in many])
-    mocker.patch.object(dashboard, "genre_counts", return_value=many)
-    mocker.patch.object(dashboard, "format_counts", return_value=many)
+def texts_of(components) -> list:
+    return [part.get("text") for part in flat(components)]
+
+
+def book_in(con, place: str) -> str:
+    return con.execute("SELECT id FROM sightings WHERE storage = ?", (place,)).fetchone()[0]
+
+
+def tagged(con, book: str, genre: str) -> None:
+    con.execute("INSERT INTO tags VALUES (?, ?, 'hand', 0)", (book, genre))
+
+
+@pytest.mark.parametrize(
+    ("place", "expected"), [("nook", [("sci-fi", 1)]), ("vault", [("history", 1)]), (None, [("history", 1), ("sci-fi", 1)])]
+)
+def test_genres_of_a_place_count_only_the_books_there(con, place, expected):
+    tagged(con, book_in(con, "nook"), "sci-fi")
+    tagged(con, book_in(con, "vault"), "history")
+    assert dashboard.genre_counts(con, place) == expected, f"genres of {place or 'everything'} should count the books sighted there"
+
+
+@pytest.mark.parametrize(("place", "expected"), [("nook", [("EPUB", 1)]), ("library", [("EPUB", 2)])])
+def test_formats_of_a_place_count_only_the_books_there(con, place, expected):
+    assert dashboard.format_counts(con, place) == expected, f"formats of {place} should count the books sighted there"
+
+
+@pytest.mark.parametrize(
+    ("name", "shown", "absent"),
+    [
+        ("all", ["Shelves", "nook", "vault", "library", "Reading now", "Finished", "Formats"], []),
+        ("nook", ["Shelves", "nook", "Reading now", "ubik", "Formats"], ["vault", "library", "Finished"]),
+        ("vault", ["Shelves", "vault", "Finished", "Formats"], ["nook", "library", "Reading now", "ubik"]),
+        ("library", ["Shelves", "library", "Formats"], ["nook", "vault", "Reading now", "Finished"]),
+    ],
+)
+def test_a_panel_shows_only_what_belongs_to_its_scope(con, shelved, name, shown, absent):
     journalled(con, [("done", "a", time.time())])
-    return dashboard.panel(con, shelved)
+    texts = texts_of(dashboard.panel(con, shelved, name))
+    assert [text for text in shown if text not in texts] == [], f"the {name} panel should show {shown}"
+    assert [text for text in absent if text in texts] == [], f"the {name} panel should leave out {absent}"
+
+
+def test_the_panels_of_every_scope_share_no_id(con, shelved):
+    ids = [part["id"] for name in scope.SCOPES for part in flat(dashboard.panel(con, shelved, name)) if "id" in part]
+    assert len(ids) == len(set(ids)), "all panels live in the window at once, so their ids should not collide"
+
+
+def full_panel(con, shelved, mocker, name: str) -> list:
+    many = [(f"name {n}", n + 1) for n in range(dashboard.DEEP)]
+    mocker.patch.object(dashboard, "reading_now", side_effect=lambda ctx, top=dashboard.TOP: [(title, "40%") for title, _ in many[:top]])
+    mocker.patch.object(dashboard, "genre_counts", side_effect=lambda con, place=None, top=dashboard.TOP: many[:top])
+    mocker.patch.object(dashboard, "format_counts", side_effect=lambda con, place=None, top=dashboard.TOP: many[:top])
+    return dashboard.panel(con, shelved, name)
 
 
 def test_no_panel_has_more_lines_than_the_fullest(con, shelved, mocker):
-    assert len(full_panel(con, shelved, mocker)) == dashboard.most_lines(), "every section at its fullest should be what most_lines counts"
+    journalled(con, [("done", "a", time.time())])
+    longest = max(len(full_panel(con, shelved, mocker, name)) for name in scope.SCOPES)
+    assert longest == dashboard.most_lines(), "the fullest panel of any scope should be what most_lines counts"
