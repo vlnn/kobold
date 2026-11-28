@@ -217,4 +217,6 @@ hoard is pinned to a tag in `pyproject.toml`. To work on both, keep a hoard chec
 
 The window is `workflow/kobold.alfredui/` (an Alfred UI bundle) and five modules that answer it; [docs/internals.md](docs/internals.md) says which. `workflow/assemble.py` adds it to hoard's bundle.
 
+Every pull request gets a test build: CI comments on it with a link to `Kobold-pr<N>.<commit>.alfredworkflow`, rebuilt on each push and kept for 14 days. It installs over the released workflow, and its version reads `0.13.0+pr<N>.<commit>`.
+
 `docs/history/` keeps the 0.5 design notes, from before hoard, for the reasoning; the README is the current interface.
