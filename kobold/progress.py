@@ -43,6 +43,13 @@ def progress_of(book: Path) -> Progress:
     return read_progress(metadata.read_text(encoding="utf-8")) if metadata.is_file() else Progress(None, "")
 
 
+def read_at(book: Path) -> int | None:
+    try:
+        return int(metadata_of(book).stat().st_mtime)
+    except OSError:
+        return None
+
+
 def label(progress: Progress) -> str:
     if progress.status in WORDS:
         return WORDS[progress.status]

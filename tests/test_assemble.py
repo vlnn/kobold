@@ -62,3 +62,20 @@ def test_every_object_has_a_place_on_the_canvas(assemble, plist):
 def test_settings_reach_the_window_scripts(assemble, name):
     ui = assemble.with_settings({"variablesconfig": {"typed": {}}}, ["KOBOLD_ROOT", "hoard_chat_url"])
     assert ui["variablesconfig"][name] == {"src": "variable", "scriptenv": True, "default": ""}, f"{name} should be exported to the scripts"
+
+
+@pytest.mark.parametrize(
+    ("label", "expected", "why"),
+    [
+        ("pr14.abc1234", "0.13.0+pr14.abc1234", "a test build should say which pull request and commit it is"),
+        ("", "0.13.0", "a release keeps the plain version"),
+        ("pr14; rm -rf", "0.13.0", "a label that is not plain letters, digits and dots is ignored"),
+    ],
+)
+def test_a_labelled_build_carries_the_label_in_its_version(assemble, label, expected, why):
+    assert assemble.with_label({"version": "0.13.0"}, label)["version"] == expected, why
+
+
+def test_the_label_comes_from_the_environment(assemble, monkeypatch):
+    monkeypatch.setenv(assemble.LABEL_SETTING, "pr14.abc1234")
+    assert assemble.build_label() == "pr14.abc1234", "CI should be able to label a build without touching the files"

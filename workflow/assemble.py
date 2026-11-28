@@ -1,12 +1,15 @@
 """Build the Alfred 6 workflow: hoard's classic bundle plus the window in kobold.alfredui.
 
 uv run --python 3.13 python workflow/assemble.py   → dist/kobold-window.alfredworkflow
+KOBOLD_BUILD_LABEL=pr14.abc1234 marks a test build: the workflow's version becomes 0.13.0+pr14.abc1234.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import plistlib
+import re
 import shutil
 import sys
 import tempfile
@@ -25,6 +28,8 @@ WINDOW = "alfred.workflow.userinterface.alfredui"
 INSIDE_ALFRED = 0
 OPTIONAL_ARGUMENT = 1
 SETTING = {"src": "variable", "scriptenv": True, "default": ""}
+LABEL_SETTING = "KOBOLD_BUILD_LABEL"
+PLAIN = re.compile(r"[0-9A-Za-z.]+")
 
 
 def uid(plist: dict, role: str) -> str:
@@ -65,6 +70,16 @@ def with_window(plist: dict) -> dict:
     return plist
 
 
+def build_label() -> str:
+    return os.environ.get(LABEL_SETTING, "")
+
+
+def with_label(plist: dict, label: str) -> dict:
+    if PLAIN.fullmatch(label):
+        plist["version"] = f"{plist['version']}+{label}"
+    return plist
+
+
 def setting_names(plist: dict) -> list:
     return [entry["variable"] for entry in plist["userconfigurationconfig"]]
 
@@ -96,7 +111,7 @@ def unpacked_classic(repo: Path, scratch: Path) -> Path:
 def staged(repo: Path, scratch: Path) -> Path:
     folder = unpacked_classic(repo, scratch)
     shutil.copytree(repo / "workflow" / BUNDLE, folder / BUNDLE)
-    plist = rewritten_plist(folder / "info.plist", with_window)
+    plist = rewritten_plist(folder / "info.plist", lambda plist: with_label(with_window(plist), build_label()))
     rewritten_json(folder / BUNDLE / "ui.json", lambda ui: with_settings(ui, setting_names(plist)))
     return folder
 

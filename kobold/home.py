@@ -9,11 +9,13 @@ from hoard.items import Head, Item, Items
 from kobold import KIND, opened, runs
 from kobold.cells import fraction
 from kobold.facts import WINDOW_KIND, unpacked
-from kobold.places import NOOK, in_nook
+from kobold.places import NOOK
+from kobold.seen import recall
 
 HOME = "home"
 SIZE = 24
 STRIP = 8
+READ_CANDIDATES = 16
 JOB = "updating"
 ADDED = "added"
 OPENED = "opened"
@@ -67,9 +69,21 @@ def note(kind: str, at: float, now: float) -> str:
     return f"{kind} {ago(now - at)}" if at > 0 else kind
 
 
-def home_kind(wanted):
+def furthest_along(entry: tuple) -> tuple:
+    _, state = entry
+    return state != FINISHED, -(fraction(state) or 0.0)
+
+
+def read_locators(ctx) -> set:
+    # hoard cuts a command at 40 rows, so home asks for at most the timeline's 24 and these 16
+    seen = recall(ctx)
+    being_read = [(locator, state) for locator, state in seen.progress.items() if state] if seen else []
+    return {locator for locator, _ in sorted(being_read, key=furthest_along)[:READ_CANDIDATES]}
+
+
+def home_kind(wanted, being_read):
     # an empty verb leaves every row its own default action, as in a search
-    command = Command("Show", "", keep=lambda found: found.entity.id in wanted or in_nook(found))
+    command = Command("Show", "", keep=lambda found: found.entity.id in wanted or found.locator_in(NOOK) in being_read)
     return WINDOW_KIND._replace(commands={**WINDOW_KIND.commands, HOME: command})
 
 
@@ -86,9 +100,12 @@ def reading_of(item: Item) -> str:
     return facts.get("reading", "") if NOOK in facts.get("places", ()) else ""
 
 
-def closest_to_filed(item: Item) -> tuple:
-    state = reading_of(item)
-    return state != FINISHED, -(fraction(state) or 0.0)
+def read_last(when: dict):
+    def order(item: Item) -> tuple:
+        state = reading_of(item)
+        return state != FINISHED, -when.get(item.id, 0), -(fraction(state) or 0.0)
+
+    return order
 
 
 def as_read(item: Item) -> Item:
@@ -98,16 +115,15 @@ def as_read(item: Item) -> Item:
     return noted(item, ABANDONED if state == ABANDONED else READING)
 
 
-def reading_strip(books) -> tuple:
-    being_read = sorted((item for item in books if reading_of(item)), key=closest_to_filed)[:STRIP]
-    return tuple(being_read)
+def reading_strip(books, when: dict) -> tuple:
+    return tuple(sorted((item for item in books if reading_of(item)), key=read_last(when))[:STRIP])
 
 
-def arranged(found: Items, line: list, now: float) -> Items | None:
+def arranged(found: Items, line: list, when: dict, now: float) -> Items | None:
     books = {row.id: row for row in found.rows if isinstance(row, Item)}
     if not books:
         return None
-    strip = reading_strip(books.values())
+    strip = reading_strip(books.values(), when)
     on_strip = {item.id for item in strip}
     rest = tuple(noted(books[book], note(kind, at, now)) for book, kind, at in line if book in books and book not in on_strip)
     jobs = tuple(row for row in found.rows if is_job(row))
@@ -115,6 +131,8 @@ def arranged(found: Items, line: list, now: float) -> Items | None:
 
 
 def listed(ctx=None, module: str | None = None, now: float | None = None) -> Items | None:
-    line = timeline(*events(api.settings(KIND, ctx)))
-    found = api.filter(home_kind({book for book, _, _ in line}), HOME, ctx, module)
-    return arranged(found, line, time.time() if now is None else now)
+    settings = api.settings(KIND, ctx)
+    was_opened, added = events(settings)
+    line = timeline(was_opened, added)
+    found = api.filter(home_kind({book for book, _, _ in line}, read_locators(settings)), HOME, ctx, module)
+    return arranged(found, line, dict(was_opened), time.time() if now is None else now)

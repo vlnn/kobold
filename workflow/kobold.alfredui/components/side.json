@@ -187,7 +187,10 @@
             },
             {
               "constraints": {
-                "position": "centre"
+                "position": "centre",
+                "size": {
+                  "width": 120
+                }
               },
               "id": "d_reading",
               "type": "label",
@@ -196,7 +199,9 @@
               "font": {
                 "size": 12,
                 "monospaced": "digits"
-              }
+              },
+              "textalign": "left",
+              "linebreak": "truncatetail"
             }
           ]
         },

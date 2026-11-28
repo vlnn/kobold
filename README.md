@@ -53,8 +53,8 @@ Typing never reads the device. A card that has gone to sleep takes seconds to an
 
 **A bare `kb` is home**, 24 rows at most, each book once, each row saying why it is there.
 
-- **What you are reading comes first**: the nook books KOReader has opened, the furthest along on top. One it marked finished leads them all, and ↩ on it finishes it, as `kb done` would; ⇧↩ still opens it. An abandoned one is shown and left to you.
-- **Then one timeline, newest first**: `opened 2 h ago`, `added 3 d ago`. Opened means KOReader's history as the last update read it, and the books you open from the window, which count at once. Added means when the update that first saw the book ran; for the books of the very first index, and for updates made before 0.13, it is the file's date.
+- **What you are reading comes first**: the nook books KOReader has opened, the one you read last on top, then the furthest along. One it marked finished leads them all, and ↩ on it finishes it, as `kb done` would; ⇧↩ still opens it. An abandoned one is shown and left to you.
+- **Then one timeline, newest first**: `opened 2 h ago`, `added 3 d ago`. Opened means what the last update found on the device — when KOReader last wrote each nook book's sidecar, and its history where kobold can reach it — and the books you open from the window, which count at once. Added means when the update that first saw the book ran; for the books of the very first index, and for updates made before 0.13, it is the file's date.
 
 The list searches when you pause typing. Double-click acts as ↩ does.
 
@@ -216,5 +216,7 @@ Two Pythons: the workflow *runs* on macOS's `/usr/bin/python3` (3.9), so the cod
 hoard is pinned to a tag in `pyproject.toml`. To work on both, keep a hoard checkout next to this one and add `--with-editable ../hoard` to any of the commands above, e.g. `uv run --with-editable ../hoard pytest`. To move to a newer hoard, change the tag and run `uv lock`.
 
 The window is `workflow/kobold.alfredui/` (an Alfred UI bundle) and five modules that answer it; [docs/internals.md](docs/internals.md) says which. `workflow/assemble.py` adds it to hoard's bundle.
+
+Every pull request gets a test build: CI comments on it with a link to `Kobold-pr<N>.<commit>.alfredworkflow`, rebuilt on each push and kept for 14 days. It installs over the released workflow, and its version reads `0.13.0+pr<N>.<commit>`.
 
 `docs/history/` keeps the 0.5 design notes, from before hoard, for the reasoning; the README is the current interface.

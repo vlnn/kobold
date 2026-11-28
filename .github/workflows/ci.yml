@@ -27,10 +27,19 @@ jobs:
   build:
     needs: test
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v6
+      - name: Label a pull request's build
+        if: github.event_name == 'pull_request'
+        env:
+          PR: ${{ github.event.number }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: echo "KOBOLD_BUILD_LABEL=pr$PR.${HEAD:0:7}" >> "$GITHUB_ENV"
       - id: version
         run: |
           version=$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
@@ -41,11 +50,46 @@ jobs:
       - name: Add the window and check it against the Alfred UI schema
         run: make check-window BUILD_PYTHON=3.13
       - run: mv dist/kobold-window.alfredworkflow dist/Kobold.alfredworkflow
-      - uses: actions/upload-artifact@v7
+      - if: github.event_name == 'push'
+        uses: actions/upload-artifact@v7
         with:
           name: Kobold.alfredworkflow
           path: dist/Kobold.alfredworkflow
           if-no-files-found: error
+      - name: Name the test build
+        if: github.event_name == 'pull_request'
+        run: cp dist/Kobold.alfredworkflow "dist/Kobold-$KOBOLD_BUILD_LABEL.alfredworkflow"
+      - id: test-build
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v7
+        with:
+          path: dist/Kobold-${{ env.KOBOLD_BUILD_LABEL }}.alfredworkflow
+          archive: false
+          retention-days: 14
+          if-no-files-found: error
+      - name: Say where the test build is
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.number }}
+          URL: ${{ steps.test-build.outputs.artifact-url }}
+          CAN_COMMENT: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+        run: |
+          marker='<!-- kobold-test-build -->'
+          body="$marker
+          **Test build:** [Kobold-$KOBOLD_BUILD_LABEL.alfredworkflow]($URL)
+
+          Double-click it to install. It replaces the installed Kobold and keeps its settings; the workflow's version reads \`$KOBOLD_BUILD_LABEL\` after the number. It is rebuilt on every push here and kept for 14 days. To go back, install a [release](https://github.com/$GITHUB_REPOSITORY/releases)."
+          body=$(sed 's/^          //' <<<"$body")
+          echo "$body" >> "$GITHUB_STEP_SUMMARY"
+          [ "$CAN_COMMENT" = true ] || exit 0
+          comments="repos/$GITHUB_REPOSITORY/issues/$PR/comments"
+          id=$(gh api "$comments" --paginate --jq ".[] | select(.body | startswith(\"$marker\")) | .id" | head -n 1)
+          if [ -n "$id" ]; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$id" -f body="$body" --silent
+          else
+            gh api "$comments" -f body="$body" --silent
+          fi
 
   release:
     if: github.event_name == 'push'
