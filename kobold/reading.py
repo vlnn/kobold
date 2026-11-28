@@ -4,7 +4,6 @@ from pathlib import Path
 
 from hoard.contract import Entity
 
-from kobold.evidence import text_sample
 from kobold.metadata import is_sound, read_book
 from kobold.model import Book
 from kobold.scan import is_book, is_junk
@@ -39,8 +38,7 @@ def fields_of(book: Book) -> tuple:
 
 
 def text_of(book: Book) -> str:
-    sample = "" if book.partial else text_sample(Path(book.path), book.format)
-    lines = [("Subjects", "; ".join(book.subjects)), ("Description", book.description), ("Text", sample)]
+    lines = [("Subjects", "; ".join(book.subjects)), ("Description", book.description), ("Text", book.sample)]
     return "\n".join(f"{label}: {value}" for label, value in lines if value)
 
 

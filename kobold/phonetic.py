@@ -106,9 +106,16 @@ def split_name(name: str) -> tuple[str, str]:
     return (surname, given) if given else (name, "")
 
 
-def sounds_like(one: str, other: str) -> bool:
-    (surname, given), (other_surname, other_given) = split_name(one), split_name(other)
-    if skeletons(surname) != skeletons(other_surname):
-        return False
-    small, large = sorted((skeletons(given), skeletons(other_given)), key=len)
+def sound_key(name: str) -> tuple:
+    surname, given = split_name(name)
+    return skeletons(surname), skeletons(given)
+
+
+def givens_fit(one: tuple, other: tuple) -> bool:
+    small, large = sorted((one, other), key=len)
     return fits_into(small, large)
+
+
+def sounds_like(one: str, other: str) -> bool:
+    (surname, given), (other_surname, other_given) = sound_key(one), sound_key(other)
+    return surname == other_surname and givens_fit(given, other_given)

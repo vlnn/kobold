@@ -9,6 +9,7 @@ from pathlib import Path
 from xml.etree import ElementTree as ET
 
 from kobold.identity import is_text_member, local_name
+from kobold.source import opened
 
 SAMPLE_CHARS = 2000
 TAG = re.compile(r"<[^>]*>")
@@ -21,16 +22,15 @@ def plain(markup: str) -> str:
     return " ".join(html.unescape(TAG.sub(" ", HEAD.sub(" ", markup))).split())
 
 
-def epub_sample(path: Path) -> str:
-    with zipfile.ZipFile(path) as zf:
-        for name in zf.namelist():
-            if is_text_member(name) and (text := plain(zf.read(name).decode("utf-8", "replace"))):
-                return text
+def zip_sample(zf: zipfile.ZipFile) -> str:
+    for name in zf.namelist():
+        if is_text_member(name) and (text := plain(zf.read(name).decode("utf-8", "replace"))):
+            return text
     return ""
 
 
-def fb2_sample(path: Path) -> str:
-    bodies = (e for e in ET.parse(path).getroot() if local_name(e.tag) == "body")
+def fb2_sample(root: ET.Element) -> str:
+    bodies = (e for e in root if local_name(e.tag) == "body")
     return " ".join(" ".join(" ".join(body.itertext()).split()) for body in bodies)
 
 
@@ -69,20 +69,23 @@ def mobi_sample(path: Path) -> str:
     return plain(text.decode("utf-8", "replace"))
 
 
-SAMPLERS: dict[str, Callable[[Path], str]] = {
-    "epub": epub_sample,
-    "fb2": fb2_sample,
-    "mobi": mobi_sample,
-    "azw": mobi_sample,
-    "azw3": mobi_sample,
-}
+INSIDE: dict[str, Callable] = {"epub": zip_sample, "fb2": fb2_sample}
+WHOLE: dict[str, Callable[[Path], str]] = {"mobi": mobi_sample, "azw": mobi_sample, "azw3": mobi_sample}
+
+
+def sampled(path: Path, fmt: str, source) -> str:
+    if fmt in INSIDE:
+        return INSIDE[fmt](source)
+    return WHOLE[fmt](path) if fmt in WHOLE else ""
+
+
+def sample_in(path: Path, fmt: str, source) -> str:
+    try:
+        return sampled(path, fmt, source)[:SAMPLE_CHARS]
+    except Exception:
+        return ""
 
 
 def text_sample(path: Path, fmt: str) -> str:
-    sampler = SAMPLERS.get(fmt)
-    if sampler is None:
-        return ""
-    try:
-        return sampler(path)[:SAMPLE_CHARS]
-    except Exception:
-        return ""
+    with opened(path) as source:
+        return sample_in(path, fmt, source)

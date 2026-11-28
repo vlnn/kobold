@@ -7,12 +7,14 @@ import zipfile
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
-from kobold import cyrillic
+from kobold import contents, cyrillic
+from kobold.evidence import sample_in
 from kobold.filenames import guess_from_stem
-from kobold.identity import fingerprint
+from kobold.identity import fingerprint_in
 from kobold.model import Book, Cover
 from kobold.paths import relative_path
 from kobold.scan import book_format, display_stem, is_partial
+from kobold.source import opened
 
 NS = {
     "opf": "http://www.idpf.org/2007/opf",
@@ -71,19 +73,18 @@ def flat_text(node: ET.Element | None) -> str:
     return " ".join(" ".join(node.itertext()).split()) if node is not None else ""
 
 
-def read_epub(path: Path, book: Book) -> Book:
-    with zipfile.ZipFile(path) as zf:
-        opf = opf_path(zf)
-        package = ET.fromstring(zf.read(opf))
-        book.title = text_of(package, "opf:metadata/dc:title")
-        book.authors = epub_authors(package)
-        book.language = text_of(package, "opf:metadata/dc:language")
-        book.year = text_of(package, "opf:metadata/dc:date")[:4]
-        book.series = opf_meta(package, "calibre:series")
-        book.series_index = opf_meta(package, "calibre:series_index").removesuffix(".0")
-        book.subjects = texts_of(package, "opf:metadata/dc:subject")
-        book.description = flat_text(package.find("opf:metadata/dc:description", NS))
-        book.cover = epub_cover(zf, opf, package)
+def read_epub(zf: zipfile.ZipFile, book: Book) -> Book:
+    opf = opf_path(zf)
+    package = ET.fromstring(zf.read(opf))
+    book.title = text_of(package, "opf:metadata/dc:title")
+    book.authors = epub_authors(package)
+    book.language = text_of(package, "opf:metadata/dc:language")
+    book.year = text_of(package, "opf:metadata/dc:date")[:4]
+    book.series = opf_meta(package, "calibre:series")
+    book.series_index = opf_meta(package, "calibre:series_index").removesuffix(".0")
+    book.subjects = texts_of(package, "opf:metadata/dc:subject")
+    book.description = flat_text(package.find("opf:metadata/dc:description", NS))
+    book.cover = epub_cover(zf, opf, package)
     return book
 
 
@@ -126,8 +127,7 @@ def fb2_cover(root: ET.Element) -> Cover | None:
     return None
 
 
-def read_fb2(path: Path, book: Book) -> Book:
-    root = ET.parse(path).getroot()
+def read_fb2(root: ET.Element, book: Book) -> Book:
     info = root.find("fb:description/fb:title-info", NS)
     book.title = text_of(info, "fb:book-title")
     book.authors = [a for n in info.findall("fb:author", NS) if (a := fb2_author(n))]
@@ -141,26 +141,6 @@ def read_fb2(path: Path, book: Book) -> Book:
     book.description = flat_text(info.find("fb:annotation", NS))
     book.cover = fb2_cover(root)
     return book
-
-
-def epub_subjects(path: Path) -> list[str]:
-    with zipfile.ZipFile(path) as zf:
-        return texts_of(ET.fromstring(zf.read(opf_path(zf))), "opf:metadata/dc:subject")
-
-
-def fb2_subjects(path: Path) -> list[str]:
-    return texts_of(ET.parse(path).getroot(), "fb:description/fb:title-info/fb:genre")
-
-
-SUBJECT_READERS = {"epub": epub_subjects, "fb2": fb2_subjects}
-
-
-def read_subjects(path: Path) -> list[str]:
-    reader = SUBJECT_READERS.get(book_format(path))
-    try:
-        return reader(path) if reader else []
-    except Exception:
-        return []
 
 
 READERS = {"epub": read_epub, "fb2": read_fb2}
@@ -183,13 +163,13 @@ def looks_like(path: Path, fmt: str) -> bool:
     return head.startswith(signatures)
 
 
-def read_metadata(path: Path, book: Book) -> Book:
+def read_metadata(path: Path, book: Book, source) -> Book:
     reader = READERS.get(book.format)
     if reader is None:
         book.broken = not looks_like(path, book.format)
         return book
     try:
-        return reader(path, book)
+        return reader(source, book)
     except Exception:
         book.broken = True
         return book
@@ -210,17 +190,29 @@ def from_filename(path: Path, book: Book) -> Book:
     return book
 
 
+def described(path: Path, book: Book, source) -> Book:
+    book = read_metadata(path, book, source)
+    book.sample = sample_in(path, book.format, source)
+    return book
+
+
 def read_book(path: Path, root: Path) -> Book:
     stat = path.stat()
-    book = Book(
-        path=str(path),
-        rel_path=relative_path(path, root),
-        format=book_format(path),
-        partial=is_partial(path),
-        size=stat.st_size,
-        mtime=stat.st_mtime,
-        fingerprint=fingerprint(path),
-    )
-    if not book.partial:
-        book = read_metadata(path, book)
+    with opened(path) as source:
+        book = Book(
+            path=str(path),
+            rel_path=relative_path(path, root),
+            format=book_format(path),
+            partial=is_partial(path),
+            size=stat.st_size,
+            mtime=stat.st_mtime,
+            fingerprint=fingerprint_in(path, source),
+        )
+        if not book.partial:
+            book = described(path, book, source)
+    contents.remember(book)
     return from_filename(path, book)
+
+
+def read_contents(path: Path) -> contents.Contents:
+    return contents.recall(path) or contents.of(read_book(path, path.parent))

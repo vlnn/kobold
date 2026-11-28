@@ -25,6 +25,7 @@ class Book:
     subjects: list[str] = field(default_factory=list)
     description: str = ""
     guessed: bool = False
+    sample: str = ""
 
 
 @dataclass

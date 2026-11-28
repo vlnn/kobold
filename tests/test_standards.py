@@ -1,8 +1,12 @@
+from collections import Counter
+
 import pytest
 from hoard.contract import Context, Spelling, Standard
 
+from kobold import standards
+from kobold.phonetic import sounds_like
 from kobold.roots import vault_of
-from kobold.standards import authors, genres
+from kobold.standards import CYRILLIC, LATIN, authors, bare, genres, name_of, sound_pairs
 
 NO_DEVICE = Context(data="", cache="")
 
@@ -258,3 +262,42 @@ def test_genres_without_a_word_stay_apart(spellings):
 def test_plural_genres_merge_under_the_more_common_spelling():
     found = genres(spelled(("Comics", 3), ("comic", 1)), NO_DEVICE)
     assert found == [Standard("Comics", ("comic",), True)], "the spelling with more books should win"
+
+
+CROWD = [
+    "Zelazny, Roger",
+    "Dick, Philip K.",
+    "Smith, Adam",
+    "Smith, Alice",
+    "Green, John",
+    "Roger Zelazny",
+    "Желязни, Роджер",
+    "Дик, Филип",
+    "Смит, Адам",
+    "Грин, Александр",
+    "Рот, Филип",
+    "Роджер Желязни",
+]
+
+
+def named(*spellings) -> list:
+    return [name_of(Spelling(spelling, 1)) for spelling in spellings]
+
+
+def every_pair_compared(names: list) -> list:
+    latin = [name for name in names if name.script == LATIN]
+    cyrillic = [name for name in names if name.script == CYRILLIC]
+    pairs = [(a, b) for a in latin for b in cyrillic if sounds_like(bare(a), bare(b))]
+    met = Counter(name for pair in pairs for name in pair)
+    return [(a, b) for a, b in pairs if met[a] == 1 and met[b] == 1]
+
+
+@pytest.mark.parametrize("names", [named(*CROWD), named(*reversed(CROWD)), named(*CROWD[:6]), named(*CROWD[6:]), []])
+def test_sound_pairs_are_the_ones_comparing_every_latin_name_with_every_cyrillic_one_finds(names):
+    assert sound_pairs(names) == every_pair_compared(names), "looking only among surnames that sound alike should find the same pairs"
+
+
+def test_given_names_are_compared_only_under_surnames_that_sound_alike(mocker):
+    fit = mocker.spy(standards, "givens_fit")
+    sound_pairs(named("Zelazny, Roger", "Dick, Philip K.", "Green, John", "Желязни, Роджер", "Рот, Филип", "Лем, Станислав"))
+    assert fit.call_count == 1, "of nine latin-cyrillic pairs only Zelazny and Желязни share a surname sound"

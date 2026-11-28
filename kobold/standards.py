@@ -14,7 +14,7 @@ from kobold.filenames import EDITOR
 from kobold.folders import genre_from_folder
 from kobold.genres import known_genres
 from kobold.naming import author_folder, known_authors, surname_first
-from kobold.phonetic import fits_into, plain_latin, sounds_like, without_marks
+from kobold.phonetic import fits_into, givens_fit, plain_latin, sound_key, without_marks
 from kobold.scan import is_book
 from kobold.vault import vault_folders, vault_walk
 
@@ -191,10 +191,34 @@ def bare(name: Name) -> str:
     return EDITOR.sub("", name.spelling).strip()
 
 
+class Sounded(NamedTuple):
+    name: Name
+    surname: tuple
+    given: tuple
+
+
+def sounded(name: Name) -> Sounded:
+    return Sounded(name, *sound_key(bare(name)))
+
+
+def in_script(names: list, script: str) -> list:
+    return [sounded(name) for name in names if name.script == script]
+
+
+def by_surname_sound(names: list) -> dict:
+    found = defaultdict(list)
+    for name in names:
+        found[name.surname].append(name)
+    return found
+
+
+def namesakes(latin: Sounded, cyrillic: dict) -> list:
+    return [(latin.name, other.name) for other in cyrillic.get(latin.surname, ()) if givens_fit(latin.given, other.given)]
+
+
 def sound_pairs(names: list) -> list:
-    latin = [name for name in names if name.script == LATIN]
-    cyrillic = [name for name in names if name.script == CYRILLIC]
-    pairs = [(a, b) for a in latin for b in cyrillic if sounds_like(bare(a), bare(b))]
+    cyrillic = by_surname_sound(in_script(names, CYRILLIC))
+    pairs = [pair for latin in in_script(names, LATIN) for pair in namesakes(latin, cyrillic)]
     seen = Counter(name for pair in pairs for name in pair)
     return [(a, b) for a, b in pairs if seen[a] == 1 and seen[b] == 1]
 

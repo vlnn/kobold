@@ -6,9 +6,8 @@ import zlib
 from collections import Counter
 from pathlib import Path
 
-from kobold.evidence import text_sample
-from kobold.metadata import read_book
-from kobold.model import Book
+from kobold.contents import Contents
+from kobold.metadata import read_contents
 
 DIMENSIONS = 1024
 GRAMS = (3, 4, 5)
@@ -83,24 +82,23 @@ def readable_path(found) -> Path | None:
     return path if path.is_file() else None
 
 
-def read(found) -> Book | None:
+def read(found) -> Contents | None:
     path = readable_path(found)
     if path is None:
         return None
     try:
-        return read_book(path, path.parent)
+        return read_contents(path)
     except Exception:
         return None
 
 
-def text_sections(book: Book | None) -> dict[str, list[str]]:
-    if book is None:
+def text_sections(contents: Contents | None) -> dict[str, list[str]]:
+    if contents is None:
         return {}
-    sample = "" if book.partial else text_sample(Path(book.path), book.format)
     return {
-        "subjects": text_features(" ".join(book.subjects)),
-        "description": text_features(book.description),
-        "text": text_features(sample),
+        "subjects": text_features(" ".join(contents.subjects)),
+        "description": text_features(contents.description),
+        "text": text_features(contents.sample),
     }
 
 

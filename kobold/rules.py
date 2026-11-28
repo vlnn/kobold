@@ -11,7 +11,7 @@ from hoard.contract import TAGS, Change, Context, Found, Suggestion
 
 from kobold.folders import genre_from_folder
 from kobold.genres import known_genres
-from kobold.metadata import read_subjects
+from kobold.metadata import read_contents
 from kobold.places import VAULT
 from kobold.seed import SEED
 from kobold.standards import genre_key, loosened
@@ -192,11 +192,18 @@ def tagged(found: Found, change: Change, ctx: Context) -> None:
                 learn(con, key, genre, 1)
 
 
+def subjects_at(path: Path) -> list:
+    try:
+        return list(read_contents(path).subjects)
+    except Exception:
+        return []
+
+
 def subjects(found: Found, ctx: Context) -> str:
     nearest = found.nearest
     if nearest is None or not nearest.reachable or not nearest.locator:
         return ""
-    read = read_subjects(Path(nearest.locator))
+    read = subjects_at(Path(nearest.locator))
     with store(ctx) as con:
         remember(con, found.entity.id, read)
     return "; ".join(read)

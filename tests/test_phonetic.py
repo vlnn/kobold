@@ -1,6 +1,6 @@
 import pytest
 
-from kobold.phonetic import skeleton, sounds_like
+from kobold.phonetic import skeleton, sound_key, sounds_like
 
 
 @pytest.mark.parametrize(
@@ -77,3 +77,17 @@ def test_names_sound_alike_when_surnames_match_and_given_names_fit(latin, cyrill
 def test_a_vowel_initial_carries_no_sound():
     assert skeleton("A.") == "", "an initial that is only a vowel cannot tell names apart"
     assert sounds_like("Smith, A.", "Смит, Адам"), "so it fits any given name"
+
+
+@pytest.mark.parametrize(
+    "name, key",
+    [
+        ("Zelazny, Roger", (("slsn",), ("rdsr",))),
+        ("Желязни, Роджер", (("slsn",), ("rdsr",))),
+        ("Le Guin, Ursula K.", (("l", "hn"), ("rsl", "k"))),
+        ("Roger Zelazny", (("rdsr", "slsn"), ())),
+        ("", ((), ())),
+    ],
+)
+def test_a_name_is_keyed_by_the_sounds_of_its_surname_and_of_its_given_names(name, key):
+    assert sound_key(name) == key, f"{name!r} should be keyed by surname sounds, then given-name sounds"
