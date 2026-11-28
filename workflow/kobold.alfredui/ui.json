@@ -37,9 +37,11 @@
   "window": {
     "title": "Kobold",
     "size": {
+      "width": 900,
       "height": 580
     },
     "minsize": {
+      "width": 760,
       "height": 320
     },
     "padding": 0,
