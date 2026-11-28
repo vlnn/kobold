@@ -190,6 +190,9 @@
             "position": "centre",
             "insets": {
               "right": 12
+            },
+            "size": {
+              "width": 300
             }
           },
           "id": "jobtext",
@@ -199,7 +202,9 @@
           "font": {
             "size": 10,
             "monospaced": "digits"
-          }
+          },
+          "textalign": "right",
+          "linebreak": "truncatetail"
         }
       ]
     }

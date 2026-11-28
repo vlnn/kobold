@@ -156,6 +156,42 @@ def test_finished_books_come_before_those_still_being_read(shelved, kobo):
     assert [row.title for row in books(home.listed(shelved, now=NOW))[:2]] == ["Vurt", "Ubik"], "what is ready to file should come first"
 
 
+def crowd_the_nook(kobo, count: int) -> None:
+    for number in range(count):
+        make_epub(
+            kobo / "Nook" / f"pile{number}.epub", title=f"Pile {number}", authors=("A Writer",), date="2000", chapters=(f"Text {number}.",)
+        )
+
+
+def test_a_crowded_nook_does_not_push_out_the_book_being_read(shelved, kobo):
+    crowd_the_nook(kobo, 45)
+    api.update(KIND, shelved)
+    first = books(home.listed(shelved, now=time.time()))[0]
+    assert (first.title, lead(first)) == ("Ubik", "reading"), "however many books wait in the nook, the one in progress should lead home"
+
+
+def test_home_asks_hoard_for_no_more_rows_than_it_returns(shelved, kobo):
+    crowd_the_nook(kobo, 45)
+    for number in range(30):
+        (kobo / "Nook" / f"pile{number}.sdr").mkdir()
+        (kobo / "Nook" / f"pile{number}.sdr" / "metadata.epub.lua").write_text(f"return {{ percent_finished = 0.{number:02d} }}")
+    api.update(KIND, shelved)
+    shown = books(home.listed(shelved, now=time.time()))
+    assert len(shown) == home.SIZE, "home should stay full: hoard cuts a command at 40 rows, so home must not ask for more"
+    assert [lead(row) for row in shown[: home.STRIP]] == ["reading"] * home.STRIP, "and the reading rows should still lead it"
+
+
+def test_the_book_opened_last_leads_the_reading(shelved, kobo):
+    make_epub(kobo / "Nook" / "vurt.epub", title="Vurt", authors=("Jeff Noon",), date="1993", chapters=("Vurt text.",))
+    (kobo / "Nook" / "vurt.sdr").mkdir()
+    (kobo / "Nook" / "vurt.sdr" / "metadata.epub.lua").write_text("return { percent_finished = 0.9 }")
+    api.update(KIND, shelved)
+    opened.note(id_of(shelved, "Ubik"), shelved, int(time.time()))
+    assert [row.title for row in books(home.listed(shelved, now=time.time()))[:2]] == ["Ubik", "Vurt"], (
+        "the book read last should come before one that is further along but was left longer ago"
+    )
+
+
 def test_below_the_reading_the_newest_event_comes_first(shelved):
     now = time.time() + 86400
     opened.note(id_of(shelved, "Nova"), shelved, int(now - 7200))
