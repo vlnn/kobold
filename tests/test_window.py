@@ -5,7 +5,7 @@ import pytest
 from hoard import api
 from hoard.items import Head, Items
 
-from kobold import KIND, cells, latest, window
+from kobold import KIND, cells, latest, scope, window
 
 NOW = 1_700_100_000
 
@@ -85,7 +85,34 @@ def test_the_job_bar_follows_the_count(rows, expected):
 def test_stats_fill_the_dashboard_instead_of_the_book_pane(shelved):
     shown = ids(window.search("stats", shelved))
     assert (shown["bookpane"]["hidden"], shown["statspane"]["hidden"]) == (True, False), "stats should swap the pane for the dashboard"
-    assert shown["statspane"]["components"], "the dashboard should have something in it"
+    assert shown["stats_all"]["components"], "the dashboard should have something in it"
+
+
+def shown_panels(document: dict) -> list:
+    return [name for name in scope.SCOPES if not ids(document)[scope.view(name)]["hidden"]]
+
+
+def test_stats_open_on_the_overview(shelved):
+    assert shown_panels(window.search("stats", shelved)) == ["all"], "the first row is the whole collection"
+
+
+@pytest.mark.parametrize("name", scope.SCOPES)
+def test_stats_fill_the_panel_of_every_scope(shelved, name):
+    assert ids(window.search("stats", shelved))[scope.view(name)]["components"], (
+        f"the {name} panel should be ready before the cursor gets there"
+    )
+
+
+@pytest.mark.parametrize(("picked", "expected"), [("head:stats:nook", "nook"), ("head:stats:vault", "vault"), ("head:stats:hoard", "all")])
+def test_a_redraw_keeps_the_panel_of_the_row_under_the_cursor(shelved, picked, expected):
+    document = window.tick("stats", picked, "stale", "", shelved)
+    assert shown_panels(document) == [expected], f"the cursor on {picked} should keep the {expected} stats"
+
+
+@pytest.mark.parametrize("name", scope.SCOPES)
+def test_every_row_says_which_panel_to_show(shelved, name):
+    rows = ids(window.search("stats", shelved))["books"]["data"]["src"]
+    assert all(scope.key(name) in row for row in rows), "the selection action reads the panel to show from the row"
 
 
 def test_any_other_search_brings_the_book_pane_back(shelved):

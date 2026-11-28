@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from kobold import cells, pane, window
+from kobold import cells, dashboard, pane, scope, window
 from tests.test_cells import BOOK
 
 BUNDLE = Path(__file__).parent.parent / "workflow" / "kobold.alfredui"
@@ -58,11 +58,56 @@ def component(ident: str) -> dict:
     return next(node for part in PARTS for node in walk(loaded(part)) if node.get("id") == ident)
 
 
-@pytest.mark.parametrize("ident", ["jobtext", "d_reading", "n_library", "n_nook", "n_vault"])
+@pytest.mark.parametrize("ident", ["jobtext", "n_library", "n_nook", "n_vault"])
 def test_a_label_filled_without_a_relayout_has_its_width_reserved(ident):
     assert component(ident)["constraints"]["size"]["width"] > 0, (
         f"{ident} starts empty and is filled by an update that does not re-layout, so it needs room from the start"
     )
+
+
+def children_of(ident: str) -> list:
+    return [child.get("id") for child in component(ident)["components"]]
+
+
+@pytest.mark.parametrize("ident", ["d_ring", "d_reading"])
+def test_the_reading_ring_and_its_note_each_take_a_line_of_the_pane(ident):
+    assert ident in children_of("bookpane"), f"{ident} should be centred by the pane itself, not by a row whose width is a guess"
+
+
+def test_the_reading_ring_sits_in_the_middle_of_its_line():
+    assert component("d_ring")["constraints"]["position"] == "centre", "the ring should be centred under the cover"
+
+
+def test_the_reading_note_is_centred_across_the_pane():
+    note = component("d_reading")
+    assert (note["constraints"].get("stretch"), note["textalign"]) == ("horizontal", "centre"), (
+        "a note of any length should be centred without a re-layout"
+    )
+
+
+def test_the_stats_pane_holds_a_panel_for_every_scope():
+    assert children_of("statspane") == [scope.view(name) for name in scope.SCOPES], "the cursor picks one of these panels to show"
+
+
+def stats_panel() -> dict:
+    return component(scope.view(scope.OVERVIEW))
+
+
+CHROME_HEIGHT = 93
+LINE_HEIGHT = 14
+
+
+def room_for_stats() -> int:
+    return loaded(BUNDLE / "ui.json")["window"]["size"]["height"] - CHROME_HEIGHT
+
+
+def stacked_height(pane: dict, lines: int) -> int:
+    return 2 * pane["padding"] + lines * LINE_HEIGHT + (lines - 1) * pane["spacing"]
+
+
+def test_the_fullest_stats_panel_fits_the_pane():
+    needed = stacked_height(stats_panel(), dashboard.most_lines())
+    assert needed <= room_for_stats(), "Alfred squashes every line of a panel taller than the pane, so the fullest one should fit"
 
 
 def test_the_window_script_can_be_run():

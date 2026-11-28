@@ -107,7 +107,7 @@ A first word that names a command replaces the search with its list. Words after
 | `kb std [words]` | author and genre spellings that look like one | make it the standard | Accept N |
 | `kb like [words]` | neighbours of the first match, or of the book KOReader opened last | by place, as `kb` | — |
 | `kb rnd` | ten random books | by place, as `kb` | — |
-| `kb stats` | counts per place and when each was last read; the side pane draws bars for the shelves, what you are reading, books finished per month, genres and formats | — | — |
+| `kb stats` | counts per place and when each was last read; the side pane draws bars for the shelves, what you are reading, books finished per month, genres and formats; move the cursor to `nook`, `vault` or `library` and the bars narrow to that place | — | — |
 | `kb undo` | the last batch | undo it | — |
 | `kb update` | — | read every place again, in the background | — |
 | `kb model` | what each model server serves | use that model | — |

@@ -15,7 +15,11 @@
     "s_track": "{value:self.selected.track}",
     "s_reading": "{value:self.selected.reading}",
     "s_action": "{value:self.selected.action}",
-    "s_locator": "{value:self.selected.locator}"
+    "s_locator": "{value:self.selected.locator}",
+    "s_hide_all": "{value:self.selected.hide_all}",
+    "s_hide_nook": "{value:self.selected.hide_nook}",
+    "s_hide_vault": "{value:self.selected.hide_vault}",
+    "s_hide_library": "{value:self.selected.hide_library}"
   },
   "src": {
     "update": {
@@ -57,6 +61,18 @@
         },
         "d_path": {
           "text": "{var:s_locator}"
+        },
+        "stats_all": {
+          "hidden": "{var:s_hide_all}"
+        },
+        "stats_nook": {
+          "hidden": "{var:s_hide_nook}"
+        },
+        "stats_vault": {
+          "hidden": "{var:s_hide_vault}"
+        },
+        "stats_library": {
+          "hidden": "{var:s_hide_library}"
         }
       }
     }

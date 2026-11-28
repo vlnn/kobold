@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from kobold import cells
+from kobold import cells, scope
 
 PANE = (
     ("d_cover", "image", "cover.image"),
@@ -17,6 +17,7 @@ PANE = (
     ("d_reading", "text", "reading"),
     ("d_action", "text", "action"),
     ("d_path", "text", "locator"),
+    *((scope.view(name), "hidden", scope.key(name)) for name in scope.SCOPES),
 )
 NOTHING = cells.cell("", "", "", cells.symbol("books.vertical"), "")
 
