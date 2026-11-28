@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from collections import Counter
 
 from kobold import KIND, cells
@@ -15,6 +16,8 @@ SHELVES = "SELECT storage, count(*) FROM sightings GROUP BY storage"
 GENRES = "SELECT tag, count(*) FROM tags GROUP BY tag ORDER BY count(*) DESC, tag LIMIT ?"
 FIELDS = "SELECT fields_json FROM entities"
 FORMAT = KIND.fields.index("format")
+FILED = "SELECT id, at FROM journal WHERE verb = 'done' AND at >= ?"
+MONTHS = 6
 
 
 def shelf_counts(con) -> dict:
@@ -33,6 +36,27 @@ def format_counts(con) -> list:
 
 def genre_counts(con) -> list:
     return [(tag, count) for tag, count in con.execute(GENRES, (TOP,))]
+
+
+def months_back(now: float, count: int = MONTHS) -> list:
+    this = time.localtime(now)
+    numbered = [this.tm_year * 12 + this.tm_mon - 1 - back for back in reversed(range(count))]
+    return [(number // 12, number % 12 + 1) for number in numbered]
+
+
+def month_start(year: int, month: int) -> float:
+    return time.mktime((year, month, 1, 0, 0, 0, 0, 0, -1))
+
+
+def month_of(at: float) -> str:
+    return time.strftime("%Y-%m", time.localtime(at))
+
+
+def finished_by_month(con, now: float) -> list:
+    months = months_back(now)
+    filed = {(month_of(at), book) for book, at in con.execute(FILED, (month_start(*months[0]),))}
+    counted = Counter(month for month, _ in filed)
+    return [(f"{year}-{month:02d}", counted[f"{year}-{month:02d}"]) for year, month in months]
 
 
 def stem(locator: str) -> str:
@@ -111,10 +135,15 @@ def section(name: str, title: str, lines: list) -> list:
     return [heading(name, title), *lines] if lines else []
 
 
+def finished_bars(by_month: list) -> list:
+    return bars("finished", by_month, "systemGreenColor") if any(count for _, count in by_month) else []
+
+
 def panel(con, ctx) -> list:
     return [
         *section("shelf", "Shelves", shelf_bars(shelf_counts(con))),
         *section("reading", "Reading now", reading_bars(reading_now(ctx))),
+        *section("finished", "Finished", finished_bars(finished_by_month(con, time.time()))),
         *section("genre", "Genres", bars("genre", genre_counts(con), "systemPurpleColor")),
         *section("format", "Formats", bars("format", format_counts(con), "systemTealColor")),
     ]

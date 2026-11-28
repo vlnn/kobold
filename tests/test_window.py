@@ -2,9 +2,10 @@ import json
 import os
 
 import pytest
+from hoard import api
 from hoard.items import Head, Items
 
-from kobold import cells, latest, window
+from kobold import KIND, cells, latest, window
 
 NOW = 1_700_100_000
 
@@ -142,6 +143,16 @@ def test_picking_a_genre_returns_to_the_interrupted_search(shelved):
     document = window.act("default", picker, choice, "nova", shelved)
     assert ids(document)["status"]["text"] == "Tagged Nova: fiction/sci-fi", "the footer should confirm the genre"
     assert document["variables"]["typed"] == "nova", "the window should go back to the search the picker interrupted"
+
+
+def test_return_on_a_finished_book_at_home_finishes_it(shelved, kobo, mocker):
+    (kobo / "Nook" / "ubik.sdr" / "metadata.epub.lua").write_text('return { percent_finished = 1, summary = { status = "complete" } }')
+    api.update(KIND, shelved)
+    ubik = uid_of(shelved, "", "Ubik")
+    act = mocker.patch("hoard.api.act", return_value="Finish: Ubik")
+    document = window.act("default", "", ubik, "", shelved)
+    assert act.call_args.args[1:3] == ("done", [ubik]), "↩ should run the verb the home row offers, not the book's usual one"
+    assert ids(document)["status"]["text"] == "Finish: Ubik", "and the footer should say so"
 
 
 def test_return_on_a_completion_types_it(shelved):

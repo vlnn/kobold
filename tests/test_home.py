@@ -1,11 +1,13 @@
 import json
 import os
+import time
 
 import pytest
 from hoard import api
 from hoard.items import Item
+from hoard.testing import make_epub
 
-from kobold import KIND, home, opened
+from kobold import KIND, home, opened, runs
 from kobold.koreader import KOREADER_DIR
 from tests.conftest import SCI_FI
 
@@ -21,59 +23,162 @@ def id_of(ctx, title: str) -> str:
 
 
 @pytest.mark.parametrize(
-    ("first", "second", "size", "expected"),
+    ("was_opened", "was_added", "size", "expected"),
     [
-        (["o1", "o2"], ["a1", "a2"], 4, ["o1", "a1", "o2", "a2"]),
-        (["o1"], ["a1", "a2", "a3"], 4, ["o1", "a1", "a2", "a3"]),
-        ([], ["a1", "a2"], 4, ["a1", "a2"]),
-        (["o1", "o2"], [], 4, ["o1", "o2"]),
-        (["o1", "o2"], ["o2", "a1"], 4, ["o1", "o2", "a1"]),
-        (["o1", "o2", "o3"], ["a1", "a2", "a3"], 3, ["o1", "a1", "o2"]),
+        ([("o", 50)], [("a", 40), ("b", 60)], 4, [("b", "added", 60), ("o", "opened", 50), ("a", "added", 40)]),
+        ([("x", 30)], [("x", 70)], 4, [("x", "added", 70)]),
+        ([("x", 70)], [("x", 30)], 4, [("x", "opened", 70)]),
+        ([("o", -1)], [("a", 10)], 4, [("a", "added", 10), ("o", "opened", -1)]),
+        ([("o", 50)], [("a", 40), ("b", 60)], 2, [("b", "added", 60), ("o", "opened", 50)]),
+        ([], [], 4, []),
     ],
 )
-def test_the_mix_alternates_opened_and_added_without_repeats(first, second, size, expected):
-    assert home.mixed(first, second, size) == expected, "opened and added books should take turns, each book once"
+def test_the_timeline_orders_every_book_once_by_its_newest_event(was_opened, was_added, size, expected):
+    assert home.timeline(was_opened, was_added, size) == expected, "home should read newest first, each book at its latest event"
 
 
 @pytest.mark.parametrize(
     ("seconds", "expected"),
-    [(5, "just now"), (59 * 60, "59 min ago"), (3 * 3600, "3 h ago"), (49 * 3600, "2 d ago"), (-5, "just now")],
+    [
+        (5, "just now"),
+        (59 * 60, "59 min ago"),
+        (3 * 3600, "3 h ago"),
+        (49 * 3600, "2 d ago"),
+        (40 * 86400, "1 mo ago"),
+        (800 * 86400, "2 y ago"),
+        (-5, "just now"),
+    ],
 )
 def test_ago_names_the_distance_in_its_largest_unit(seconds, expected):
     assert home.ago(seconds) == expected, f"{seconds} seconds should read as {expected}"
 
 
 @pytest.mark.parametrize(
-    ("at", "expected"),
-    [(NOW - 7200, "opened 2 h ago"), (-3, "opened"), (0, "opened")],
+    ("kind", "at", "expected"),
+    [
+        ("opened", NOW - 7200, "opened 2 h ago"),
+        ("added", NOW - 3 * 86400, "added 3 d ago"),
+        ("opened", -3, "opened"),
+        ("added", 0, "added"),
+    ],
 )
-def test_an_opened_note_tells_when_only_if_the_time_is_known(at, expected):
-    assert home.opened_note(at, NOW) == expected, "a history entry without a time should not invent one"
+def test_a_note_tells_when_only_if_the_time_is_known(kind, at, expected):
+    assert home.note(kind, at, NOW) == expected, "a history entry without a time should not invent one"
 
 
-def test_added_lists_the_books_of_the_last_update_first(shelved):
-    con = api.open_database(KIND, shelved)
-    con.execute("UPDATE entities SET first_seen = first_seen + 1 WHERE title = 'Nova'")
-    newest = home.added(con, 1)
+@pytest.mark.parametrize(
+    ("first_seen", "runs", "expected", "why"),
+    [
+        (3, {3: 900.0}, 900.0, "a book a later update brought in was added when that update ran"),
+        (3, {}, 100.0, "an update nobody timed falls back to the file's date"),
+        (1, {1: 900.0}, 100.0, "the first build of the index added nothing: its books keep their file dates"),
+    ],
+)
+def test_a_book_was_added_when_its_update_ran(first_seen, runs, expected, why):
+    assert home.added_at(first_seen, 100.0, 1, runs) == expected, why
+
+
+def later_update(ctx, title: str, at: float) -> None:
+    con = api.open_database(KIND, ctx)
+    with con:
+        con.execute("UPDATE meta SET value = value + 1 WHERE key = 'update_run'")
+        con.execute("UPDATE entities SET first_seen = (SELECT value FROM meta WHERE key = 'update_run') WHERE title = ?", (title,))
+        con.execute("UPDATE storage_state SET last_update_at = ?", (at,))
     con.close()
-    assert newest == [id_of(shelved, "Nova")], "a book first seen by the latest update should lead the added half"
 
 
-def test_home_without_any_opening_lists_what_was_added(shelved):
-    assert sorted(titles(home.listed(shelved, now=NOW))) == ["Dhalgren", "Nova", "Ubik"], "with nothing opened, home is what was added"
+def noticed_runs(ctx) -> dict:
+    con = api.open_database(KIND, ctx)
+    try:
+        return runs.noticed(con, ctx)
+    finally:
+        con.close()
 
 
-def test_home_puts_an_opened_book_first_and_says_so(shelved):
-    opened.note(id_of(shelved, "Nova"), shelved, NOW - 7200)
-    first = next(row for row in home.listed(shelved, now=NOW).rows if isinstance(row, Item))
-    assert first.title == "Nova", "the book opened last should lead the mix"
-    assert first.subtitle.startswith("opened 2 h ago · "), "and its row should say why it is there"
+def test_the_current_update_is_noticed_with_its_time(shelved):
+    assert list(noticed_runs(shelved).values()) == [pytest.approx(time.time(), abs=60)], (
+        "the update that just ran should be on record with its time"
+    )
 
 
-def test_home_marks_the_rest_as_added(shelved):
-    opened.note(id_of(shelved, "Nova"), shelved, NOW)
-    notes = {row.title: row.subtitle.split(" · ")[0] for row in home.listed(shelved, now=NOW).rows if isinstance(row, Item)}
-    assert (notes["Ubik"], notes["Dhalgren"]) == ("added", "added"), "books that were not opened should read as added"
+def test_every_update_seen_stays_on_record(shelved):
+    noticed_runs(shelved)
+    later_update(shelved, "Nova", 2_000_000_000.0)
+    assert sorted(noticed_runs(shelved).values())[-1] == 2_000_000_000.0, "a later update should be added to the record"
+    assert len(noticed_runs(shelved)) == 2, "and the earlier one kept"
+
+
+def test_the_record_of_updates_is_bounded(shelved):
+    for at in range(runs.KEPT + 5):
+        later_update(shelved, "Nova", 2_000_000_000.0 + at)
+        noticed_runs(shelved)
+    assert len(noticed_runs(shelved)) == runs.KEPT, "the record should not grow without bound"
+
+
+def books(listed) -> list:
+    return [row for row in listed.rows if isinstance(row, Item)]
+
+
+def lead(item: Item) -> str:
+    return item.subtitle.split(" · ")[0]
+
+
+def sidecar(kobo, lua: str) -> None:
+    (kobo / "Nook" / "ubik.sdr" / "metadata.epub.lua").write_text(lua)
+
+
+def test_home_starts_with_what_is_being_read(shelved):
+    first = books(home.listed(shelved, now=NOW))[0]
+    assert (first.title, lead(first), first.verb) == ("Ubik", "reading", "open"), (
+        "a nook book in progress should lead home and still open on ↩"
+    )
+
+
+def test_a_book_koreader_finished_offers_to_be_filed(shelved, kobo):
+    sidecar(kobo, 'return { percent_finished = 1, summary = { status = "complete" } }')
+    api.update(KIND, shelved)
+    first = books(home.listed(shelved, now=NOW))[0]
+    assert (first.title, lead(first), first.verb) == ("Ubik", "finished", "done"), "↩ on a finished nook book should finish it"
+
+
+def test_an_abandoned_book_is_shown_but_not_filed_for_you(shelved, kobo):
+    sidecar(kobo, 'return { percent_finished = 0.2, summary = { status = "abandoned" } }')
+    api.update(KIND, shelved)
+    first = books(home.listed(shelved, now=NOW))[0]
+    assert (lead(first), first.verb) == ("abandoned", "open"), "what to do with an abandoned book is the reader's call"
+
+
+def test_finished_books_come_before_those_still_being_read(shelved, kobo):
+    make_epub(kobo / "Nook" / "vurt.epub", title="Vurt", authors=("Jeff Noon",), date="1993", chapters=("Vurt text.",))
+    (kobo / "Nook" / "vurt.sdr").mkdir()
+    (kobo / "Nook" / "vurt.sdr" / "metadata.epub.lua").write_text('return { percent_finished = 1, summary = { status = "complete" } }')
+    api.update(KIND, shelved)
+    assert [row.title for row in books(home.listed(shelved, now=NOW))[:2]] == ["Vurt", "Ubik"], "what is ready to file should come first"
+
+
+def test_below_the_reading_the_newest_event_comes_first(shelved):
+    now = time.time() + 86400
+    opened.note(id_of(shelved, "Nova"), shelved, int(now - 7200))
+    rest = books(home.listed(shelved, now=now))[1:]
+    assert [(row.title, lead(row)) for row in rest] == [("Nova", "opened 2 h ago"), ("Dhalgren", "added 1 d ago")], (
+        "an opening two hours ago should outrank a file a day old, and each row should say why it is there"
+    )
+
+
+def test_a_book_a_later_update_brought_in_outranks_an_older_opening(shelved):
+    now = time.time() + 10 * 86400
+    opened.note(id_of(shelved, "Dhalgren"), shelved, int(now - 3 * 86400))
+    noticed_runs(shelved)
+    later_update(shelved, "Nova", now - 3600)
+    rest = books(home.listed(shelved, now=now))[1:]
+    assert [(row.title, lead(row)) for row in rest] == [("Nova", "added 1 h ago"), ("Dhalgren", "opened 3 d ago")], (
+        "a book added an hour ago should come before one opened three days ago"
+    )
+
+
+def test_a_book_being_read_is_not_listed_twice(shelved):
+    opened.note(id_of(shelved, "Ubik"), shelved, NOW)
+    assert titles(home.listed(shelved, now=NOW)).count("Ubik") == 1, "the reading row should be the only row of that book"
 
 
 def test_home_keeps_each_books_own_default_action(shelved):

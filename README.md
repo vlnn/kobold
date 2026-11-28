@@ -51,7 +51,10 @@ Typing never reads the device. A card that has gone to sleep takes seconds to an
 - **The footer** names the keys and says what the last ↩ did, where Alfred's notification used to.
 - **A follow-up stays in the window.** ↩ on a library book copies it to the nook and shows the genre picker in place; pick a genre and you are back in the search you came from.
 
-**A bare `kb` is home**: the books you opened last and the books added last take turns, an opened one first, 24 rows at most, each book once. A row says why it is there, `opened 2 h ago` or `added`. Opened means KOReader's history as the last update read it, and the books you open from the window, which count at once. Added means first seen by the latest update, then by file date.
+**A bare `kb` is home**, 24 rows at most, each book once, each row saying why it is there.
+
+- **What you are reading comes first**: the nook books KOReader has opened, the furthest along on top. One it marked finished leads them all, and ↩ on it finishes it, as `kb done` would; ⇧↩ still opens it. An abandoned one is shown and left to you.
+- **Then one timeline, newest first**: `opened 2 h ago`, `added 3 d ago`. Opened means KOReader's history as the last update read it, and the books you open from the window, which count at once. Added means when the update that first saw the book ran; for the books of the very first index, and for updates made before 0.13, it is the file's date.
 
 The list searches when you pause typing. Double-click acts as ↩ does.
 
@@ -66,7 +69,7 @@ kb dhalgren              one book
 kb delany                everything by Delany
 kb delany epub           …only the epubs
 kb delany 1975           author + year
-kb                       home: last opened and last added, in turns
+kb                       home: what you are reading, then opened and added, newest first
 ```
 
 A book that exists in several places is one row, shown at its nearest place: nook, then vault, then library. The subtitle starts with the book's genre, the one you set or else the one its vault folder gives it, then says where it is and where else it is: `fiction/sci-fi · vault +library · Samuel R. Delany · 1975 · EPUB 1.2 MB`. A nook book also says how far KOReader got, `nook · 73%` with a bar under it, or `finished` or `abandoned` once you closed it that way, so `kb nook` and `kb done` show which books are through; the progress is the one the last update saw. The icon is the cover embedded in an epub or fb2. Lists show the first 40 matches, so add a word if what you want isn't there.
@@ -104,7 +107,7 @@ A first word that names a command replaces the search with its list. Words after
 | `kb std [words]` | author and genre spellings that look like one | make it the standard | Accept N |
 | `kb like [words]` | neighbours of the first match, or of the book KOReader opened last | by place, as `kb` | — |
 | `kb rnd` | ten random books | by place, as `kb` | — |
-| `kb stats` | counts per place and when each was last read; the side pane draws bars for the shelves, what you are reading, genres and formats | — | — |
+| `kb stats` | counts per place and when each was last read; the side pane draws bars for the shelves, what you are reading, books finished per month, genres and formats | — | — |
 | `kb undo` | the last batch | undo it | — |
 | `kb update` | — | read every place again, in the background | — |
 | `kb model` | what each model server serves | use that model | — |
