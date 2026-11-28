@@ -105,3 +105,21 @@ def test_the_panel_shows_finished_books_once_there_are_some(con, shelved):
     assert "Finished" not in [part.get("text") for part in flat(dashboard.panel(con, shelved))], "an empty history is not worth a section"
     journalled(con, [("done", "a", time.time())])
     assert "Finished" in [part.get("text") for part in flat(dashboard.panel(con, shelved))], "a finished book should bring the section in"
+
+
+@pytest.mark.parametrize("build", [dashboard.name_label, dashboard.count_label, lambda text: dashboard.heading("x", text)])
+def test_every_line_of_the_panel_is_set_small(build):
+    assert build("text")["font"]["size"] == "small", "the fit of the panel is counted in small lines"
+
+
+def full_panel(con, shelved, mocker) -> list:
+    many = [(f"name {n}", n + 1) for n in range(dashboard.TOP)]
+    mocker.patch.object(dashboard, "reading_now", return_value=[(name, "40%") for name, _ in many])
+    mocker.patch.object(dashboard, "genre_counts", return_value=many)
+    mocker.patch.object(dashboard, "format_counts", return_value=many)
+    journalled(con, [("done", "a", time.time())])
+    return dashboard.panel(con, shelved)
+
+
+def test_no_panel_has_more_lines_than_the_fullest(con, shelved, mocker):
+    assert len(full_panel(con, shelved, mocker)) == dashboard.most_lines(), "every section at its fullest should be what most_lines counts"

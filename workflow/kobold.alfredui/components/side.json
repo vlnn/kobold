@@ -160,50 +160,38 @@
         },
         {
           "constraints": {
-            "position": "centre"
-          },
-          "type": "view",
-          "layout": "inline",
-          "spacing": 8,
-          "components": [
-            {
-              "constraints": {
-                "position": "centre",
-                "size": {
-                  "width": 26,
-                  "height": 26
-                }
-              },
-              "id": "d_ring",
-              "type": "progress",
-              "style": "round",
-              "thickness": 4,
-              "progress": 0.0,
-              "colour": "#00000000",
-              "background": "#00000000",
-              "accessibility": {
-                "label": "Reading progress"
-              }
-            },
-            {
-              "constraints": {
-                "position": "centre",
-                "size": {
-                  "width": 120
-                }
-              },
-              "id": "d_reading",
-              "type": "label",
-              "text": "",
-              "colour": "secondaryLabelColor",
-              "font": {
-                "size": 12,
-                "monospaced": "digits"
-              },
-              "textalign": "left",
-              "linebreak": "truncatetail"
+            "position": "centre",
+            "size": {
+              "width": 26,
+              "height": 26
             }
-          ]
+          },
+          "id": "d_ring",
+          "type": "progress",
+          "style": "round",
+          "thickness": 4,
+          "progress": 0.0,
+          "colour": "#00000000",
+          "background": "#00000000",
+          "accessibility": {
+            "label": "Reading progress"
+          }
+        },
+        {
+          "constraints": {
+            "position": "centre",
+            "stretch": "horizontal"
+          },
+          "id": "d_reading",
+          "type": "label",
+          "text": "",
+          "colour": "secondaryLabelColor",
+          "font": {
+            "size": 12,
+            "monospaced": "digits"
+          },
+          "textalign": "centre",
+          "linebreak": "truncatetail"
         },
         {
           "constraints": {
@@ -244,7 +232,7 @@
       "layout": "inline",
       "direction": "vertical",
       "padding": 14,
-      "spacing": 6,
+      "spacing": 3,
       "hidden": true,
       "components": []
     }

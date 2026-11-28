@@ -8,7 +8,7 @@ from collections import Counter
 from kobold import KIND, cells
 from kobold.seen import recall
 
-TOP = 6
+TOP = 5
 NAME_WIDTH = 120
 COUNT_WIDTH = 48
 ACROSS = {"position": "centre", "stretch": "horizontal"}
@@ -18,6 +18,7 @@ FIELDS = "SELECT fields_json FROM entities"
 FORMAT = KIND.fields.index("format")
 FILED = "SELECT id, at FROM journal WHERE verb = 'done' AND at >= ?"
 MONTHS = 6
+SMALL = {"size": "small"}
 
 
 def shelf_counts(con) -> dict:
@@ -74,7 +75,7 @@ def heading(section: str, text: str) -> dict:
         "type": "label",
         "text": text,
         "colour": "secondaryLabelColor",
-        "font": {"size": "small", "weight": "semibold"},
+        "font": {**SMALL, "weight": "semibold"},
     }
 
 
@@ -82,6 +83,7 @@ def name_label(text: str) -> dict:
     return {
         "type": "label",
         "text": text,
+        "font": SMALL,
         "linebreak": "truncatemiddle",
         "constraints": {"region": "left", "position": "left", "size": {"width": NAME_WIDTH}},
     }
@@ -93,7 +95,7 @@ def count_label(text: str) -> dict:
         "text": text,
         "textalign": "right",
         "colour": "secondaryLabelColor",
-        "font": {"monospaced": "digits"},
+        "font": {**SMALL, "monospaced": "digits"},
         "constraints": {"region": "right", "position": "right", "size": {"width": COUNT_WIDTH}},
     }
 
@@ -137,6 +139,11 @@ def section(name: str, title: str, lines: list) -> list:
 
 def finished_bars(by_month: list) -> list:
     return bars("finished", by_month, "systemGreenColor") if any(count for _, count in by_month) else []
+
+
+def most_lines() -> int:
+    headings = 5
+    return headings + len(KIND.storages) + MONTHS + 3 * TOP
 
 
 def panel(con, ctx) -> list:
