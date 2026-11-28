@@ -126,7 +126,14 @@
                 "weight": "semibold",
                 "monospaced": "digits"
               },
-              "tooltip": "Books the last update found in the library"
+              "tooltip": "Books the last update found in the library",
+              "constraints": {
+                "position": "centre",
+                "size": {
+                  "width": 96
+                }
+              },
+              "textalign": "right"
             },
             {
               "id": "n_nook",
@@ -138,7 +145,14 @@
                 "weight": "semibold",
                 "monospaced": "digits"
               },
-              "tooltip": "Books the last update found in the nook"
+              "tooltip": "Books the last update found in the nook",
+              "constraints": {
+                "position": "centre",
+                "size": {
+                  "width": 66
+                }
+              },
+              "textalign": "right"
             },
             {
               "id": "n_vault",
@@ -150,7 +164,14 @@
                 "weight": "semibold",
                 "monospaced": "digits"
               },
-              "tooltip": "Books the last update found in the vault"
+              "tooltip": "Books the last update found in the vault",
+              "constraints": {
+                "position": "centre",
+                "size": {
+                  "width": 78
+                }
+              },
+              "textalign": "right"
             }
           ]
         }

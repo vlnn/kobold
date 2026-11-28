@@ -126,8 +126,7 @@ def redrawn(items: Items, typed: str, picked: str, ctx) -> dict:
     shown = [row for row, _ in paired(items)]
     return {
         "variables": {"typed": typed, "seen": fingerprint(shown), "picked": uid_of(selected(shown, picked))},
-        # the shelf counts and the dashboard change size, and Alfred re-measures only when told to
-        "update": {"ids": {**list_update(shown, picked), **job_of(items), **surroundings(ctx, typed)}, "relayout": True},
+        "update": {"ids": {**list_update(shown, picked), **job_of(items), **surroundings(ctx, typed)}, "relayout": is_stats(typed)},
     }
 
 

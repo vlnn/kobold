@@ -54,7 +54,7 @@ Typing never reads the device. A card that has gone to sleep takes seconds to an
 **A bare `kb` is home**, 24 rows at most, each book once, each row saying why it is there.
 
 - **What you are reading comes first**: the nook books KOReader has opened, the one you read last on top, then the furthest along. One it marked finished leads them all, and ↩ on it finishes it, as `kb done` would; ⇧↩ still opens it. An abandoned one is shown and left to you.
-- **Then one timeline, newest first**: `opened 2 h ago`, `added 3 d ago`. Opened means KOReader's history as the last update read it, and the books you open from the window, which count at once. Added means when the update that first saw the book ran; for the books of the very first index, and for updates made before 0.13, it is the file's date.
+- **Then one timeline, newest first**: `opened 2 h ago`, `added 3 d ago`. Opened means what the last update found on the device — when KOReader last wrote each nook book's sidecar, and its history where kobold can reach it — and the books you open from the window, which count at once. Added means when the update that first saw the book ran; for the books of the very first index, and for updates made before 0.13, it is the file's date.
 
 The list searches when you pause typing. Double-click acts as ↩ does.
 

@@ -186,8 +186,8 @@ def test_the_book_opened_last_leads_the_reading(shelved, kobo):
     (kobo / "Nook" / "vurt.sdr").mkdir()
     (kobo / "Nook" / "vurt.sdr" / "metadata.epub.lua").write_text("return { percent_finished = 0.9 }")
     api.update(KIND, shelved)
-    opened.note(id_of(shelved, "Ubik"), shelved, int(time.time()))
-    assert [row.title for row in books(home.listed(shelved, now=time.time()))[:2]] == ["Ubik", "Vurt"], (
+    opened.note(id_of(shelved, "Ubik"), shelved, int(time.time()) + 60)
+    assert [row.title for row in books(home.listed(shelved, now=time.time() + 120))[:2]] == ["Ubik", "Vurt"], (
         "the book read last should come before one that is further along but was left longer ago"
     )
 
@@ -239,7 +239,12 @@ def test_home_shows_a_running_job(shelved, mocker):
     assert listed.rows[0].name == "updating", "the job head should survive the reshuffle"
 
 
-def test_window_openings_come_back_newest_first_and_once(shelved):
+@pytest.fixture
+def nothing_read_on_the_device(mocker):
+    mocker.patch("kobold.opened.on_device", return_value=[])
+
+
+def test_window_openings_come_back_newest_first_and_once(shelved, nothing_read_on_the_device):
     for book, at in (("a", 10), ("b", 30), ("a", 40)):
         opened.note(book, shelved, at)
     assert opened.recent(shelved) == [("a", 40), ("b", 30)], "a reopened book should move to the front, not appear twice"
@@ -260,7 +265,7 @@ def test_openings_are_kept_with_the_index_not_in_the_cache(shelved):
     assert os.path.exists(opened.path_in(shelved)), "the opening should be written there"
 
 
-def test_openings_noted_in_the_cache_before_are_carried_over(shelved):
+def test_openings_noted_in_the_cache_before_are_carried_over(shelved, nothing_read_on_the_device):
     with open(os.path.join(shelved.cache, opened.FILE), "w", encoding="utf-8") as handle:
         json.dump([["old", 10]], handle)
     opened.note("new", shelved, 40)
@@ -281,10 +286,44 @@ HISTORY = f"""return {{
 """
 
 
+def read_at(kobo, stem: str, at: int) -> None:
+    os.utime(kobo / "Nook" / f"{stem}.sdr" / "metadata.epub.lua", (at, at))
+
+
+def test_an_update_notes_when_each_nook_book_was_last_read(shelved, kobo):
+    read_at(kobo, "ubik", 1_650_000_000)
+    api.update(KIND, shelved)
+    assert opened.on_device(shelved) == [(id_of(shelved, "Ubik"), 1_650_000_000)], (
+        "KOReader rewrites a book's sidecar when it is read, so the sidecar's date should count as an opening"
+    )
+
+
+def test_a_sidecar_newer_than_the_history_wins(shelved, kobo):
+    history = kobo / KOREADER_DIR / "settings" / "history.lua"
+    history.parent.mkdir(parents=True, exist_ok=True)
+    history.write_text(HISTORY, encoding="utf-8")
+    read_at(kobo, "ubik", 1_800_000_000)
+    api.update(KIND, shelved)
+    assert opened.on_device(shelved)[0] == (id_of(shelved, "Ubik"), 1_800_000_000), "a book should be remembered at its latest reading"
+
+
+def test_the_book_read_last_leads_without_koreaders_history(shelved, kobo):
+    make_epub(kobo / "Nook" / "vurt.epub", title="Vurt", authors=("Jeff Noon",), date="1993", chapters=("Vurt text.",))
+    (kobo / "Nook" / "vurt.sdr").mkdir()
+    (kobo / "Nook" / "vurt.sdr" / "metadata.epub.lua").write_text("return { percent_finished = 0.9 }")
+    read_at(kobo, "vurt", 1_650_000_000)
+    read_at(kobo, "ubik", 1_700_000_000)
+    api.update(KIND, shelved)
+    assert [row.title for row in books(home.listed(shelved, now=time.time()))[:2]] == ["Ubik", "Vurt"], (
+        "with the history out of reach, the sidecars alone should put the book read last first"
+    )
+
+
 def test_an_update_remembers_what_koreader_opened(shelved, kobo):
     history = kobo / KOREADER_DIR / "settings" / "history.lua"
     history.parent.mkdir(parents=True, exist_ok=True)
     history.write_text(HISTORY, encoding="utf-8")
+    read_at(kobo, "ubik", 1_600_000_000)
     api.update(KIND, shelved)
     expected = [(id_of(shelved, "Dhalgren"), 1700009999), (id_of(shelved, "Ubik"), 1700000000)]
     assert opened.on_device(shelved) == expected, "the survey should keep KOReader's history, newest first, for books still on the device"

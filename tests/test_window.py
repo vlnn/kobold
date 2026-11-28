@@ -53,13 +53,6 @@ def test_the_header_counts_each_shelf(shelved, label, text):
     assert ids(window.search("", shelved))[label]["text"] == text, f"{label} should read {text}"
 
 
-@pytest.mark.parametrize("typed", ["", "ubik", "stats"])
-def test_a_search_lays_the_window_out_again(shelved, typed):
-    assert window.search(typed, shelved)["update"]["relayout"] is True, (
-        "the shelf counts grow from a bare name to a name and a number, and Alfred only re-measures when told to"
-    )
-
-
 def test_an_idle_search_leaves_the_pulse_alone_and_hides_the_job(shelved):
     document = window.search("", shelved)
     assert "pulse" not in document, "only a tick may stop the pulse: a search does not know a job was just started"
