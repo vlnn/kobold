@@ -1,3 +1,5 @@
+import time
+
 import pytest
 from hoard import api
 
@@ -53,3 +55,53 @@ def test_the_panel_names_every_component_once(con, shelved):
 def test_the_panel_shows(con, shelved, text):
     texts = [part.get("text") for part in flat(dashboard.panel(con, shelved))]
     assert text in texts, f"the dashboard should show {text}"
+
+
+MID_NOVEMBER = time.mktime((2023, 11, 15, 12, 0, 0, 0, 0, -1))
+DAY = 86400
+
+
+def journalled(con, entries) -> None:
+    rows = [(batch, 0, verb, book, "move", "null", "null", at, 1) for batch, (verb, book, at) in enumerate(entries, start=100)]
+    con.executemany(
+        "INSERT INTO journal(batch, seq, verb, id, kind_of_change, before_json, after_json, at, undoable) VALUES (?,?,?,?,?,?,?,?,?)", rows
+    )
+
+
+def test_finished_books_are_counted_by_the_month_they_were_filed(con):
+    journalled(
+        con,
+        [
+            ("done", "a", MID_NOVEMBER - DAY),
+            ("done", "b", MID_NOVEMBER - 2 * DAY),
+            ("done", "a", MID_NOVEMBER - 3 * DAY),
+            ("done", "c", MID_NOVEMBER - 60 * DAY),
+            ("remove", "d", MID_NOVEMBER - DAY),
+            ("done", "e", MID_NOVEMBER - 400 * DAY),
+        ],
+    )
+    assert dashboard.finished_by_month(con, MID_NOVEMBER) == [
+        ("2023-06", 0),
+        ("2023-07", 0),
+        ("2023-08", 0),
+        ("2023-09", 1),
+        ("2023-10", 0),
+        ("2023-11", 2),
+    ], "the last six months should each count the books finished in them, a book once"
+
+
+@pytest.mark.parametrize(
+    ("now", "expected"),
+    [(time.mktime((2024, 2, 10, 12, 0, 0, 0, 0, -1)), ["2023-09", "2023-10", "2023-11", "2023-12", "2024-01", "2024-02"])],
+)
+def test_the_months_run_across_a_new_year(con, now, expected):
+    journalled(con, [("done", "a", now)])
+    assert [month for month, _ in dashboard.finished_by_month(con, now)] == expected, (
+        "six months back from February should cross into last year"
+    )
+
+
+def test_the_panel_shows_finished_books_once_there_are_some(con, shelved):
+    assert "Finished" not in [part.get("text") for part in flat(dashboard.panel(con, shelved))], "an empty history is not worth a section"
+    journalled(con, [("done", "a", time.time())])
+    assert "Finished" in [part.get("text") for part in flat(dashboard.panel(con, shelved))], "a finished book should bring the section in"
